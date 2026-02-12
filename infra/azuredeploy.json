@@ -45,6 +45,12 @@
       "metadata": {
         "description": "If using an existing app registration, provide its client secret. Leave empty if creating a new one."
       }
+    },
+    "ownerGroupObjectId": {
+      "type": "string",
+      "metadata": {
+        "description": "Object ID of the Entra ID group to assign Owner role on all deployed resources. Find this in Entra ID > Groups > your group > Object ID."
+      }
     }
   },
   "variables": {
@@ -98,6 +104,10 @@
           {
             "name": "EXISTING_CLIENT_ID",
             "value": "[parameters('existingClientId')]"
+          },
+          {
+            "name": "OWNER_GROUP_OBJECT_ID",
+            "value": "[parameters('ownerGroupObjectId')]"
           }
         ],
         "scriptContent": "#!/bin/bash\nset -e\n\necho '=== OnRamp App Registration Setup ==='\necho \"Create New: $CREATE_APP\"\n\nSUBSCRIPTION_ID=$(az account show --query id -o tsv)\n\nif [ \"$CREATE_APP\" = \"false\" ] && [ -n \"$EXISTING_CLIENT_ID\" ]; then\n    echo \"Using existing app registration: $EXISTING_CLIENT_ID\"\n    CLIENT_ID=\"$EXISTING_CLIENT_ID\"\nelse\n    echo 'Creating new app registration...'\n    APP_INFO=$(az ad app create \\\n        --display-name \"$APP_NAME\" \\\n        --sign-in-audience AzureADMyOrg \\\n        --web-redirect-uris \"$REDIRECT_URI\" \"${REDIRECT_URI}/auth/callback\" \"http://localhost:5173\" \"http://localhost:5173/auth/callback\" \\\n        --enable-id-token-issuance true \\\n        --enable-access-token-issuance true \\\n        -o json)\n    CLIENT_ID=$(echo \"$APP_INFO\" | jq -r '.appId')\n    APP_OBJECT_ID=$(echo \"$APP_INFO\" | jq -r '.id')\n    SP_INFO=$(az ad sp create --id \"$CLIENT_ID\" -o json 2>/dev/null) || SP_INFO=$(az ad sp show --id \"$CLIENT_ID\" -o json 2>/dev/null) || true\n    SP_OBJECT_ID=$(echo \"$SP_INFO\" | jq -r '.id // empty')\n    if [ -n \"$SP_OBJECT_ID\" ]; then\n        az role assignment create --assignee-object-id \"$SP_OBJECT_ID\" --assignee-principal-type ServicePrincipal --role Contributor --scope \"/subscriptions/$SUBSCRIPTION_ID\" 2>/dev/null || true\n        az role assignment create --assignee-object-id \"$SP_OBJECT_ID\" --assignee-principal-type ServicePrincipal --role 'User Access Administrator' --scope \"/subscriptions/$SUBSCRIPTION_ID\" 2>/dev/null || true\n        echo 'Assigned Contributor and User Access Administrator roles'\n    fi\n    az ad app permission add --id \"$CLIENT_ID\" --api 00000003-0000-0000-c000-000000000000 --api-permissions e1fe6dd8-ba31-4d61-89e7-88639da4683d=Scope 2>/dev/null || true\n    az ad app permission add --id \"$CLIENT_ID\" --api 797f4846-ba00-4fd7-ba43-dac1f8f63013 --api-permissions 41094075-9dad-400e-a0bd-54e686782033=Scope 2>/dev/null || true\n    SECRET_INFO=$(az ad app credential reset --id \"$CLIENT_ID\" --display-name 'OnRamp Deployment' --years 2 -o json)\n    CLIENT_SECRET=$(echo \"$SECRET_INFO\" | jq -r '.password')\n    echo \"Created app registration: $CLIENT_ID\"\nfi\n\nTENANT_ID=$(az account show --query tenantId -o tsv)\n\necho \"{\\\"clientId\\\": \\\"$CLIENT_ID\\\", \\\"tenantId\\\": \\\"$TENANT_ID\\\", \\\"clientSecret\\\": \\\"${CLIENT_SECRET:-}\\\"}\" > $AZ_SCRIPTS_OUTPUT_DIRECTORY/result.json",
@@ -222,6 +232,28 @@
       "sku": {
         "name": "Basic",
         "tier": "Basic"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceGroup().id, parameters('ownerGroupObjectId'), 'Owner')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '8e3af657-a8ff-443c-a75c-2fe8c4bcb635')]",
+        "principalId": "[parameters('ownerGroupObjectId')]",
+        "principalType": "Group",
+        "description": "OnRamp deployment — Owner role for designated Entra ID group"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/accessPolicies",
+      "apiVersion": "2023-07-01",
+      "name": "[concat(variables('keyVaultName'), '/add')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+      ],
+      "properties": {
+        "accessPolicies": []
       }
     }
   ],

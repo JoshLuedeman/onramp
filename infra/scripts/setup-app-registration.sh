@@ -9,11 +9,13 @@ APP_NAME="${APP_NAME:-OnRamp}"
 REDIRECT_URI="${REDIRECT_URI:-https://onramp.azurewebsites.net}"
 CREATE_APP="${CREATE_APP:-true}"
 EXISTING_CLIENT_ID="${EXISTING_CLIENT_ID:-}"
+OWNER_GROUP_OBJECT_ID="${OWNER_GROUP_OBJECT_ID:-}"
 
 echo "=== OnRamp App Registration Setup ==="
 echo "App Name: $APP_NAME"
 echo "Redirect URI: $REDIRECT_URI"
 echo "Create New: $CREATE_APP"
+echo "Owner Group: ${OWNER_GROUP_OBJECT_ID:-<not set>}"
 
 # Install az cli extensions if needed
 az extension add --name account 2>/dev/null || true
@@ -143,6 +145,24 @@ fi
 
 # Get tenant ID
 TENANT_ID=$(az account show --query tenantId -o tsv)
+SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+
+# Assign Owner role to the specified Entra group on the subscription
+if [ -n "$OWNER_GROUP_OBJECT_ID" ]; then
+    echo ""
+    echo "Assigning Owner role to Entra group $OWNER_GROUP_OBJECT_ID..."
+    az role assignment create \
+        --assignee-object-id "$OWNER_GROUP_OBJECT_ID" \
+        --assignee-principal-type Group \
+        --role "Owner" \
+        --scope "/subscriptions/$SUBSCRIPTION_ID" \
+        2>/dev/null || echo "Owner role assignment may already exist"
+    echo "  ✅ Owner role assigned to group on subscription $SUBSCRIPTION_ID"
+else
+    echo ""
+    echo "  ⚠️  No owner group specified. Assign Owner manually to an Entra group:"
+    echo "     az role assignment create --assignee-object-id <GROUP_OBJECT_ID> --assignee-principal-type Group --role Owner --scope /subscriptions/$SUBSCRIPTION_ID"
+fi
 
 # Output results as JSON for ARM template to consume
 cat <<EOF > $AZ_SCRIPTS_OUTPUT_DIRECTORY/result.json
