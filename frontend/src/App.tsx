@@ -7,6 +7,8 @@ import HomePage from "./pages/HomePage";
 
 const WizardPage = lazy(() => import("./pages/WizardPage"));
 const ArchitecturePage = lazy(() => import("./pages/ArchitecturePage"));
+const CompliancePage = lazy(() => import("./pages/CompliancePage"));
+const BicepPage = lazy(() => import("./pages/BicepPage"));
 const DeployPage = lazy(() => import("./pages/DeployPage"));
 
 function App() {
@@ -20,6 +22,8 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/wizard" element={<WizardPage />} />
                 <Route path="/architecture" element={<ArchitecturePage />} />
+                <Route path="/compliance" element={<CompliancePage />} />
+                <Route path="/bicep" element={<BicepPage />} />
                 <Route path="/deploy" element={<DeployPage />} />
               </Routes>
             </Suspense>
