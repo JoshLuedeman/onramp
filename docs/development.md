@@ -2,31 +2,40 @@
 
 ## Prerequisites
 
-- Python 3.10+
-- Node.js 18+
-- Git
+- Docker Desktop (recommended)
+- OR: Python 3.10+ and Node.js 18+ (manual setup)
 
-## Quick Start
-
-### Backend
+## Quick Start (Recommended)
 
 ```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-pip install -e ".[dev]"
-uvicorn app.main:app --reload --port 8000
+./dev.sh
 ```
 
-### Frontend
+This single command:
+1. Builds the backend and frontend containers
+2. Starts everything with hot reload
+3. Waits for services to be healthy
+4. Prints the URLs
+
+| Service | URL | Hot Reload? |
+|---------|-----|-------------|
+| Frontend | http://localhost:5173 | ✅ Edit `frontend/src/` |
+| Backend | http://localhost:8000 | ✅ Edit `backend/app/` |
+| API Docs | http://localhost:8000/docs | — |
+
+### Dev Script Commands
 
 ```bash
-cd frontend
-npm install
-npm run dev
+./dev.sh          # Start everything
+./dev.sh down     # Stop everything
+./dev.sh reset    # Wipe DB, rebuild from scratch
+./dev.sh logs     # Tail all logs
+./dev.sh test     # Run backend tests in container
+./dev.sh status   # Show running containers + health
+./dev.sh shell    # Open bash in backend container
 ```
 
-The frontend dev server proxies API requests to `http://localhost:8000`.
+## Manual Setup (Without Docker)
 
 ### Docker Compose (Full Stack)
 

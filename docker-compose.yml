@@ -26,8 +26,9 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: onramp-backend
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     environment:
-      ONRAMP_DATABASE_URL: "mssql+pyodbc://sa:OnRamp_Dev_P@ss1@db:1433/onramp?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
+      ONRAMP_DATABASE_URL: ""
       ONRAMP_CORS_ORIGINS: "http://localhost:5173,http://localhost:3000"
       ONRAMP_AZURE_TENANT_ID: ""
       ONRAMP_AZURE_CLIENT_ID: ""
@@ -35,18 +36,17 @@ services:
       ONRAMP_AI_FOUNDRY_KEY: ""
     ports:
       - "8000:8000"
-    depends_on:
-      db:
-        condition: service_healthy
     volumes:
-      - ./backend/app:/app/app:ro
+      - ./backend/app:/app/app
+      - ./backend/tests:/app/tests
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 15s
 
-  # React frontend (dev server with hot reload)
+  # React frontend (Vite dev server with HMR)
   frontend:
     build:
       context: ./frontend
@@ -59,10 +59,11 @@ services:
     ports:
       - "5173:5173"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     volumes:
-      - ./frontend/src:/app/src:ro
-      - ./frontend/public:/app/public:ro
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
 
 volumes:
   sqldata:

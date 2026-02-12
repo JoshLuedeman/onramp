@@ -12,7 +12,8 @@ RUN apt-get update && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir -e .
+COPY app ./app
+RUN pip install --no-cache-dir ".[dev]"
 
 COPY . .
 

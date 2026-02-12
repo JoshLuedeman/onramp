@@ -27,18 +27,34 @@ Hosted on **Azure Container Apps** with **Entra ID** authentication.
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.10+
-- Node.js 18+
+- Docker Desktop
 
-### Backend
+### One Command Start
+```bash
+./dev.sh
+```
+
+That's it. This builds and starts everything in containers:
+- **Frontend** at `http://localhost:5173` (hot reload)
+- **Backend** at `http://localhost:8000` (auto-restart)
+- **API Docs** at `http://localhost:8000/docs`
+
+Other commands:
+```bash
+./dev.sh logs     # Tail logs
+./dev.sh test     # Run backend tests
+./dev.sh shell    # Backend shell
+./dev.sh down     # Stop everything
+./dev.sh reset    # Wipe DB and rebuild
+```
+
+### Without Docker (manual)
 ```bash
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 uvicorn app.main:app --reload
 ```
-
-### Frontend
 ```bash
 cd frontend
 npm install && npm run dev
