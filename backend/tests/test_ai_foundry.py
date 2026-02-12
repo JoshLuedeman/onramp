@@ -10,50 +10,52 @@ def client():
 
 
 def test_mock_completion(client):
-    """Test that mock completion returns valid JSON."""
+    """Test that mock completion returns valid JSON for architecture prompts."""
     import json
 
-    result = client._mock_completion("system", "user")
+    result = client._mock_completion("You are an architecture expert", "user")
     data = json.loads(result)
     assert "management_groups" in data
     assert "subscriptions" in data
     assert "network_topology" in data
 
 
-def test_default_architecture(client):
-    """Test the default architecture structure."""
-    arch = client._get_default_architecture()
+def test_mock_completion_compliance(client):
+    """Test that mock completion returns valid JSON for compliance prompts."""
+    import json
 
-    assert arch["organization_size"] == "medium"
-    assert "management_groups" in arch
-    assert "subscriptions" in arch
-    assert len(arch["subscriptions"]) > 0
-    assert "network_topology" in arch
-    assert arch["network_topology"]["type"] == "hub-spoke"
-    assert "identity" in arch
-    assert "security" in arch
-    assert "governance" in arch
-    assert "management" in arch
-    assert "recommendations" in arch
-    assert isinstance(arch["estimated_monthly_cost_usd"], int)
+    result = client._mock_completion("Evaluate compliance of this system", "user")
+    data = json.loads(result)
+    assert "overall_score" in data
+    assert "frameworks" in data
 
 
-def test_architecture_system_prompt(client):
-    """Test that the system prompt covers all CAF design areas."""
-    prompt = client._get_architecture_system_prompt()
-    assert "Billing" in prompt
-    assert "Identity" in prompt
-    assert "Resource Organization" in prompt
-    assert "Network" in prompt
-    assert "Security" in prompt
-    assert "Management" in prompt
-    assert "Governance" in prompt
-    assert "Automation" in prompt
+def test_mock_completion_bicep(client):
+    """Test that mock completion returns Bicep template for bicep prompts."""
+    result = client._mock_completion("Generate Bicep templates", "user")
+    assert "bicep" in result.lower() or "targetScope" in result
 
 
-def test_format_architecture_request(client):
-    """Test formatting of architecture request."""
-    answers = {"org_size": "small", "industry": "healthcare"}
-    result = client._format_architecture_request(answers)
-    assert "healthcare" in result
-    assert "small" in result
+def test_mock_completion_fallback(client):
+    """Test that mock completion returns a fallback for unknown prompts."""
+    import json
+
+    result = client._mock_completion("something else", "user")
+    data = json.loads(result)
+    assert "status" in data
+
+
+def test_is_configured_false_by_default(client):
+    """Test that is_configured is False when no endpoint/key set."""
+    assert client.is_configured is False
+
+
+def test_generate_completion_falls_back_to_mock(client):
+    """Test that generate_completion falls back to mock when not configured."""
+    import json
+
+    result = client.generate_completion(
+        "You are an architecture expert", "design a landing zone"
+    )
+    data = json.loads(result)
+    assert "management_groups" in data

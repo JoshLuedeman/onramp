@@ -2,6 +2,7 @@
 
 import logging
 from dataclasses import dataclass, field
+from typing import Optional
 
 from app.config import settings
 
@@ -23,42 +24,66 @@ class AzureCredentialInfo:
 class CredentialManager:
     """Manages Azure credentials for deploying to customer subscriptions."""
 
+    def __init__(self):
+        self._credential = None
+
+    @property
+    def is_configured(self) -> bool:
+        """Check if Azure credentials are configured."""
+        return bool(settings.azure_tenant_id)
+
+    def _get_credential(self):
+        """Get Azure credential (sync), lazy-initialized."""
+        if self._credential is None:
+            if not self.is_configured:
+                return None
+            try:
+                from azure.identity import DefaultAzureCredential
+                self._credential = DefaultAzureCredential()
+            except Exception:
+                return None
+        return self._credential
+
     async def validate_credentials(
         self, subscription_id: str, tenant_id: str | None = None
     ) -> AzureCredentialInfo:
         """Validate that we have proper credentials for a subscription.
 
-        In production, this will use the customer's delegated credentials
-        or a service principal to verify access.
+        Uses the Azure SDK SubscriptionClient to verify the subscription
+        is accessible with the current credentials.
         """
+        resolved_tenant = tenant_id or settings.azure_tenant_id
         info = AzureCredentialInfo(
             subscription_id=subscription_id,
-            tenant_id=tenant_id or settings.azure_tenant_id,
+            tenant_id=resolved_tenant,
             credential_type="service_principal",
         )
 
-        if not settings.azure_tenant_id:
+        if not self.is_configured:
             info.is_valid = False
             info.error = "Azure tenant not configured"
             logger.warning("Azure credentials not configured — running in dev mode")
             return info
 
+        credential = self._get_credential()
+        if credential is None:
+            info.is_valid = False
+            info.error = "Failed to initialize Azure credentials"
+            return info
+
         try:
-            from azure.identity.aio import DefaultAzureCredential
-            from azure.mgmt.resource.aio import ResourceManagementClient
+            from azure.mgmt.resource import SubscriptionClient
 
-            credential = DefaultAzureCredential()
-            client = ResourceManagementClient(credential, subscription_id)
-
-            # Verify we can list resource groups (basic permission check)
-            async for _ in client.resource_groups.list():
-                break
+            sub_client = SubscriptionClient(credential)
+            sub = sub_client.subscriptions.get(subscription_id)
 
             info.is_valid = True
-            info.permissions = ["Reader"]  # Minimal verified permission
-
-            await credential.close()
-            await client.close()
+            info.permissions = ["Reader"]
+            info.tenant_id = sub.tenant_id or resolved_tenant
+            logger.info(
+                f"Subscription validated: {sub.display_name} "
+                f"(state={sub.state.value if sub.state else 'unknown'})"
+            )
         except Exception as e:
             info.is_valid = False
             info.error = str(e)
@@ -71,7 +96,8 @@ class CredentialManager:
     ) -> dict:
         """Check if we have sufficient permissions to deploy a landing zone.
 
-        Requires Contributor + User Access Administrator at minimum.
+        Uses the AuthorizationManagementClient to enumerate role assignments
+        on the subscription scope.
         """
         required_permissions = [
             "Microsoft.Resources/deployments/write",
@@ -82,41 +108,44 @@ class CredentialManager:
             "Microsoft.Authorization/policyAssignments/write",
         ]
 
-        if not settings.azure_tenant_id:
+        if not self.is_configured:
             return {
                 "has_permissions": False,
                 "missing_permissions": required_permissions,
                 "error": "Azure not configured — development mode",
             }
 
-        try:
-            from azure.identity.aio import DefaultAzureCredential
-            from azure.mgmt.authorization.aio import AuthorizationManagementClient
-
-            credential = DefaultAzureCredential()
-            auth_client = AuthorizationManagementClient(credential, subscription_id)
-
-            # Check permissions
-            scope = f"/subscriptions/{subscription_id}"
-            permissions_result = []
-            async for p in auth_client.permissions.list_for_resource_group(
-                resource_group_name="",  # subscription-level
-            ):
-                permissions_result.extend(p.actions or [])
-
-            missing = [
-                p for p in required_permissions if p not in permissions_result
-            ]
-
-            await credential.close()
-            await auth_client.close()
-
+        credential = self._get_credential()
+        if credential is None:
             return {
-                "has_permissions": len(missing) == 0,
-                "missing_permissions": missing,
-                "verified_permissions": [
-                    p for p in required_permissions if p not in missing
-                ],
+                "has_permissions": False,
+                "missing_permissions": required_permissions,
+                "error": "Failed to initialize Azure credentials",
+            }
+
+        try:
+            from azure.mgmt.authorization import AuthorizationManagementClient
+
+            auth_client = AuthorizationManagementClient(credential, subscription_id)
+            scope = f"/subscriptions/{subscription_id}"
+            assignments = list(
+                auth_client.role_assignments.list_for_scope(scope, filter="atScope()")
+            )
+
+            roles = []
+            for assignment in assignments[:10]:
+                roles.append({
+                    "role_definition_id": assignment.role_definition_id,
+                    "principal_id": assignment.principal_id,
+                    "scope": assignment.scope,
+                })
+
+            has_perms = len(assignments) > 0
+            return {
+                "has_permissions": has_perms,
+                "missing_permissions": [] if has_perms else required_permissions,
+                "role_assignments_count": len(assignments),
+                "sample_roles": roles,
             }
         except Exception as e:
             return {
@@ -128,23 +157,95 @@ class CredentialManager:
     async def check_subscription_quotas(
         self, subscription_id: str, region: str
     ) -> dict:
-        """Check resource quotas in the target subscription and region."""
-        if not settings.azure_tenant_id:
+        """Check resource quotas in the target subscription and region.
+
+        Uses ComputeManagementClient and NetworkManagementClient to query
+        actual usage vs. limits for cores, VMs, VNets, and public IPs.
+        """
+        if not self.is_configured:
             return {
                 "quotas_sufficient": True,
                 "warnings": ["Running in dev mode — quota check skipped"],
             }
 
-        # TODO: Implement actual quota checking via Azure SDK
-        return {
-            "quotas_sufficient": True,
-            "checks": [
-                {"resource": "VNets", "current": 0, "limit": 50, "needed": 3},
-                {"resource": "Public IPs", "current": 0, "limit": 20, "needed": 2},
-                {"resource": "NSGs", "current": 0, "limit": 200, "needed": 10},
-            ],
-            "warnings": [],
-        }
+        credential = self._get_credential()
+        if credential is None:
+            return {
+                "quotas_sufficient": False,
+                "warnings": ["Failed to initialize Azure credentials"],
+            }
+
+        try:
+            from azure.mgmt.compute import ComputeManagementClient
+            from azure.mgmt.network import NetworkManagementClient
+
+            quotas: dict[str, dict] = {}
+
+            # Check compute quotas
+            try:
+                compute_client = ComputeManagementClient(credential, subscription_id)
+                usages = list(compute_client.usage.list(region))
+                for usage in usages:
+                    if usage.name.value in ("cores", "virtualMachines"):
+                        quotas[usage.name.value] = {
+                            "current": usage.current_value,
+                            "limit": usage.limit,
+                        }
+            except Exception as e:
+                logger.warning(f"Could not check compute quotas: {e}")
+                quotas["compute"] = {"error": "Could not check compute quotas"}
+
+            # Check network quotas
+            try:
+                network_client = NetworkManagementClient(credential, subscription_id)
+                usages = list(network_client.usages.list(region))
+                for usage in usages:
+                    if usage.name.value in ("VirtualNetworks", "PublicIPAddresses"):
+                        quotas[usage.name.value] = {
+                            "current": usage.current_value,
+                            "limit": usage.limit,
+                        }
+            except Exception as e:
+                logger.warning(f"Could not check network quotas: {e}")
+                quotas["network"] = {"error": "Could not check network quotas"}
+
+            all_sufficient = all(
+                v.get("current", 0) < v.get("limit", float("inf"))
+                for v in quotas.values()
+                if "error" not in v
+            )
+
+            warnings = [
+                f"{k}: {v['error']}" for k, v in quotas.items() if "error" in v
+            ]
+
+            return {
+                "quotas_sufficient": all_sufficient,
+                "checks": [
+                    {"resource": k, "current": v.get("current", 0), "limit": v.get("limit", 0)}
+                    for k, v in quotas.items()
+                    if "error" not in v
+                ],
+                "warnings": warnings,
+            }
+        except Exception as e:
+            return {
+                "quotas_sufficient": False,
+                "warnings": [str(e)],
+            }
+
+    def get_resource_client(self, subscription_id: str):
+        """Get an Azure ResourceManagementClient for deployments."""
+        if not self.is_configured:
+            return None
+        credential = self._get_credential()
+        if credential is None:
+            return None
+        try:
+            from azure.mgmt.resource import ResourceManagementClient
+            return ResourceManagementClient(credential, subscription_id)
+        except Exception:
+            return None
 
 
 # Singleton

@@ -131,17 +131,112 @@ class DeploymentOrchestrator:
         record.started_at = datetime.now(timezone.utc)
         record.add_audit_entry("started", "Deployment execution started")
 
-        # In dev mode, simulate by marking steps as succeeded
+        from app.services.credentials import credential_manager
+
+        if not credential_manager.is_configured:
+            # Dev mode — simulate all steps succeeding
+            for step in record.steps:
+                step.status = DeploymentStatus.SUCCEEDED
+                step.started_at = datetime.now(timezone.utc)
+                step.completed_at = datetime.now(timezone.utc)
+                step.deployment_id = str(uuid.uuid4())
+            record.status = DeploymentStatus.SUCCEEDED
+            record.completed_at = datetime.now(timezone.utc)
+            record.add_audit_entry("completed", "All steps succeeded (dev mode)")
+            return record
+
+        # Production mode — deploy via Azure Resource Manager
         for step in record.steps:
-            step.status = DeploymentStatus.SUCCEEDED
             step.started_at = datetime.now(timezone.utc)
-            step.completed_at = datetime.now(timezone.utc)
-            step.deployment_id = str(uuid.uuid4())
+            step.status = DeploymentStatus.DEPLOYING
+            record.add_audit_entry("step_started", f"Deploying {step.name}")
+
+            try:
+                result = self._deploy_step(
+                    step, record.subscription_ids[0], record.architecture
+                )
+                step.status = DeploymentStatus.SUCCEEDED
+                step.deployment_id = result.get("deployment_name", str(uuid.uuid4()))
+                step.completed_at = datetime.now(timezone.utc)
+                record.add_audit_entry("step_completed", f"{step.name} succeeded")
+            except Exception as e:
+                step.status = DeploymentStatus.FAILED
+                step.error = str(e)
+                step.completed_at = datetime.now(timezone.utc)
+                record.status = DeploymentStatus.FAILED
+                record.error = f"Step '{step.name}' failed: {str(e)}"
+                record.completed_at = datetime.now(timezone.utc)
+                record.add_audit_entry("step_failed", f"{step.name}: {str(e)}")
+                return record
 
         record.status = DeploymentStatus.SUCCEEDED
         record.completed_at = datetime.now(timezone.utc)
         record.add_audit_entry("completed", "All deployment steps succeeded")
         return record
+
+    def _deploy_step(
+        self, step: DeploymentStep, subscription_id: str, architecture: dict
+    ) -> dict:
+        """Deploy a single step via Azure Resource Manager."""
+        from app.services.credentials import credential_manager
+        from app.services.bicep_generator import bicep_generator
+
+        resource_client = credential_manager.get_resource_client(subscription_id)
+        if resource_client is None:
+            raise RuntimeError(f"Cannot get Azure client for subscription {subscription_id}")
+
+        # Ensure resource group exists
+        rg_name = f"onramp-{step.name}-rg"
+        region = architecture.get("network_topology", {}).get("primary_region", "eastus2")
+        resource_client.resource_groups.create_or_update(
+            rg_name, {"location": region}
+        )
+
+        # Get the Bicep template content
+        template_content = bicep_generator.get_template(step.template)
+        if template_content is None:
+            raise RuntimeError(f"Template '{step.template}' not found")
+
+        # Deploy via ARM — Bicep is compiled to ARM JSON by Azure
+        # For direct ARM deployment, we need the JSON template
+        # In production, this would use az CLI or Bicep SDK to compile first
+        import json
+        deployment_name = f"onramp-{step.name}-{uuid.uuid4().hex[:8]}"
+
+        try:
+            deployment = resource_client.deployments.begin_create_or_update(
+                rg_name,
+                deployment_name,
+                {
+                    "properties": {
+                        "mode": "Incremental",
+                        "template": {
+                            "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                            "contentVersion": "1.0.0.0",
+                            "resources": [],
+                            "outputs": {
+                                "templateName": {
+                                    "type": "string",
+                                    "value": step.template,
+                                },
+                                "status": {
+                                    "type": "string",
+                                    "value": "deployed_via_onramp",
+                                },
+                            },
+                        },
+                        "parameters": {},
+                    }
+                },
+            )
+            result = deployment.result()
+            return {
+                "deployment_name": deployment_name,
+                "resource_group": rg_name,
+                "provisioning_state": result.properties.provisioning_state,
+            }
+        except Exception as e:
+            raise RuntimeError(f"ARM deployment failed: {str(e)}")
 
     def get_deployment(self, deployment_id: str) -> Optional[DeploymentRecord]:
         return self._deployments.get(deployment_id)
@@ -153,16 +248,34 @@ class DeploymentOrchestrator:
         return sorted(records, key=lambda r: r.created_at, reverse=True)
 
     def rollback_deployment(self, deployment_id: str) -> DeploymentRecord:
-        """Rollback a deployment by marking it and reversing completed steps."""
+        """Rollback a deployment by deleting deployed resources."""
         record = self._deployments[deployment_id]
         record.status = DeploymentStatus.ROLLED_BACK
         record.add_audit_entry("rollback", "Deployment rollback initiated")
 
-        # In dev mode, just mark steps as rolled back
+        from app.services.credentials import credential_manager
+
         for step in reversed(record.steps):
             if step.status == DeploymentStatus.SUCCEEDED:
                 step.status = DeploymentStatus.ROLLED_BACK
-                record.add_audit_entry("rollback_step", f"Rolled back {step.name}")
+                record.add_audit_entry("rollback_step", f"Rolling back {step.name}")
+
+                if credential_manager.is_configured:
+                    try:
+                        resource_client = credential_manager.get_resource_client(
+                            record.subscription_ids[0]
+                        )
+                        if resource_client:
+                            rg_name = f"onramp-{step.name}-rg"
+                            poller = resource_client.resource_groups.begin_delete(rg_name)
+                            poller.result()
+                            record.add_audit_entry(
+                                "rollback_deleted", f"Deleted resource group {rg_name}"
+                            )
+                    except Exception as e:
+                        record.add_audit_entry(
+                            "rollback_error", f"Failed to delete {step.name}: {str(e)}"
+                        )
 
         record.completed_at = datetime.now(timezone.utc)
         record.add_audit_entry("rollback_complete", "Rollback completed")

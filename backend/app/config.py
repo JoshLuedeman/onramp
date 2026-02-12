@@ -15,6 +15,8 @@ class Settings(BaseSettings):
 
     # Azure AI Foundry
     ai_foundry_endpoint: str = ""
+    ai_foundry_key: str = ""
+    ai_foundry_deployment: str = ""
     ai_foundry_model: str = "gpt-4o"
 
     # CORS

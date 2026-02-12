@@ -28,6 +28,27 @@ npm run dev
 
 The frontend dev server proxies API requests to `http://localhost:8000`.
 
+### Docker Compose (Full Stack)
+
+```bash
+# Start all services (SQL Server, Backend, Frontend)
+docker compose up -d
+
+# View logs
+docker compose logs -f backend
+
+# Stop everything
+docker compose down
+
+# Reset database
+docker compose down -v
+```
+
+The Docker setup includes:
+- **SQL Server 2022** Developer Edition on port 1433
+- **FastAPI backend** on port 8000 (with hot reload)
+- **React frontend** on port 5173 (with HMR)
+
 ## Development Mode
 
 When `ONRAMP_AZURE_TENANT_ID` is not set, the application runs in development mode:
