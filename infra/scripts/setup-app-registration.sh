@@ -53,8 +53,37 @@ else
     # Create a service principal for the app
     SP_INFO=$(az ad sp create --id "$CLIENT_ID" -o json 2>/dev/null) || {
         echo "Service principal may already exist, continuing..."
+        SP_INFO=$(az ad sp show --id "$CLIENT_ID" -o json 2>/dev/null) || true
     }
-    
+    SP_OBJECT_ID=$(echo "$SP_INFO" | jq -r '.id // empty')
+
+    # Assign Contributor role at subscription scope so the SP can deploy resources
+    SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+    if [ -n "$SP_OBJECT_ID" ]; then
+        echo "Assigning Contributor role to service principal at subscription scope..."
+        az role assignment create \
+            --assignee-object-id "$SP_OBJECT_ID" \
+            --assignee-principal-type ServicePrincipal \
+            --role "Contributor" \
+            --scope "/subscriptions/$SUBSCRIPTION_ID" \
+            2>/dev/null || echo "Role assignment may already exist"
+
+        # Also assign User Access Administrator so it can manage RBAC for landing zones
+        echo "Assigning User Access Administrator role..."
+        az role assignment create \
+            --assignee-object-id "$SP_OBJECT_ID" \
+            --assignee-principal-type ServicePrincipal \
+            --role "User Access Administrator" \
+            --scope "/subscriptions/$SUBSCRIPTION_ID" \
+            2>/dev/null || echo "Role assignment may already exist"
+
+        echo "  ✅ Contributor role assigned (create resource groups, deploy resources)"
+        echo "  ✅ User Access Administrator role assigned (assign RBAC in landing zones)"
+    else
+        echo "  ⚠️  Could not determine SP object ID — assign roles manually:"
+        echo "     az role assignment create --assignee $CLIENT_ID --role Contributor --scope /subscriptions/$SUBSCRIPTION_ID"
+    fi
+
     # Add required API permissions
     # Microsoft Graph - User.Read (delegated)
     echo "Adding Microsoft Graph User.Read permission..."
@@ -94,10 +123,15 @@ else
     echo "    - Microsoft Graph: User.Read"
     echo "    - Azure Service Management: user_impersonation"
     echo ""
+    echo "  Azure RBAC Roles (assigned at subscription scope):"
+    echo "    - Contributor: create resource groups and deploy resources"
+    echo "    - User Access Administrator: assign RBAC roles in landing zones"
+    echo ""
     echo "  The app registration allows OnRamp to:"
     echo "    1. Sign in users with their Entra ID identity"
     echo "    2. Read basic user profile information"
-    echo "    3. Deploy Azure resources on behalf of the user"
+    echo "    3. Deploy Azure resources (resource groups, VNets, policies, etc.)"
+    echo "    4. Assign RBAC roles within deployed landing zones"
     echo ""
     echo "  Redirect URIs configured:"
     echo "    - $REDIRECT_URI"
