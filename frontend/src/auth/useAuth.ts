@@ -1,7 +1,20 @@
-import { useMsal, useIsAuthenticated } from "@azure/msal-react";
-import { loginRequest } from "./msalConfig";
+const clientId = import.meta.env.VITE_AZURE_CLIENT_ID || "";
 
 export function useAuth() {
+  // Dev mode — no MSAL, return mock auth state
+  if (!clientId) {
+    return {
+      isAuthenticated: false,
+      user: null,
+      login: async () => { console.info("Auth not configured in dev mode"); },
+      logout: async () => {},
+      getAccessToken: async () => null,
+    };
+  }
+
+  // Production mode — use MSAL
+  const { useMsal, useIsAuthenticated } = require("@azure/msal-react");
+  const { loginRequest } = require("./msalConfig");
   const { instance, accounts } = useMsal();
   const isAuthenticated = useIsAuthenticated();
 

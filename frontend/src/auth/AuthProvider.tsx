@@ -1,29 +1,45 @@
 import type { ReactNode } from "react";
-import { MsalProvider } from "@azure/msal-react";
-import { PublicClientApplication, EventType } from "@azure/msal-browser";
-import type { EventMessage, AuthenticationResult } from "@azure/msal-browser";
-import { msalConfig } from "./msalConfig";
 
-const msalInstance = new PublicClientApplication(msalConfig);
-
-const accounts = msalInstance.getAllAccounts();
-if (accounts.length > 0) {
-  msalInstance.setActiveAccount(accounts[0]);
-}
-
-msalInstance.addEventCallback((event: EventMessage) => {
-  if (event.eventType === EventType.LOGIN_SUCCESS && event.payload) {
-    const payload = event.payload as AuthenticationResult;
-    msalInstance.setActiveAccount(payload.account);
-  }
-});
+const clientId = import.meta.env.VITE_AZURE_CLIENT_ID || "";
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
+// When no client ID is configured, skip MSAL entirely (dev mode)
+if (!clientId) {
+  console.info("MSAL not configured — running without authentication");
+}
+
+let msalInstance: any = null;
+
+async function initMsal() {
+  if (!clientId || msalInstance) return msalInstance;
+  const { PublicClientApplication, EventType } = await import("@azure/msal-browser");
+  const { msalConfig } = await import("./msalConfig");
+  msalInstance = new PublicClientApplication(msalConfig);
+  await msalInstance.initialize();
+  const accounts = msalInstance.getAllAccounts();
+  if (accounts.length > 0) {
+    msalInstance.setActiveAccount(accounts[0]);
+  }
+  msalInstance.addEventCallback((event: any) => {
+    if (event.eventType === EventType.LOGIN_SUCCESS && event.payload) {
+      msalInstance.setActiveAccount(event.payload.account);
+    }
+  });
+  return msalInstance;
+}
+
 export default function AuthProvider({ children }: AuthProviderProps) {
+  if (!clientId) {
+    // No auth configured — render children directly
+    return <>{children}</>;
+  }
+
+  // Dynamic import for MsalProvider when auth is configured
+  const { MsalProvider } = require("@azure/msal-react");
   return <MsalProvider instance={msalInstance}>{children}</MsalProvider>;
 }
 
-export { msalInstance };
+export { msalInstance, initMsal };
