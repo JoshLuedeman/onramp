@@ -22,7 +22,28 @@
     "sqlAdminPassword": {
       "type": "securestring",
       "metadata": {
-        "description": "SQL Server admin password"
+        "description": "SQL Server admin password (min 8 chars, must include uppercase, lowercase, number, and special character)"
+      }
+    },
+    "createAppRegistration": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Set to true to create a new Entra ID app registration, or false to use an existing one"
+      }
+    },
+    "existingClientId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "If using an existing app registration, provide its Client (Application) ID. Leave empty if creating a new one."
+      }
+    },
+    "existingClientSecret": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "If using an existing app registration, provide its client secret. Leave empty if creating a new one."
       }
     }
   },
@@ -30,9 +51,59 @@
     "uniqueSuffix": "[uniqueString(resourceGroup().id)]",
     "containerAppEnvName": "[concat(parameters('appName'), '-env-', variables('uniqueSuffix'))]",
     "logAnalyticsName": "[concat(parameters('appName'), '-logs-', variables('uniqueSuffix'))]",
-    "sqlServerName": "[concat(parameters('appName'), '-sql-', variables('uniqueSuffix'))]"
+    "sqlServerName": "[concat(parameters('appName'), '-sql-', variables('uniqueSuffix'))]",
+    "keyVaultName": "[concat(parameters('appName'), '-kv-', variables('uniqueSuffix'))]",
+    "identityName": "[concat(parameters('appName'), '-identity-', variables('uniqueSuffix'))]",
+    "appUrl": "[concat('https://', parameters('appName'), '-', variables('uniqueSuffix'), '.', parameters('location'), '.azurecontainerapps.io')]"
   },
   "resources": [
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[variables('identityName')]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.Resources/deploymentScripts",
+      "apiVersion": "2023-08-01",
+      "name": "setupAppRegistration",
+      "location": "[parameters('location')]",
+      "kind": "AzureCLI",
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
+      ],
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]": {}
+        }
+      },
+      "properties": {
+        "azCliVersion": "2.60.0",
+        "retentionInterval": "P1D",
+        "timeout": "PT10M",
+        "environmentVariables": [
+          {
+            "name": "APP_NAME",
+            "value": "[concat('OnRamp-', variables('uniqueSuffix'))]"
+          },
+          {
+            "name": "REDIRECT_URI",
+            "value": "[variables('appUrl')]"
+          },
+          {
+            "name": "CREATE_APP",
+            "value": "[string(parameters('createAppRegistration'))]"
+          },
+          {
+            "name": "EXISTING_CLIENT_ID",
+            "value": "[parameters('existingClientId')]"
+          }
+        ],
+        "scriptContent": "#!/bin/bash\nset -e\n\necho '=== OnRamp App Registration Setup ==='\necho \"Create New: $CREATE_APP\"\n\nif [ \"$CREATE_APP\" = \"false\" ] && [ -n \"$EXISTING_CLIENT_ID\" ]; then\n    echo \"Using existing app registration: $EXISTING_CLIENT_ID\"\n    CLIENT_ID=\"$EXISTING_CLIENT_ID\"\nelse\n    echo 'Creating new app registration...'\n    APP_INFO=$(az ad app create \\\n        --display-name \"$APP_NAME\" \\\n        --sign-in-audience AzureADMyOrg \\\n        --web-redirect-uris \"$REDIRECT_URI\" \"${REDIRECT_URI}/auth/callback\" \"http://localhost:5173\" \"http://localhost:5173/auth/callback\" \\\n        --enable-id-token-issuance true \\\n        --enable-access-token-issuance true \\\n        -o json)\n    CLIENT_ID=$(echo \"$APP_INFO\" | jq -r '.appId')\n    APP_OBJECT_ID=$(echo \"$APP_INFO\" | jq -r '.id')\n    az ad sp create --id \"$CLIENT_ID\" -o json 2>/dev/null || true\n    az ad app permission add --id \"$CLIENT_ID\" --api 00000003-0000-0000-c000-000000000000 --api-permissions e1fe6dd8-ba31-4d61-89e7-88639da4683d=Scope 2>/dev/null || true\n    az ad app permission add --id \"$CLIENT_ID\" --api 797f4846-ba00-4fd7-ba43-dac1f8f63013 --api-permissions 41094075-9dad-400e-a0bd-54e686782033=Scope 2>/dev/null || true\n    SECRET_INFO=$(az ad app credential reset --id \"$CLIENT_ID\" --display-name 'OnRamp Deployment' --years 2 -o json)\n    CLIENT_SECRET=$(echo \"$SECRET_INFO\" | jq -r '.password')\n    echo \"Created app registration: $CLIENT_ID\"\nfi\n\nTENANT_ID=$(az account show --query tenantId -o tsv)\n\necho \"{\\\"clientId\\\": \\\"$CLIENT_ID\\\", \\\"tenantId\\\": \\\"$TENANT_ID\\\", \\\"clientSecret\\\": \\\"${CLIENT_SECRET:-}\\\"}\" > $AZ_SCRIPTS_OUTPUT_DIRECTORY/result.json",
+        "cleanupPreference": "OnSuccess"
+      }
+    },
     {
       "type": "Microsoft.OperationalInsights/workspaces",
       "apiVersion": "2022-10-01",
@@ -43,6 +114,72 @@
           "name": "PerGB2018"
         },
         "retentionInDays": 30
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2023-07-01",
+      "name": "[variables('keyVaultName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
+      ],
+      "properties": {
+        "sku": {
+          "family": "A",
+          "name": "standard"
+        },
+        "tenantId": "[subscription().tenantId]",
+        "enableRbacAuthorization": true,
+        "enableSoftDelete": true,
+        "softDeleteRetentionInDays": 7
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[concat(variables('keyVaultName'), '/entra-client-id')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
+        "setupAppRegistration"
+      ],
+      "properties": {
+        "value": "[if(parameters('createAppRegistration'), reference('setupAppRegistration').outputs.clientId, parameters('existingClientId'))]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[concat(variables('keyVaultName'), '/entra-client-secret')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
+        "setupAppRegistration"
+      ],
+      "properties": {
+        "value": "[if(parameters('createAppRegistration'), reference('setupAppRegistration').outputs.clientSecret, parameters('existingClientSecret'))]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[concat(variables('keyVaultName'), '/entra-tenant-id')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
+        "setupAppRegistration"
+      ],
+      "properties": {
+        "value": "[if(parameters('createAppRegistration'), reference('setupAppRegistration').outputs.tenantId, subscription().tenantId)]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[concat(variables('keyVaultName'), '/sql-admin-password')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+      ],
+      "properties": {
+        "value": "[parameters('sqlAdminPassword')]"
       }
     },
     {
@@ -96,6 +233,22 @@
     "sqlServerFqdn": {
       "type": "string",
       "value": "[reference(resourceId('Microsoft.Sql/servers', variables('sqlServerName'))).fullyQualifiedDomainName]"
+    },
+    "keyVaultName": {
+      "type": "string",
+      "value": "[variables('keyVaultName')]"
+    },
+    "appUrl": {
+      "type": "string",
+      "value": "[variables('appUrl')]"
+    },
+    "entraClientId": {
+      "type": "string",
+      "value": "[if(parameters('createAppRegistration'), reference('setupAppRegistration').outputs.clientId, parameters('existingClientId'))]"
+    },
+    "entraSetupNotes": {
+      "type": "string",
+      "value": "[if(parameters('createAppRegistration'), 'App registration created automatically. Grant admin consent for API permissions in Entra ID > App registrations.', 'Using existing app registration.')]"
     }
   }
 }
