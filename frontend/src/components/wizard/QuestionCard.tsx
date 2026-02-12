@@ -11,6 +11,7 @@ import {
   makeStyles,
   tokens,
   Badge,
+  Divider,
 } from "@fluentui/react-components";
 import { ArrowRightRegular } from "@fluentui/react-icons";
 import type { Question } from "../../services/api";
@@ -43,6 +44,20 @@ const useStyles = makeStyles({
     display: "flex",
     flexDirection: "column",
     gap: "8px",
+  },
+  recommendedOption: {
+    backgroundColor: "#FFF8E1",
+    borderRadius: "6px",
+    padding: "4px 8px",
+    border: "1px solid #FFD54F",
+  },
+  unsureDivider: {
+    marginTop: "12px",
+    marginBottom: "4px",
+  },
+  unsureOption: {
+    fontStyle: "italic",
+    color: tokens.colorNeutralForeground3,
   },
 });
 
@@ -88,6 +103,9 @@ export default function QuestionCard({ question, onAnswer, existingAnswer }: Que
     platform_automation: "Platform Automation",
   };
 
+  const regularOptions = question.options?.filter((o) => o.value !== "_unsure") || [];
+  const unsureOption = question.options?.find((o) => o.value === "_unsure");
+
   return (
     <Card className={styles.card}>
       <CardHeader
@@ -111,28 +129,60 @@ export default function QuestionCard({ question, onAnswer, existingAnswer }: Que
 
       {question.type === "single_choice" && question.options && (
         <RadioGroup value={selectedValue} onChange={(_, data) => setSelectedValue(data.value)}>
-          {question.options.map((opt) => (
-            <Radio key={opt.value} value={opt.value} label={opt.label} />
+          {regularOptions.map((opt) => (
+            <div key={opt.value} className={opt.recommended ? styles.recommendedOption : undefined}>
+              <Radio
+                value={opt.value}
+                label={opt.recommended ? `${opt.label} (Recommended)` : opt.label}
+              />
+            </div>
           ))}
+          {unsureOption && (
+            <>
+              <Divider className={styles.unsureDivider} />
+              <div className={styles.unsureOption}>
+                <Radio value={unsureOption.value} label={unsureOption.label} />
+              </div>
+            </>
+          )}
         </RadioGroup>
       )}
 
       {question.type === "multi_choice" && question.options && (
         <div className={styles.checkboxGroup}>
-          {question.options.map((opt) => (
-            <Checkbox
-              key={opt.value}
-              label={opt.label}
-              checked={checkedValues.includes(opt.value)}
-              onChange={(_, data) => {
-                if (data.checked) {
-                  setCheckedValues([...checkedValues, opt.value]);
-                } else {
-                  setCheckedValues(checkedValues.filter((v) => v !== opt.value));
-                }
-              }}
-            />
+          {regularOptions.map((opt) => (
+            <div key={opt.value} className={opt.recommended ? styles.recommendedOption : undefined}>
+              <Checkbox
+                label={opt.recommended ? `${opt.label} (Recommended)` : opt.label}
+                checked={checkedValues.includes(opt.value)}
+                onChange={(_, data) => {
+                  if (data.checked) {
+                    setCheckedValues([...checkedValues, opt.value]);
+                  } else {
+                    setCheckedValues(checkedValues.filter((v) => v !== opt.value));
+                  }
+                }}
+              />
+            </div>
           ))}
+          {unsureOption && (
+            <>
+              <Divider className={styles.unsureDivider} />
+              <div className={styles.unsureOption}>
+                <Checkbox
+                  label={unsureOption.label}
+                  checked={checkedValues.includes(unsureOption.value)}
+                  onChange={(_, data) => {
+                    if (data.checked) {
+                      setCheckedValues([...checkedValues, unsureOption.value]);
+                    } else {
+                      setCheckedValues(checkedValues.filter((v) => v !== unsureOption.value));
+                    }
+                  }}
+                />
+              </div>
+            </>
+          )}
         </div>
       )}
 

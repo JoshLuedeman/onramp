@@ -60,7 +60,7 @@ export interface Question {
   caf_area: string;
   text: string;
   type: "text" | "single_choice" | "multi_choice";
-  options?: { value: string; label: string }[];
+  options?: { value: string; label: string; recommended?: boolean }[];
   required: boolean;
   order: number;
 }
