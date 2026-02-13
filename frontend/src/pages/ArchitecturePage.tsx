@@ -21,6 +21,7 @@ import type { Architecture, CostEstimation } from "../services/api";
 import { api } from "../services/api";
 import ArchitectureDiagram from "../components/visualizer/ArchitectureDiagram";
 import ArchitectureChat from "../components/visualizer/ArchitectureChat";
+import { exportArchitectureJson, exportDesignDocument } from "../utils/exportUtils";
 
 const useStyles = makeStyles({
   container: {
@@ -272,6 +273,22 @@ export default function ArchitecturePage() {
           onClick={() => navigate("/compliance")}
         >
           Score Compliance
+        </Button>
+        <Button
+          appearance="secondary"
+          icon={<ArrowDownloadRegular />}
+          size="large"
+          onClick={() => exportArchitectureJson(architecture as Record<string, unknown>)}
+        >
+          Export JSON
+        </Button>
+        <Button
+          appearance="secondary"
+          icon={<ArrowDownloadRegular />}
+          size="large"
+          onClick={() => exportDesignDocument(architecture as Record<string, unknown>)}
+        >
+          Export Design Document
         </Button>
       </div>
 

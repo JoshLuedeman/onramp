@@ -30,11 +30,28 @@ const useStyles = makeStyles({
     padding: "8px 24px",
     borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
     backgroundColor: tokens.colorNeutralBackground1,
+    "@media (max-width: 768px)": {
+      flexDirection: "column",
+      gap: "8px",
+      padding: "8px 12px",
+    },
   },
   headerLeft: {
     display: "flex",
     alignItems: "center",
     gap: "16px",
+    "@media (max-width: 768px)": {
+      width: "100%",
+      justifyContent: "space-between",
+    },
+  },
+  tabListWrapper: {
+    "@media (max-width: 768px)": {
+      width: "100%",
+      overflowX: "auto",
+      WebkitOverflowScrolling: "touch",
+      "::-webkit-scrollbar": { display: "none" },
+    },
   },
   logo: {
     fontWeight: tokens.fontWeightSemibold,
@@ -72,17 +89,19 @@ export default function Layout({ children }: LayoutProps) {
           <Text className={styles.logo} onClick={() => navigate("/")}>
             🚀 OnRamp
           </Text>
-          <TabList
-            selectedValue={location.pathname}
-            onTabSelect={(_, data) => navigate(data.value as string)}
-            size="small"
-          >
-            {NAV_ITEMS.map((item) => (
-              <Tab key={item.path} value={item.path} icon={item.icon}>
-                {item.label}
-              </Tab>
-            ))}
-          </TabList>
+          <div className={styles.tabListWrapper}>
+            <TabList
+              selectedValue={location.pathname}
+              onTabSelect={(_, data) => navigate(data.value as string)}
+              size="small"
+            >
+              {NAV_ITEMS.map((item) => (
+                <Tab key={item.path} value={item.path} icon={item.icon}>
+                  {item.label}
+                </Tab>
+              ))}
+            </TabList>
+          </div>
         </div>
         <AuthButton />
       </header>

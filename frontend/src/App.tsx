@@ -1,8 +1,10 @@
 import { Suspense, lazy } from "react";
-import { FluentProvider, webLightTheme, Spinner } from "@fluentui/react-components";
+import { FluentProvider, webLightTheme } from "@fluentui/react-components";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./auth";
 import Layout from "./components/shared/Layout";
+import ErrorBoundary from "./components/shared/ErrorBoundary";
+import PageSkeleton from "./components/shared/PageSkeleton";
 import HomePage from "./pages/HomePage";
 
 const WizardPage = lazy(() => import("./pages/WizardPage"));
@@ -17,16 +19,18 @@ function App() {
       <FluentProvider theme={webLightTheme}>
         <BrowserRouter>
           <Layout>
-            <Suspense fallback={<Spinner label="Loading..." style={{ margin: "40px auto" }} />}>
-              <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/wizard" element={<WizardPage />} />
-                <Route path="/architecture" element={<ArchitecturePage />} />
-                <Route path="/compliance" element={<CompliancePage />} />
-                <Route path="/bicep" element={<BicepPage />} />
-                <Route path="/deploy" element={<DeployPage />} />
-              </Routes>
-            </Suspense>
+            <ErrorBoundary>
+              <Suspense fallback={<PageSkeleton />}>
+                <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/wizard" element={<WizardPage />} />
+                  <Route path="/architecture" element={<ArchitecturePage />} />
+                  <Route path="/compliance" element={<CompliancePage />} />
+                  <Route path="/bicep" element={<BicepPage />} />
+                  <Route path="/deploy" element={<DeployPage />} />
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
           </Layout>
         </BrowserRouter>
       </FluentProvider>

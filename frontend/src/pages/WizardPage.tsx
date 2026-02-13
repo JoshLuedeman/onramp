@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { makeStyles, Spinner, Title1, Button, tokens } from "@fluentui/react-components";
-import { ArrowLeftRegular } from "@fluentui/react-icons";
+import { makeStyles, Spinner, Title1, Button, Text, tokens } from "@fluentui/react-components";
+import { ArrowLeftRegular, ArrowResetRegular } from "@fluentui/react-icons";
 import QuestionCard from "../components/wizard/QuestionCard";
 import WizardProgressBar from "../components/wizard/ProgressBar";
 import WizardComplete from "../components/wizard/WizardComplete";
@@ -29,6 +29,20 @@ const useStyles = makeStyles({
     maxWidth: "640px",
     width: "100%",
     marginBottom: "8px",
+  },
+  navRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    maxWidth: "640px",
+    width: "100%",
+    marginBottom: "8px",
+  },
+  autoSaveIndicator: {
+    color: tokens.colorNeutralForeground3,
+    fontSize: tokens.fontSizeBase200,
+    marginTop: "4px",
+    textAlign: "center" as const,
   },
 });
 
@@ -82,7 +96,18 @@ export default function WizardPage() {
   }, []);
 
   useEffect(() => {
-    fetchNext(answers);
+    const saved = sessionStorage.getItem("onramp_wizard_answers");
+    if (saved) {
+      try {
+        const savedAnswers = JSON.parse(saved);
+        setAnswers(savedAnswers);
+        fetchNext(savedAnswers);
+      } catch {
+        fetchNext({});
+      }
+    } else {
+      fetchNext({});
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAnswer = (questionId: string, answer: string | string[]) => {
@@ -91,6 +116,7 @@ export default function WizardPage() {
     }
     const newAnswers = { ...answers, [questionId]: answer };
     setAnswers(newAnswers);
+    sessionStorage.setItem("onramp_wizard_answers", JSON.stringify(newAnswers));
     fetchNext(newAnswers);
   };
 
@@ -116,6 +142,17 @@ export default function WizardPage() {
         percent_complete: Math.round(((progress.answered - 1) / progress.total) * 100),
       });
     }
+  };
+
+  const handleStartOver = () => {
+    sessionStorage.removeItem("onramp_wizard_answers");
+    setAnswers({});
+    setQuestionHistory([]);
+    setCurrentQuestion(null);
+    setIsComplete(false);
+    setRecommendations([]);
+    setResolvedAnswers(null);
+    fetchNext({});
   };
 
   const handleGenerate = async () => {
@@ -147,8 +184,12 @@ export default function WizardPage() {
 
       {!loading && !isComplete && progress && <WizardProgressBar progress={progress} />}
 
+      {!loading && !isComplete && Object.keys(answers).length > 0 && (
+        <Text className={styles.autoSaveIndicator}>Progress auto-saved ✓</Text>
+      )}
+
       {!loading && !isComplete && questionHistory.length > 0 && (
-        <div className={styles.backButton}>
+        <div className={styles.navRow}>
           <Button
             appearance="subtle"
             icon={<ArrowLeftRegular />}
@@ -156,6 +197,14 @@ export default function WizardPage() {
             size="medium"
           >
             Back
+          </Button>
+          <Button
+            appearance="outline"
+            icon={<ArrowResetRegular />}
+            onClick={handleStartOver}
+            size="small"
+          >
+            Start Over
           </Button>
         </div>
       )}
@@ -170,7 +219,7 @@ export default function WizardPage() {
 
       {!loading && isComplete && !generating && (
         <>
-          <div className={styles.backButton}>
+          <div className={styles.navRow}>
             <Button
               appearance="subtle"
               icon={<ArrowLeftRegular />}
@@ -178,6 +227,14 @@ export default function WizardPage() {
               size="medium"
             >
               Back
+            </Button>
+            <Button
+              appearance="outline"
+              icon={<ArrowResetRegular />}
+              onClick={handleStartOver}
+              size="small"
+            >
+              Start Over
             </Button>
           </div>
           {recommendations.length > 0 ? (

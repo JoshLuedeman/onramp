@@ -17,7 +17,9 @@ import {
   ShieldCheckmarkRegular,
   WarningRegular,
   CheckmarkCircleRegular,
+  ArrowDownloadRegular,
 } from "@fluentui/react-icons";
+import { exportComplianceReport } from "../utils/exportUtils";
 
 const useStyles = makeStyles({
   container: {
@@ -233,6 +235,14 @@ export default function CompliancePage() {
               )}
             </Card>
           ))}
+
+          <Button
+            appearance="secondary"
+            icon={<ArrowDownloadRegular />}
+            onClick={() => exportComplianceReport(result as unknown as Record<string, unknown>)}
+          >
+            Export Report
+          </Button>
         </>
       )}
 
