@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { makeStyles, Spinner, Title1, tokens } from "@fluentui/react-components";
+import { makeStyles, Spinner, Title1, Button, tokens } from "@fluentui/react-components";
+import { ArrowLeftRegular } from "@fluentui/react-icons";
 import QuestionCard from "../components/wizard/QuestionCard";
 import WizardProgressBar from "../components/wizard/ProgressBar";
 import WizardComplete from "../components/wizard/WizardComplete";
@@ -22,6 +23,12 @@ const useStyles = makeStyles({
   spinner: {
     marginTop: "48px",
   },
+  backButton: {
+    alignSelf: "flex-start",
+    maxWidth: "640px",
+    width: "100%",
+    marginBottom: "8px",
+  },
 });
 
 export default function WizardPage() {
@@ -29,6 +36,7 @@ export default function WizardPage() {
   const navigate = useNavigate();
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
+  const [questionHistory, setQuestionHistory] = useState<Question[]>([]);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -44,6 +52,7 @@ export default function WizardPage() {
       } else {
         setCurrentQuestion(data.question);
         setProgress(data.progress || null);
+        setIsComplete(false);
       }
     } catch (error) {
       console.error("Failed to fetch next question:", error);
@@ -57,16 +66,42 @@ export default function WizardPage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAnswer = (questionId: string, answer: string | string[]) => {
+    if (currentQuestion) {
+      setQuestionHistory((prev) => [...prev, currentQuestion]);
+    }
     const newAnswers = { ...answers, [questionId]: answer };
     setAnswers(newAnswers);
     fetchNext(newAnswers);
+  };
+
+  const handleBack = () => {
+    if (questionHistory.length === 0) return;
+    const prevQuestion = questionHistory[questionHistory.length - 1];
+    setQuestionHistory((prev) => prev.slice(0, -1));
+
+    // Remove the answer for the previous question so it shows as unanswered
+    const newAnswers = { ...answers };
+    delete newAnswers[prevQuestion.id];
+    setAnswers(newAnswers);
+
+    setCurrentQuestion(prevQuestion);
+    setIsComplete(false);
+
+    // Update progress
+    if (progress) {
+      setProgress({
+        ...progress,
+        answered: progress.answered - 1,
+        remaining: progress.remaining + 1,
+        percent_complete: Math.round(((progress.answered - 1) / progress.total) * 100),
+      });
+    }
   };
 
   const handleGenerate = async () => {
     setGenerating(true);
     try {
       const result = await api.architecture.generate(answers);
-      // Store in session for the architecture page
       sessionStorage.setItem("onramp_architecture", JSON.stringify(result.architecture));
       sessionStorage.setItem("onramp_answers", JSON.stringify(answers));
       navigate("/architecture");
@@ -85,6 +120,19 @@ export default function WizardPage() {
 
       {!loading && !isComplete && progress && <WizardProgressBar progress={progress} />}
 
+      {!loading && !isComplete && questionHistory.length > 0 && (
+        <div className={styles.backButton}>
+          <Button
+            appearance="subtle"
+            icon={<ArrowLeftRegular />}
+            onClick={handleBack}
+            size="medium"
+          >
+            Back
+          </Button>
+        </div>
+      )}
+
       {!loading && !isComplete && currentQuestion && (
         <QuestionCard
           question={currentQuestion}
@@ -94,7 +142,19 @@ export default function WizardPage() {
       )}
 
       {!loading && isComplete && !generating && (
-        <WizardComplete onGenerate={handleGenerate} answeredCount={Object.keys(answers).length} />
+        <>
+          <div className={styles.backButton}>
+            <Button
+              appearance="subtle"
+              icon={<ArrowLeftRegular />}
+              onClick={handleBack}
+              size="medium"
+            >
+              Back
+            </Button>
+          </div>
+          <WizardComplete onGenerate={handleGenerate} answeredCount={Object.keys(answers).length} />
+        </>
       )}
 
       {generating && <Spinner className={styles.spinner} label="Generating your architecture..." size="large" />}

@@ -1,11 +1,11 @@
 """Questionnaire state persistence API routes."""
 
+import json
 import uuid
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
@@ -36,25 +36,22 @@ async def save_questionnaire_state(
 
     try:
         from app.models import QuestionnaireResponse
-        # Check for existing response
-        result = await db.execute(
-            select(QuestionnaireResponse).where(
+
+        # Delete existing responses for this project, then insert fresh
+        await db.execute(
+            delete(QuestionnaireResponse).where(
                 QuestionnaireResponse.project_id == request.project_id
             )
         )
-        existing = result.scalar_one_or_none()
 
-        if existing:
-            existing.answers = request.answers
-            existing.updated_at = datetime.now(timezone.utc)
-        else:
+        for question_id, answer in request.answers.items():
+            answer_value = json.dumps(answer) if isinstance(answer, list) else str(answer)
             response = QuestionnaireResponse(
                 id=str(uuid.uuid4()),
                 project_id=request.project_id,
-                answers=request.answers,
-                completed=False,
-                created_at=datetime.now(timezone.utc),
-                updated_at=datetime.now(timezone.utc),
+                question_id=question_id,
+                answer_value=answer_value,
+                answer_data={"raw": answer} if isinstance(answer, list) else None,
             )
             db.add(response)
 
@@ -76,19 +73,27 @@ async def load_questionnaire_state(
 
     try:
         from app.models import QuestionnaireResponse
+
         result = await db.execute(
             select(QuestionnaireResponse).where(
                 QuestionnaireResponse.project_id == project_id
             )
         )
-        response = result.scalar_one_or_none()
-        if not response:
+        responses = result.scalars().all()
+        if not responses:
             return {"answers": {}, "project_id": project_id}
+
+        answers: dict[str, str | list[str]] = {}
+        for resp in responses:
+            if resp.answer_data and "raw" in resp.answer_data:
+                answers[resp.question_id] = resp.answer_data["raw"]
+            else:
+                answers[resp.question_id] = resp.answer_value
+
         return {
-            "answers": response.answers,
+            "answers": answers,
             "project_id": project_id,
-            "completed": response.completed,
-            "updated_at": response.updated_at.isoformat() if response.updated_at else None,
+            "completed": len(answers) >= 24,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

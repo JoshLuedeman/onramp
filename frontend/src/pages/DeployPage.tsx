@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Card,
   Text,
@@ -62,13 +62,43 @@ export default function DeployPage() {
   const [validating, setValidating] = useState(false);
   const [validated, setValidated] = useState(false);
   const [deploying, setDeploying] = useState(false);
-  const [, setDeploymentId] = useState<string | null>(null);
+  const [deploymentId, setDeploymentId] = useState<string | null>(null);
   const [steps, setSteps] = useState<DeploymentStep[]>([]);
   const [status, setStatus] = useState<string>("idle");
   const [error, setError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stored = sessionStorage.getItem("onramp_architecture");
   const architecture: Architecture | null = stored ? JSON.parse(stored) : null;
+
+  // Poll for deployment status updates
+  const pollStatus = useCallback(async (depId: string) => {
+    try {
+      const resp = await fetch(`/api/deployment/${depId}`);
+      if (!resp.ok) return;
+      const data = await resp.json();
+      setSteps(data.steps || []);
+      setStatus(data.status || "unknown");
+
+      // Stop polling when deployment is terminal
+      if (["succeeded", "failed", "rolled_back"].includes(data.status)) {
+        if (pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
+        setDeploying(false);
+      }
+    } catch {
+      // Silently retry on next interval
+    }
+  }, []);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
 
   const handleValidate = async () => {
     setValidating(true);
@@ -98,19 +128,22 @@ export default function DeployPage() {
         }),
       });
       const data = await resp.json();
-      setDeploymentId(data.id);
+      const depId = data.id;
+      setDeploymentId(depId);
       setSteps(data.steps || []);
 
       // Start deployment
-      const startResp = await fetch(`/api/deployment/${data.id}/start`, {
+      const startResp = await fetch(`/api/deployment/${depId}/start`, {
         method: "POST",
       });
       const startData = await startResp.json();
       setSteps(startData.steps || []);
       setStatus(startData.status);
+
+      // Start polling every 3 seconds
+      pollRef.current = setInterval(() => pollStatus(depId), 3000);
     } catch (e: any) {
       setError(e.message || "Deployment failed");
-    } finally {
       setDeploying(false);
     }
   };

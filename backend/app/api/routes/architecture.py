@@ -1,7 +1,6 @@
 """Architecture generation API routes."""
 
 import uuid
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -45,11 +44,14 @@ async def generate_architecture(
             arch_record = ArchModel(
                 id=str(uuid.uuid4()),
                 project_id=request.project_id,
-                archetype=architecture.get("organization_size", ""),
-                definition=architecture,
-                ai_generated=request.use_ai,
+                architecture_data=architecture,
+                management_groups=architecture.get("management_groups"),
+                subscriptions=architecture.get("subscriptions"),
+                network_topology=architecture.get("network_topology"),
+                policies=architecture.get("policies"),
+                ai_reasoning="AI-generated" if request.use_ai else "Archetype-based",
                 version=1,
-                created_at=datetime.now(timezone.utc),
+                status="draft",
             )
             db.add(arch_record)
             await db.flush()

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   makeStyles,
   Title1,
@@ -8,7 +9,7 @@ import {
   Badge,
   Button,
 } from "@fluentui/react-components";
-import { ArrowDownloadRegular } from "@fluentui/react-icons";
+import { ArrowDownloadRegular, DocumentRegular } from "@fluentui/react-icons";
 import type { Architecture } from "../services/api";
 import ArchitectureDiagram from "../components/visualizer/ArchitectureDiagram";
 
@@ -53,6 +54,7 @@ const useStyles = makeStyles({
 
 export default function ArchitecturePage() {
   const styles = useStyles();
+  const navigate = useNavigate();
   const [architecture, setArchitecture] = useState<Architecture | null>(null);
 
   useEffect(() => {
@@ -158,8 +160,28 @@ export default function ArchitecturePage() {
       )}
 
       <div className={styles.actions}>
-        <Button appearance="primary" icon={<ArrowDownloadRegular />} size="large">
+        <Button
+          appearance="primary"
+          icon={<ArrowDownloadRegular />}
+          size="large"
+          onClick={() => navigate("/deploy")}
+        >
           Deploy to Azure
+        </Button>
+        <Button
+          appearance="secondary"
+          icon={<DocumentRegular />}
+          size="large"
+          onClick={() => navigate("/bicep")}
+        >
+          View Bicep Templates
+        </Button>
+        <Button
+          appearance="secondary"
+          size="large"
+          onClick={() => navigate("/compliance")}
+        >
+          Score Compliance
         </Button>
       </div>
     </div>
