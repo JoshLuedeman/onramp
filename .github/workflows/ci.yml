@@ -8,7 +8,7 @@ on:
 
 jobs:
   frontend:
-    name: Frontend Build & Lint
+    name: Frontend Build, Lint & Test
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -22,10 +22,11 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run lint
+      - run: npm run test:coverage
       - run: npm run build
 
   backend:
-    name: Backend Test & Lint
+    name: Backend Test, Lint & Coverage
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -37,7 +38,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
       - run: ruff check app/
-      - run: pytest tests/ -v --tb=short
+      - run: pytest tests/ -v --tb=short --cov=app --cov-report=term-missing --cov-fail-under=75
 
   infra:
     name: Validate Bicep
