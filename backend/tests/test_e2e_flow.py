@@ -21,7 +21,7 @@ def test_full_journey_small_org():
     }
     r = client.post(
         "/api/architecture/generate",
-        json={"answers": answers, "use_ai": False},
+        json={"answers": answers, "use_ai": False, "use_archetype": True},
     )
     assert r.status_code == 200
     arch = r.json()["architecture"]
@@ -81,7 +81,7 @@ def test_full_journey_enterprise_org():
     }
     r = client.post(
         "/api/architecture/generate",
-        json={"answers": answers, "use_ai": False},
+        json={"answers": answers, "use_ai": False, "use_archetype": True},
     )
     assert r.status_code == 200
     arch = r.json()["architecture"]
@@ -108,7 +108,7 @@ def test_deployment_rollback():
     answers = {"org_size": "small"}
     r = client.post(
         "/api/architecture/generate",
-        json={"answers": answers, "use_ai": False},
+        json={"answers": answers, "use_ai": False, "use_archetype": True},
     )
     arch = r.json()["architecture"]
 
@@ -135,7 +135,7 @@ def test_all_archetypes_generate_valid_bicep():
     for size in ["small", "medium", "enterprise"]:
         r = client.post(
             "/api/architecture/generate",
-            json={"answers": {"org_size": size}, "use_ai": False},
+            json={"answers": {"org_size": size}, "use_ai": False, "use_archetype": True},
         )
         assert r.status_code == 200
         arch = r.json()["architecture"]

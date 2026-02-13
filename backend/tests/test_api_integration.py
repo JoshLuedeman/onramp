@@ -69,7 +69,7 @@ def test_architecture_generate():
         "/api/architecture/generate",
         json={
             "answers": {"org_size": "small", "primary_region": "westus2"},
-            "use_ai": False,
+            "use_ai": False, "use_archetype": True,
         },
     )
     assert r.status_code == 200
@@ -102,7 +102,7 @@ def test_scoring_evaluate():
     # First generate an architecture
     arch_r = client.post(
         "/api/architecture/generate",
-        json={"answers": {"org_size": "medium"}, "use_ai": False},
+        json={"answers": {"org_size": "medium"}, "use_ai": False, "use_archetype": True},
     )
     arch = arch_r.json()["architecture"]
 
@@ -133,7 +133,7 @@ def test_bicep_template_detail():
 def test_bicep_generate():
     arch_r = client.post(
         "/api/architecture/generate",
-        json={"answers": {"org_size": "small"}, "use_ai": False},
+        json={"answers": {"org_size": "small"}, "use_ai": False, "use_archetype": True},
     )
     arch = arch_r.json()["architecture"]
 
@@ -175,7 +175,7 @@ def test_full_flow_questionnaire_to_bicep():
     }
     r = client.post(
         "/api/architecture/generate",
-        json={"answers": answers, "use_ai": False},
+        json={"answers": answers, "use_ai": False, "use_archetype": True},
     )
     assert r.status_code == 200
     arch = r.json()["architecture"]
