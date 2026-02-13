@@ -3,6 +3,29 @@
 from copy import deepcopy
 
 
+# Recommended defaults for resolving "_unsure" answers before archetype building
+RECOMMENDED_DEFAULTS: dict[str, str | list[str]] = {
+    "org_size": "medium",
+    "identity_provider": "entra_id",
+    "pim_required": "yes",
+    "mfa_requirement": "all_users",
+    "management_group_strategy": "caf_recommended",
+    "naming_convention": "caf_standard",
+    "network_topology": "hub_spoke",
+    "hybrid_connectivity": "vpn",
+    "dns_strategy": "azure_dns",
+    "security_level": "standard",
+    "siem_integration": "sentinel",
+    "monitoring_strategy": "azure_native",
+    "backup_dr": "geo_redundant",
+    "tagging_strategy": ["environment", "cost_center", "owner", "application"],
+    "cost_management": "critical",
+    "iac_tool": "bicep",
+    "cicd_platform": "github_actions",
+    "primary_region": "eastus",
+}
+
+
 ARCHETYPES: dict[str, dict] = {
     "small": {
         "name": "Small Organization Landing Zone",
@@ -331,7 +354,13 @@ def get_archetype(size: str) -> dict | None:
 
 def get_archetype_for_answers(answers: dict) -> dict:
     """Select and customize an archetype based on questionnaire answers."""
-    org_size = answers.get("org_size", "medium")
+    # Resolve _unsure answers to recommended defaults
+    resolved = dict(answers)
+    for key, value in resolved.items():
+        if value == "_unsure" and key in RECOMMENDED_DEFAULTS:
+            resolved[key] = RECOMMENDED_DEFAULTS[key]
+
+    org_size = resolved.get("org_size", "medium")
 
     # Map org sizes to archetype keys
     size_map = {
@@ -346,18 +375,18 @@ def get_archetype_for_answers(answers: dict) -> dict:
         archetype = get_archetype("medium")
 
     # Customize based on answers
-    if answers.get("primary_region"):
-        archetype["network_topology"]["primary_region"] = answers["primary_region"]
+    if resolved.get("primary_region"):
+        archetype["network_topology"]["primary_region"] = resolved["primary_region"]
 
-    if answers.get("network_topology"):
-        topo = answers["network_topology"]
+    if resolved.get("network_topology"):
+        topo = resolved["network_topology"]
         if topo == "vwan":
             archetype["network_topology"]["type"] = "vwan"
         elif topo == "hub_spoke":
             archetype["network_topology"]["type"] = "hub-spoke"
 
-    if answers.get("hybrid_connectivity"):
-        hc = answers["hybrid_connectivity"]
+    if resolved.get("hybrid_connectivity"):
+        hc = resolved["hybrid_connectivity"]
         if hc == "no":
             archetype["network_topology"]["hybrid_connectivity"] = None
         elif hc == "expressroute":
@@ -367,28 +396,28 @@ def get_archetype_for_answers(answers: dict) -> dict:
         elif hc == "both":
             archetype["network_topology"]["hybrid_connectivity"] = {"type": "expressroute", "redundant_vpn": True}
 
-    if answers.get("pim_required") == "yes":
+    if resolved.get("pim_required") == "yes":
         archetype["identity"]["pim_enabled"] = True
-    elif answers.get("pim_required") == "no":
+    elif resolved.get("pim_required") == "no":
         archetype["identity"]["pim_enabled"] = False
 
-    if answers.get("mfa_requirement"):
-        archetype["identity"]["mfa_policy"] = answers["mfa_requirement"]
+    if resolved.get("mfa_requirement"):
+        archetype["identity"]["mfa_policy"] = resolved["mfa_requirement"]
 
-    if answers.get("siem_integration") == "sentinel":
+    if resolved.get("siem_integration") == "sentinel":
         archetype["security"]["sentinel"] = True
-    elif answers.get("siem_integration") == "no":
+    elif resolved.get("siem_integration") == "no":
         archetype["security"]["sentinel"] = False
 
-    if answers.get("compliance_frameworks"):
-        frameworks = answers["compliance_frameworks"]
+    if resolved.get("compliance_frameworks"):
+        frameworks = resolved["compliance_frameworks"]
         if isinstance(frameworks, list) and "none" not in frameworks:
             archetype["compliance_frameworks"] = [
                 {"name": f, "controls_applied": 0, "coverage_percent": 0}
                 for f in frameworks
             ]
 
-    if answers.get("tagging_strategy") and isinstance(answers["tagging_strategy"], list):
+    if resolved.get("tagging_strategy") and isinstance(resolved["tagging_strategy"], list):
         tag_labels = {
             "environment": "Environment",
             "cost_center": "CostCenter",
@@ -399,14 +428,14 @@ def get_archetype_for_answers(answers: dict) -> dict:
             "project": "Project",
         }
         archetype["governance"]["tagging_strategy"]["mandatory_tags"] = [
-            tag_labels.get(t, t) for t in answers["tagging_strategy"]
+            tag_labels.get(t, t) for t in resolved["tagging_strategy"]
         ]
 
-    if answers.get("iac_tool"):
-        archetype["platform_automation"]["iac_tool"] = answers["iac_tool"]
+    if resolved.get("iac_tool"):
+        archetype["platform_automation"]["iac_tool"] = resolved["iac_tool"]
 
-    if answers.get("cicd_platform"):
-        archetype["platform_automation"]["cicd_platform"] = answers["cicd_platform"]
+    if resolved.get("cicd_platform"):
+        archetype["platform_automation"]["cicd_platform"] = resolved["cicd_platform"]
 
     return archetype
 

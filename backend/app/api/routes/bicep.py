@@ -15,6 +15,7 @@ router = APIRouter(prefix="/api/bicep", tags=["bicep"])
 
 class GenerateBicepRequest(BaseModel):
     architecture: dict
+    use_ai: bool = True
 
 
 @router.get("/templates")
@@ -38,13 +39,18 @@ async def generate_bicep(
     request: GenerateBicepRequest, user: dict = Depends(get_current_user)
 ):
     """Generate Bicep templates from an architecture definition."""
-    files = bicep_generator.generate_from_architecture(request.architecture)
+    if request.use_ai:
+        files = await bicep_generator.generate_from_architecture_with_ai(request.architecture)
+    else:
+        bicep_generator.ai_generated = False
+        files = bicep_generator.generate_from_architecture(request.architecture)
     return {
         "files": [
             {"name": name, "content": content, "size_bytes": len(content)}
             for name, content in files.items()
         ],
         "total_files": len(files),
+        "ai_generated": bicep_generator.ai_generated,
     }
 
 
@@ -53,7 +59,11 @@ async def download_bicep(
     request: GenerateBicepRequest, user: dict = Depends(get_current_user)
 ):
     """Download generated Bicep templates as a combined response."""
-    files = bicep_generator.generate_from_architecture(request.architecture)
+    if request.use_ai:
+        files = await bicep_generator.generate_from_architecture_with_ai(request.architecture)
+    else:
+        bicep_generator.ai_generated = False
+        files = bicep_generator.generate_from_architecture(request.architecture)
 
     # Combine all files into a single downloadable text
     combined = []

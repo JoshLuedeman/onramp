@@ -1,7 +1,11 @@
 """Compliance scoring engine — evaluates architectures against frameworks."""
 
+import logging
+
 from app.services.compliance_data import get_framework_by_short_name
 from app.services.policy_mapping import get_policy_definition
+
+logger = logging.getLogger(__name__)
 
 
 class ComplianceScoringEngine:
@@ -180,6 +184,79 @@ class ComplianceScoringEngine:
                     )
                     seen.add(gap["remediation"])
         return recommendations[:10]
+
+    async def score_architecture_with_ai(
+        self, architecture: dict, framework_names: list[str]
+    ) -> dict:
+        """Score architecture using AI-enhanced analysis with rule-based fallback."""
+        # Always start with rule-based baseline
+        baseline = self.score_architecture(architecture, framework_names)
+
+        try:
+            from app.services.ai_foundry import ai_client
+
+            if not ai_client.is_configured:
+                baseline["ai_enhanced"] = False
+                return baseline
+
+            ai_result = await ai_client.evaluate_compliance(architecture, framework_names)
+
+            if "error" in ai_result:
+                logger.warning("AI compliance evaluation returned error: %s", ai_result["error"])
+                baseline["ai_enhanced"] = False
+                return baseline
+
+            return self._merge_results(baseline, ai_result)
+
+        except Exception as e:
+            logger.error("AI-enhanced scoring failed: %s", e)
+            baseline["ai_enhanced"] = False
+            return baseline
+
+    def _merge_results(self, baseline: dict, ai_result: dict) -> dict:
+        """Merge AI results with rule-based baseline, keeping rule-based gaps as safety net."""
+        merged = {
+            "overall_score": ai_result.get("overall_score", baseline["overall_score"]),
+            "total_controls": baseline["total_controls"],
+            "controls_met": baseline["controls_met"],
+            "controls_partial": baseline["controls_partial"],
+            "controls_gap": baseline["controls_gap"],
+            "frameworks": [],
+            "top_recommendations": ai_result.get(
+                "top_recommendations", baseline["top_recommendations"]
+            ),
+            "ai_enhanced": True,
+        }
+
+        ai_fw_map = {
+            fw["name"]: fw for fw in ai_result.get("frameworks", [])
+        }
+
+        for base_fw in baseline["frameworks"]:
+            ai_fw = ai_fw_map.get(base_fw["name"])
+            if ai_fw:
+                # Use AI scores but union gaps from both sources
+                ai_gaps = list(ai_fw.get("gaps", []))
+                for base_gap in base_fw.get("gaps", []):
+                    if base_gap["control_id"] not in {
+                        g.get("control_id") for g in ai_gaps
+                    }:
+                        ai_gaps.append(base_gap)
+
+                merged["frameworks"].append({
+                    "name": base_fw["name"],
+                    "full_name": base_fw["full_name"],
+                    "score": ai_fw.get("score", base_fw["score"]),
+                    "status": ai_fw.get("status", base_fw["status"]),
+                    "controls_met": ai_fw.get("controls_met", base_fw["controls_met"]),
+                    "controls_partial": ai_fw.get("controls_partial", base_fw["controls_partial"]),
+                    "controls_gap": ai_fw.get("controls_gap", base_fw["controls_gap"]),
+                    "gaps": ai_gaps,
+                })
+            else:
+                merged["frameworks"].append(base_fw)
+
+        return merged
 
 
 # Singleton

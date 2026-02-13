@@ -1,5 +1,6 @@
 """Bicep template generator — creates deployable Bicep from architecture definitions."""
 
+import json
 import os
 import logging
 from datetime import datetime, timezone
@@ -15,6 +16,7 @@ class BicepGenerator:
 
     def __init__(self):
         self.template_dir = TEMPLATE_DIR
+        self.ai_generated: bool = False
 
     def get_version(self) -> str:
         """Return the current template version."""
@@ -38,6 +40,31 @@ class BicepGenerator:
                     "size_bytes": f.stat().st_size,
                 })
         return templates
+
+    async def generate_from_architecture_with_ai(self, architecture: dict) -> dict[str, str]:
+        """Generate Bicep files using AI, falling back to static templates.
+
+        Returns a dict of {filename: bicep_content}.
+        """
+        from app.services.ai_foundry import ai_client
+
+        # Start with static templates as the base
+        static_files = self.generate_from_architecture(architecture)
+
+        try:
+            raw_response = await ai_client.generate_bicep(architecture)
+            ai_files = json.loads(raw_response)
+            if not isinstance(ai_files, dict) or not ai_files:
+                raise ValueError("AI response is not a valid file mapping")
+            # Merge: AI-generated content overrides/supplements static templates
+            static_files.update(ai_files)
+            self.ai_generated = True
+            logger.info("Bicep generated via AI (%d files)", len(ai_files))
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            logger.warning("AI Bicep generation failed, using static fallback: %s", e)
+            self.ai_generated = False
+
+        return static_files
 
     def generate_from_architecture(self, architecture: dict) -> dict[str, str]:
         """Generate a set of Bicep files from an architecture definition.

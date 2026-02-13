@@ -224,6 +224,10 @@ def build_architecture_prompt(questionnaire_answers: dict) -> str:
             grouped[category] = []
         if isinstance(value, list):
             grouped[category].append(f"- {key}: {', '.join(value)}")
+        elif value == "_unsure":
+            grouped[category].append(
+                f"- {key}: _unsure (please recommend the best option based on other requirements)"
+            )
         else:
             grouped[category].append(f"- {key}: {value}")
 

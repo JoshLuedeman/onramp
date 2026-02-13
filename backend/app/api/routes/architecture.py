@@ -16,6 +16,7 @@ router = APIRouter(prefix="/api/architecture", tags=["architecture"])
 class GenerateRequest(BaseModel):
     answers: dict[str, str | list[str]]
     use_ai: bool = False
+    use_archetype: bool = False
     project_id: str = ""
 
 
@@ -31,11 +32,14 @@ async def generate_architecture(
     db: AsyncSession = Depends(get_db),
 ):
     """Generate a landing zone architecture from questionnaire answers."""
-    if request.use_ai:
+    # Use AI by default; fall back to static archetypes only when explicitly requested
+    if request.use_archetype and not request.use_ai:
+        architecture = get_archetype_for_answers(request.answers)
+        used_ai = False
+    else:
         from app.services.ai_foundry import ai_client
         architecture = await ai_client.generate_architecture(request.answers)
-    else:
-        architecture = get_archetype_for_answers(request.answers)
+        used_ai = True
 
     # Persist if project_id provided and DB available
     if request.project_id and db is not None:
@@ -49,7 +53,7 @@ async def generate_architecture(
                 subscriptions=architecture.get("subscriptions"),
                 network_topology=architecture.get("network_topology"),
                 policies=architecture.get("policies"),
-                ai_reasoning="AI-generated" if request.use_ai else "Archetype-based",
+                ai_reasoning="AI-generated" if used_ai else "Archetype-based",
                 version=1,
                 status="draft",
             )
