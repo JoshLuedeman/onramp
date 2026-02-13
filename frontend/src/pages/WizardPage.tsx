@@ -5,6 +5,7 @@ import { ArrowLeftRegular } from "@fluentui/react-icons";
 import QuestionCard from "../components/wizard/QuestionCard";
 import WizardProgressBar from "../components/wizard/ProgressBar";
 import WizardComplete from "../components/wizard/WizardComplete";
+import UnsureReview from "../components/wizard/UnsureReview";
 import type { Question, Progress } from "../services/api";
 import { api } from "../services/api";
 
@@ -41,6 +42,10 @@ export default function WizardPage() {
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [recommendations, setRecommendations] = useState<
+    { question_id: string; recommended_value: string; reason: string }[]
+  >([]);
+  const [resolvedAnswers, setResolvedAnswers] = useState<Record<string, string | string[]> | null>(null);
 
   const fetchNext = useCallback(async (currentAnswers: Record<string, string | string[]>) => {
     setLoading(true);
@@ -49,6 +54,21 @@ export default function WizardPage() {
       if (data.complete) {
         setIsComplete(true);
         setCurrentQuestion(null);
+        // Resolve unsure answers
+        try {
+          const unsureResult = await api.questionnaire.resolveUnsure(currentAnswers);
+          if (unsureResult.recommendations.length > 0) {
+            setRecommendations(unsureResult.recommendations);
+            setResolvedAnswers(unsureResult.resolved_answers);
+          } else {
+            setRecommendations([]);
+            setResolvedAnswers(null);
+          }
+        } catch (err) {
+          console.error("Failed to resolve unsure answers:", err);
+          setRecommendations([]);
+          setResolvedAnswers(null);
+        }
       } else {
         setCurrentQuestion(data.question);
         setProgress(data.progress || null);
@@ -101,15 +121,22 @@ export default function WizardPage() {
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      const result = await api.architecture.generate(answers);
+      const finalAnswers = resolvedAnswers || answers;
+      const result = await api.architecture.generate(finalAnswers);
       sessionStorage.setItem("onramp_architecture", JSON.stringify(result.architecture));
-      sessionStorage.setItem("onramp_answers", JSON.stringify(answers));
+      sessionStorage.setItem("onramp_answers", JSON.stringify(finalAnswers));
       navigate("/architecture");
     } catch (error) {
       console.error("Failed to generate architecture:", error);
     } finally {
       setGenerating(false);
     }
+  };
+
+  const handleAcceptRecommendations = (accepted: Record<string, string | string[]>) => {
+    const finalAnswers = { ...answers, ...accepted };
+    setResolvedAnswers(finalAnswers);
+    setRecommendations([]);
   };
 
   return (
@@ -153,7 +180,14 @@ export default function WizardPage() {
               Back
             </Button>
           </div>
-          <WizardComplete onGenerate={handleGenerate} answeredCount={Object.keys(answers).length} />
+          {recommendations.length > 0 ? (
+            <UnsureReview
+              recommendations={recommendations}
+              onAccept={handleAcceptRecommendations}
+            />
+          ) : (
+            <WizardComplete onGenerate={handleGenerate} answeredCount={Object.keys(answers).length} />
+          )}
         </>
       )}
 

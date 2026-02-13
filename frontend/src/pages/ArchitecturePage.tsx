@@ -8,10 +8,19 @@ import {
   tokens,
   Badge,
   Button,
+  Spinner,
+  Table,
+  TableHeader,
+  TableRow,
+  TableHeaderCell,
+  TableBody,
+  TableCell,
 } from "@fluentui/react-components";
-import { ArrowDownloadRegular, DocumentRegular } from "@fluentui/react-icons";
-import type { Architecture } from "../services/api";
+import { ArrowDownloadRegular, DocumentRegular, CalculatorRegular } from "@fluentui/react-icons";
+import type { Architecture, CostEstimation } from "../services/api";
+import { api } from "../services/api";
 import ArchitectureDiagram from "../components/visualizer/ArchitectureDiagram";
+import ArchitectureChat from "../components/visualizer/ArchitectureChat";
 
 const useStyles = makeStyles({
   container: {
@@ -50,12 +59,22 @@ const useStyles = makeStyles({
     padding: "4px 0",
     borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
   },
+  costBreakdown: {
+    marginTop: "12px",
+  },
+  tipsList: {
+    margin: "8px 0 0 0",
+    paddingLeft: "20px",
+  },
 });
 
 export default function ArchitecturePage() {
   const styles = useStyles();
   const navigate = useNavigate();
   const [architecture, setArchitecture] = useState<Architecture | null>(null);
+  const [costEstimation, setCostEstimation] = useState<CostEstimation | null>(null);
+  const [costLoading, setCostLoading] = useState(false);
+  const [costError, setCostError] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("onramp_architecture");
@@ -72,6 +91,20 @@ export default function ArchitecturePage() {
       </div>
     );
   }
+
+  const handleEstimateCosts = async () => {
+    if (!architecture) return;
+    setCostLoading(true);
+    setCostError(null);
+    try {
+      const result = await api.architecture.estimateCosts(architecture as Record<string, unknown>);
+      setCostEstimation(result);
+    } catch (e) {
+      setCostError(e instanceof Error ? e.message : "Failed to estimate costs");
+    } finally {
+      setCostLoading(false);
+    }
+  };
 
   const arch = architecture as Architecture & {
     identity?: Record<string, unknown>;
@@ -143,8 +176,65 @@ export default function ArchitecturePage() {
         <Card className={styles.card}>
           <Body1 className={styles.cardTitle}>💰 Estimated Cost</Body1>
           <Body1>
-            <strong>${arch.estimated_monthly_cost_usd?.toLocaleString() || "N/A"}</strong>/month
+            <strong>
+              ${costEstimation
+                ? costEstimation.estimated_monthly_total_usd.toLocaleString()
+                : arch.estimated_monthly_cost_usd?.toLocaleString() || "N/A"}
+            </strong>/month
           </Body1>
+          {costEstimation && (
+            <>
+              <Badge
+                appearance="filled"
+                color={costEstimation.confidence === "high" ? "success" : costEstimation.confidence === "medium" ? "warning" : "danger"}
+                style={{ marginTop: "8px" }}
+              >
+                {costEstimation.confidence} confidence
+              </Badge>
+              <div className={styles.costBreakdown}>
+                <Table size="small">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHeaderCell>Category</TableHeaderCell>
+                      <TableHeaderCell>Service</TableHeaderCell>
+                      <TableHeaderCell>Monthly Cost</TableHeaderCell>
+                      <TableHeaderCell>Notes</TableHeaderCell>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {costEstimation.breakdown.map((item, i) => (
+                      <TableRow key={i}>
+                        <TableCell>{item.category}</TableCell>
+                        <TableCell>{item.service}</TableCell>
+                        <TableCell>${item.estimated_monthly_usd.toLocaleString()}</TableCell>
+                        <TableCell>{item.notes}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {costEstimation.cost_optimization_tips.length > 0 && (
+                <div style={{ marginTop: "12px" }}>
+                  <Body1 className={styles.cardTitle}>💡 Cost Optimization Tips</Body1>
+                  <ul className={styles.tipsList}>
+                    {costEstimation.cost_optimization_tips.map((tip, i) => (
+                      <li key={i}><Body1>{tip}</Body1></li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+          {costError && <Body1 style={{ color: tokens.colorPaletteRedForeground1, marginTop: "8px" }}>{costError}</Body1>}
+          <Button
+            appearance="subtle"
+            icon={costLoading ? <Spinner size="tiny" /> : <CalculatorRegular />}
+            disabled={costLoading}
+            onClick={handleEstimateCosts}
+            style={{ marginTop: "8px" }}
+          >
+            {costLoading ? "Estimating..." : costEstimation ? "Re-estimate Costs" : "Estimate Costs"}
+          </Button>
         </Card>
       </div>
 
@@ -184,6 +274,14 @@ export default function ArchitecturePage() {
           Score Compliance
         </Button>
       </div>
+
+      <ArchitectureChat
+        architecture={architecture}
+        onArchitectureUpdate={(updated) => {
+          setArchitecture(updated);
+          sessionStorage.setItem("onramp_architecture", JSON.stringify(updated));
+        }}
+      />
     </div>
   );
 }

@@ -183,6 +183,19 @@ class AIFoundryClient:
         except json.JSONDecodeError:
             return {"error": "Failed to parse compliance evaluation", "raw": response}
 
+    async def estimate_costs(self, architecture: dict) -> dict:
+        """Estimate monthly Azure costs for an architecture."""
+        from app.services.prompts import COST_ESTIMATION_PROMPT
+
+        user_prompt = json.dumps(architecture, indent=2)
+        response = self.generate_completion(
+            COST_ESTIMATION_PROMPT, user_prompt, temperature=0.2
+        )
+        try:
+            return json.loads(response)
+        except json.JSONDecodeError:
+            return {"error": "Failed to parse cost estimation", "raw": response}
+
     async def generate_bicep(self, architecture: dict) -> str:
         """Generate Bicep templates using AI."""
         from app.services.prompts import BICEP_GENERATION_PROMPT
@@ -266,6 +279,37 @@ class AIFoundryClient:
                     "Configure automated access reviews for privileged and guest accounts",
                     "Enable diagnostic settings for all Azure resources to Log Analytics",
                     "Implement automated incident response playbooks with Logic Apps",
+                ],
+            })
+        if "cost" in prompt_lower and "estimat" in prompt_lower:
+            return json.dumps({
+                "estimated_monthly_total_usd": 4250,
+                "confidence": "medium",
+                "breakdown": [
+                    {"category": "Networking", "service": "Azure Firewall Premium", "estimated_monthly_usd": 1750, "notes": "Premium SKU with IDPS enabled, ~1TB processed/month"},
+                    {"category": "Networking", "service": "VPN Gateway", "estimated_monthly_usd": 350, "notes": "VpnGw1 for hybrid connectivity"},
+                    {"category": "Security", "service": "Microsoft Defender for Cloud", "estimated_monthly_usd": 450, "notes": "Defender for Servers P2, App Service, Key Vault, DNS"},
+                    {"category": "Security", "service": "Microsoft Sentinel", "estimated_monthly_usd": 400, "notes": "~5GB/day ingestion to Log Analytics"},
+                    {"category": "Management", "service": "Log Analytics Workspace", "estimated_monthly_usd": 350, "notes": "Commitment tier for ~10GB/day ingestion"},
+                    {"category": "Management", "service": "Azure Monitor", "estimated_monthly_usd": 150, "notes": "Metrics, alerts, and diagnostic settings"},
+                    {"category": "Storage", "service": "Azure Backup", "estimated_monthly_usd": 200, "notes": "VM and SQL backup with 30-day retention"},
+                    {"category": "Identity", "service": "Entra ID P2", "estimated_monthly_usd": 270, "notes": "30 users with PIM and conditional access"},
+                    {"category": "Management", "service": "Key Vault", "estimated_monthly_usd": 30, "notes": "2 vaults, ~1000 operations/month each"},
+                    {"category": "Networking", "service": "Azure Bastion", "estimated_monthly_usd": 300, "notes": "Standard SKU for secure VM access"},
+                ],
+                "cost_optimization_tips": [
+                    "Consider Azure Firewall Basic SKU if IDPS is not required — saves ~$1,000/month",
+                    "Use Azure Savings Plan for compute to reduce VM costs by up to 65%",
+                    "Right-size Log Analytics ingestion with data collection rules to filter unnecessary logs",
+                    "Evaluate Microsoft Sentinel free data sources before adding paid connectors",
+                    "Use Azure Reservations for VPN Gateway and Bastion for 1-year commitment discounts",
+                ],
+                "assumptions": [
+                    "Pricing based on East US 2 region",
+                    "No production workload VMs included — only platform/shared services",
+                    "Sentinel ingestion estimated at 5GB/day from connected sources",
+                    "30 privileged users requiring Entra ID P2 licenses",
+                    "Standard redundancy for all storage resources",
                 ],
             })
         if "bicep" in prompt_lower:

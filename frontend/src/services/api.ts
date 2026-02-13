@@ -23,6 +23,11 @@ export const api = {
         "/api/questionnaire/next",
         { method: "POST", body: JSON.stringify({ answers }) }
       ),
+    resolveUnsure: (answers: Record<string, string | string[]>) =>
+      fetchApi<{ resolved_answers: Record<string, string | string[]>; recommendations: { question_id: string; recommended_value: string; reason: string }[] }>(
+        "/api/questionnaire/resolve-unsure",
+        { method: "POST", body: JSON.stringify({ answers }) }
+      ),
     getProgress: (answers: Record<string, string | string[]>) =>
       fetchApi<Progress>("/api/questionnaire/progress", {
         method: "POST",
@@ -36,6 +41,16 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ answers, use_ai: useAi }),
       }),
+    refine: (architecture: Record<string, unknown>, message: string) =>
+      fetchApi<{ response: string; updated_architecture: Record<string, unknown> | null }>(
+        "/api/architecture/refine",
+        { method: "POST", body: JSON.stringify({ architecture, message }) }
+      ),
+    estimateCosts: (architecture: Record<string, unknown>) =>
+      fetchApi<CostEstimation>(
+        "/api/architecture/estimate-costs",
+        { method: "POST", body: JSON.stringify({ architecture }) }
+      ),
   },
   validateSubscription: (subscriptionId: string, location: string) =>
     fetchApi<{ valid: boolean }>("/api/deployment/validate-subscription", {
@@ -86,6 +101,14 @@ export interface Architecture {
   subscriptions: { name: string; purpose: string; management_group: string }[];
   network_topology: Record<string, unknown>;
   [key: string]: unknown;
+}
+
+export interface CostEstimation {
+  estimated_monthly_total_usd: number;
+  confidence: string;
+  breakdown: { category: string; service: string; estimated_monthly_usd: number; notes: string }[];
+  cost_optimization_tips: string[];
+  assumptions: string[];
 }
 
 export interface Framework {

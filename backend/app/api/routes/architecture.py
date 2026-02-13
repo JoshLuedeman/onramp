@@ -1,6 +1,8 @@
 """Architecture generation API routes."""
 
+import json
 import uuid
+from typing import Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -18,6 +20,10 @@ class GenerateRequest(BaseModel):
     use_ai: bool = False
     use_archetype: bool = False
     project_id: str = ""
+
+
+class CostEstimateRequest(BaseModel):
+    architecture: dict
 
 
 @router.get("/archetypes")
@@ -64,3 +70,56 @@ async def generate_architecture(
             logging.getLogger("onramp").warning(f"Failed to persist architecture: {e}")
 
     return {"architecture": architecture}
+
+
+@router.post("/estimate-costs")
+async def estimate_costs(
+    request: CostEstimateRequest, user: dict = Depends(get_current_user),
+):
+    """Estimate monthly Azure costs for an architecture."""
+    from app.services.ai_foundry import ai_client
+
+    result = await ai_client.estimate_costs(request.architecture)
+    return result
+
+
+class RefineRequest(BaseModel):
+    architecture: dict
+    message: str
+
+
+@router.post("/refine")
+async def refine_architecture(
+    request: RefineRequest, user: dict = Depends(get_current_user),
+):
+    """Refine a landing zone architecture via conversational AI."""
+    from app.services.ai_foundry import ai_client
+    from app.services.prompts import ARCHITECTURE_REFINEMENT_PROMPT
+
+    if not ai_client.is_configured:
+        return {
+            "response": f"I've noted your request: \"{request.message}\". "
+            "AI refinement is not configured in dev mode, but your feedback has been acknowledged.",
+            "updated_architecture": None,
+        }
+
+    user_prompt = (
+        f"Current architecture:\n{json.dumps(request.architecture, indent=2)}\n\n"
+        f"User request: {request.message}"
+    )
+    raw = await ai_client.generate_completion_async(
+        ARCHITECTURE_REFINEMENT_PROMPT, user_prompt,
+    )
+
+    # Try to parse as JSON (updated architecture)
+    updated_architecture: Optional[dict] = None
+    response_text = raw
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            updated_architecture = parsed
+            response_text = parsed.pop("explanation", "Architecture updated based on your request.")
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    return {"response": response_text, "updated_architecture": updated_architecture}

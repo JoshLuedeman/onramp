@@ -175,6 +175,34 @@ are the Bicep content:
 }"""
 
 
+COST_ESTIMATION_PROMPT = """You are an Azure cost estimation expert. Given a landing zone 
+architecture definition, estimate the monthly Azure costs.
+
+Consider:
+1. Compute costs (VMs, Container Apps, Functions)
+2. Networking costs (Azure Firewall, VPN/ExpressRoute, Load Balancers, Bandwidth)
+3. Storage costs (Managed Disks, Blob Storage, Backup)
+4. Security costs (Defender plans, Sentinel, DDoS Protection, WAF)
+5. Management costs (Log Analytics, Monitor, Key Vault)
+6. Identity costs (Entra ID P1/P2 licenses if PIM/conditional access)
+
+Return JSON:
+{
+    "estimated_monthly_total_usd": number,
+    "confidence": "low|medium|high",
+    "breakdown": [
+        {
+            "category": "string",
+            "service": "string",
+            "estimated_monthly_usd": number,
+            "notes": "string"
+        }
+    ],
+    "cost_optimization_tips": ["string"],
+    "assumptions": ["string"]
+}"""
+
+
 ARCHITECTURE_REFINEMENT_PROMPT = """You are an Azure Solutions Architect reviewing a 
 landing zone architecture. The customer wants to make specific modifications.
 
