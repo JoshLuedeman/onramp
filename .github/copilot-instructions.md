@@ -172,11 +172,15 @@ onramp/
 
 ## Testing Standards
 
-### Coverage Requirements
+### Coverage Requirements (MANDATORY)
 
-- **Backend:** All new code must have corresponding tests. Target **80%+ line coverage** for services and routes.
+**Every code change must include tests.** This is non-negotiable — PRs without test coverage for new/modified code will not be merged.
+
+- **Backend:** Target **75%+ line coverage** overall, **80%+ for services and routes**. All new code must have corresponding tests.
+- **Frontend:** Target **75%+ line coverage** overall, **70%+ branch coverage**, **60%+ function coverage**.
 - **Critical paths** (questionnaire flow, architecture generation, compliance scoring, deployment orchestration) must have **90%+ coverage**.
-- Tests live in `backend/tests/` alongside the code they test, named `test_<module>.py`.
+- Tests live in `backend/tests/` named `test_<module>.py` and `frontend/src/**/*.test.{ts,tsx}` colocated with source.
+- CI enforces minimum 75% coverage on both frontend and backend — builds fail below this threshold.
 
 ### Backend Testing
 
@@ -220,16 +224,52 @@ onramp/
 
 ### Frontend Testing
 
+- **Framework:** Vitest + @testing-library/react + @testing-library/user-event
+- **Coverage:** @vitest/coverage-v8 (V8-based). Configured in `frontend/vitest.config.ts`.
+- **Environment:** jsdom. Setup file at `frontend/src/test/setup.ts` (imports `@testing-library/jest-dom/vitest`, polyfills `ResizeObserver`).
+- **Running tests:**
+  ```bash
+  cd frontend && npm run test           # Watch mode
+  cd frontend && npm run test:coverage  # With coverage report
+  ```
+- **Writing new tests:**
+  ```tsx
+  import { render, screen } from '@testing-library/react';
+  import { FluentProvider, teamsLightTheme } from '@fluentui/react-components';
+  import { MemoryRouter } from 'react-router-dom';
+  import MyComponent from './MyComponent';
+
+  function renderWithProviders(ui: React.ReactElement) {
+    return render(
+      <FluentProvider theme={teamsLightTheme}>
+        <MemoryRouter>{ui}</MemoryRouter>
+      </FluentProvider>
+    );
+  }
+
+  describe('MyComponent', () => {
+    it('renders heading', () => {
+      renderWithProviders(<MyComponent />);
+      expect(screen.getByRole('heading')).toBeInTheDocument();
+    });
+  });
+  ```
+- **Known gotchas:**
+  - Fluent UI components require `FluentProvider` wrapper in tests
+  - `document.createElement` mocks break jsdom rendering — mock `URL.createObjectURL` after `render()`
+  - Fluent UI Checkbox does not reliably toggle via `userEvent.click` in jsdom
+  - Type-only files (`src/types/**`) are excluded from coverage
 - **Linting:** ESLint with typescript-eslint and react-hooks plugin. Run with `npm run lint`.
 - **Type checking:** `tsc -b` (run as part of `npm run build`).
-- Future: Vitest for unit tests, Playwright for E2E tests.
 
 ### CI Pipeline
 
 All of the following run on every push to `main` and every PR:
-1. **Frontend:** `npm ci` → `npm run lint` → `npm run build`
-2. **Backend:** `pip install -e ".[dev]"` → `ruff check app/` → `pytest tests/ -v`
+1. **Frontend:** `npm ci` → `npm run lint` → `npm run test:coverage` → `npm run build`
+2. **Backend:** `pip install -e ".[dev]"` → `ruff check app/` → `pytest tests/ -v --cov=app --cov-fail-under=75`
 3. **Infrastructure:** `az bicep build --file infra/main.bicep`
+
+Coverage thresholds are enforced in CI — both frontend (vitest.config.ts thresholds) and backend (`--cov-fail-under=75`) will fail the build if coverage drops below minimums.
 
 ---
 
