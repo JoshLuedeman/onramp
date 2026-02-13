@@ -15,8 +15,18 @@
 
 set -euo pipefail
 
+# Always run from the directory where this script lives
+cd "$(dirname "$(readlink -f "$0")")"
+
 COMPOSE="docker compose"
 PROJECT="onramp"
+
+# Detect host IP — use WSL IP if available, otherwise localhost
+if grep -qi microsoft /proc/version 2>/dev/null; then
+    HOST_IP=$(hostname -I | awk '{print $1}')
+else
+    HOST_IP="localhost"
+fi
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -74,18 +84,18 @@ cmd_up() {
     echo -e "${BLUE}Waiting for services to be healthy...${NC}"
 
     # SQL Server takes the longest — wait for it first
-    wait_for_health "SQL Server" "http://localhost:8000/health" 90 || true
-    wait_for_health "Backend" "http://localhost:8000/health" 30 || true
-    wait_for_health "Frontend" "http://localhost:5173" 30 || true
+    wait_for_health "SQL Server" "http://${HOST_IP}:8000/health" 90 || true
+    wait_for_health "Backend" "http://${HOST_IP}:8000/health" 30 || true
+    wait_for_health "Frontend" "http://${HOST_IP}:5173" 30 || true
 
     echo ""
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${GREEN}  OnRamp is running!${NC}"
     echo ""
-    echo -e "  Frontend:  ${BLUE}http://localhost:5173${NC}"
-    echo -e "  Backend:   ${BLUE}http://localhost:8000${NC}"
-    echo -e "  API Docs:  ${BLUE}http://localhost:8000/docs${NC}"
-    echo -e "  Health:    ${BLUE}http://localhost:8000/health${NC}"
+    echo -e "  Frontend:  ${BLUE}http://${HOST_IP}:5173${NC}"
+    echo -e "  Backend:   ${BLUE}http://${HOST_IP}:8000${NC}"
+    echo -e "  API Docs:  ${BLUE}http://${HOST_IP}:8000/docs${NC}"
+    echo -e "  Health:    ${BLUE}http://${HOST_IP}:8000/health${NC}"
     echo ""
     echo -e "  ${YELLOW}Running in dev mode — mock auth, mock AI, hot reload enabled${NC}"
     echo ""
@@ -132,9 +142,9 @@ cmd_status() {
     $COMPOSE ps
 
     echo ""
-    if curl -sf http://localhost:8000/health &>/dev/null; then
+    if curl -sf http://${HOST_IP}:8000/health &>/dev/null; then
         local health
-        health=$(curl -sf http://localhost:8000/health)
+        health=$(curl -sf http://${HOST_IP}:8000/health)
         echo -e "Backend health: ${GREEN}$(echo "$health" | python3 -m json.tool 2>/dev/null || echo "$health")${NC}"
     else
         echo -e "Backend health: ${RED}unreachable${NC}"
