@@ -14,7 +14,7 @@ OnRamp is an AI-powered Azure Landing Zone Architect & Deployer. It guides Azure
 
 | Layer | Technology | Version |
 |-------|-----------|---------|
-| Frontend | React + TypeScript + Vite | React 18+, TS 5.9+, Vite 7+ |
+| Frontend | React + TypeScript + Vite | React 19, TS 5.9, Vite 7 |
 | UI Framework | Fluent UI React v9 (`@fluentui/react-components`) | v9 only — never v8 |
 | Backend | Python + FastAPI | Python 3.12+, FastAPI latest |
 | ORM | SQLAlchemy 2.0 (async) + Alembic | SQLAlchemy 2.0+ |
@@ -23,10 +23,11 @@ OnRamp is an AI-powered Azure Landing Zone Architect & Deployer. It guides Azure
 | Auth | Microsoft Entra ID / MSAL | msal-browser, msal-react, msal-python |
 | IaC | Bicep | Azure-native |
 | Hosting | Azure Container Apps | Containerized |
-| CI/CD | GitHub Actions | Node 22, Python 3.12 |
+| CI/CD | GitHub Actions | Node 24, Python 3.12 |
 | Linting (backend) | Ruff | 0.5+ |
 | Linting (frontend) | ESLint + typescript-eslint | ESLint 9+ |
 | Testing (backend) | pytest + pytest-asyncio + pytest-cov | pytest 8+ |
+| Testing (frontend) | Vitest + @testing-library/react | Vitest 3, @vitest/coverage-v8 |
 
 ---
 
@@ -36,19 +37,30 @@ OnRamp is an AI-powered Azure Landing Zone Architect & Deployer. It guides Azure
 onramp/
 ├── .github/
 │   ├── copilot-instructions.md   # This file
+│   ├── instructions/              # Path-scoped Copilot instructions
+│   │   ├── frontend.instructions.md
+│   │   ├── backend.instructions.md
+│   │   └── infra.instructions.md
 │   └── workflows/
 │       ├── ci.yml                 # Build, lint, test on push/PR
 │       └── deploy.yml             # Deploy to Azure Container Apps
+├── AGENTS.md                      # Copilot coding agent task instructions
 ├── frontend/                      # React + Fluent UI v9
 │   ├── src/
 │   │   ├── auth/                  # MSAL config, AuthProvider, useAuth hook
 │   │   ├── components/
-│   │   │   ├── wizard/            # QuestionCard, ProgressBar, WizardComplete
-│   │   │   ├── visualizer/        # ArchitectureDiagram, DetailPanel
-│   │   │   └── shared/            # Layout, Header, AuthButton
+│   │   │   ├── wizard/            # QuestionCard, ProgressBar, WizardComplete, UnsureReview
+│   │   │   ├── visualizer/        # ArchitectureDiagram, DetailPanel, ExportMenu, ArchitectureChat
+│   │   │   ├── shared/            # Layout, Header, AuthButton, ErrorBoundary, ApiError, PageSkeleton
+│   │   │   └── deploy/            # Deployment components
+│   │   ├── hooks/                 # Custom React hooks
 │   │   ├── pages/                 # HomePage, WizardPage, ArchitecturePage,
 │   │   │                          # CompliancePage, BicepPage, DeployPage
-│   │   └── services/              # API client (api.ts) — single source for all API calls
+│   │   ├── services/              # API client (api.ts)
+│   │   ├── test/                  # Test setup (setup.ts)
+│   │   ├── types/                 # TypeScript type definitions
+│   │   └── utils/                 # Utility functions (exportUtils.ts)
+│   ├── vitest.config.ts           # Test config with coverage thresholds
 │   ├── eslint.config.js
 │   ├── tsconfig.json
 │   ├── vite.config.ts
@@ -57,24 +69,30 @@ onramp/
 │   ├── app/
 │   │   ├── main.py                # FastAPI app entry, lifespan, router registration
 │   │   ├── config.py              # Pydantic Settings with ONRAMP_ prefix
-│   │   ├── api/routes/            # Route modules (questionnaire, architecture, etc.)
-│   │   ├── services/              # Business logic singletons
-│   │   ├── models/                # SQLAlchemy ORM models
+│   │   ├── security.py            # Security headers middleware
+│   │   ├── startup.py             # App startup logic
+│   │   ├── api/
+│   │   │   ├── dependencies.py    # FastAPI dependencies (get_db, auth)
+│   │   │   └── routes/            # 9 route modules
+│   │   ├── services/              # Business logic (10 service modules)
+│   │   ├── models/                # SQLAlchemy ORM models (8 models)
 │   │   ├── schemas/               # Pydantic request/response schemas
 │   │   ├── db/                    # Engine, session factory, seed script
 │   │   ├── auth/                  # Entra ID token validation, RBAC middleware
 │   │   └── templates/bicep/       # Bicep template library
 │   ├── alembic/                   # Database migrations
-│   ├── tests/                     # pytest test suite (94+ tests)
+│   ├── tests/                     # pytest test suite (35 files, 245+ tests)
 │   ├── pyproject.toml
 │   └── Dockerfile
 ├── infra/                         # Bicep modules for OnRamp's own Azure infrastructure
 │   ├── main.bicep
 │   ├── modules/                   # container-apps, sql, ai-foundry, keyvault, monitoring
+│   ├── dev.bicepparam
+│   ├── prod.bicepparam
 │   └── azuredeploy.json           # ARM template for Deploy to Azure button
 ├── docs/                          # Architecture, API, and development documentation
 ├── dev.sh                         # One-command dev environment (up/down/reset/logs/test)
-└── docker-compose.yml             # Dev containers (backend + frontend)
+└── docker-compose.yml             # Dev containers (backend + frontend + SQL Server)
 ```
 
 ---
@@ -95,6 +113,25 @@ onramp/
 - **Backend:** Uvicorn on port `8000` with `--reload` for auto-restart on file changes.
 - **No Azure credentials required** for local dev — mock auth, mock AI, and SQLite are used automatically.
 - **Dev mode detection:** When `ONRAMP_AZURE_TENANT_ID` is empty, the app runs in dev mode.
+
+### Environment Variables
+
+All variables use the `ONRAMP_` prefix. Set in `.env` (gitignored) or container environment.
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `ONRAMP_DATABASE_URL` | str | (dev: SQLite auto) | Database connection string |
+| `ONRAMP_AZURE_TENANT_ID` | str | `""` | Azure AD tenant ID. Empty = dev mode |
+| `ONRAMP_AZURE_CLIENT_ID` | str | `""` | Azure AD app registration client ID |
+| `ONRAMP_AZURE_CLIENT_SECRET` | str | `""` | Azure AD client secret |
+| `ONRAMP_AI_FOUNDRY_ENDPOINT` | str | `""` | Azure AI Foundry endpoint URL |
+| `ONRAMP_AI_FOUNDRY_KEY` | str | `""` | Azure AI Foundry API key |
+| `ONRAMP_AI_FOUNDRY_DEPLOYMENT` | str | `""` | AI model deployment name |
+| `ONRAMP_AI_FOUNDRY_MODEL` | str | `"gpt-4o"` | AI model name |
+| `ONRAMP_CORS_ORIGINS` | list[str] | `["http://localhost:5173"]` | Allowed CORS origins (JSON array) |
+| `ONRAMP_DEBUG` | bool | `false` | Enable debug mode |
+
+When `ONRAMP_AZURE_TENANT_ID` is empty, the app runs in **dev mode**: mock auth, SQLite, mock AI responses, no Azure SDK calls.
 
 ---
 
@@ -186,21 +223,12 @@ onramp/
 
 - **Framework:** pytest + pytest-asyncio + httpx AsyncClient
 - **Async mode:** `asyncio_mode = "auto"` in `pyproject.toml` — all async test functions are auto-detected.
-- **Test categories:**
-  - `test_health.py` — Health check endpoint
-  - `test_api_integration.py` — API route integration tests
-  - `test_questionnaire.py` — Questionnaire service logic
-  - `test_archetypes.py` — Architecture archetype selection
-  - `test_compliance.py`, `test_compliance_scoring.py` — Compliance engine
-  - `test_bicep_generator.py` — Bicep template generation
-  - `test_deployment.py` — Deployment orchestration
-  - `test_credentials.py` — Azure credential management
-  - `test_e2e_flow.py` — End-to-end flow tests
-  - `test_performance.py` — Performance benchmarks
-  - `test_startup.py` — App startup validation
-  - `test_models.py` — ORM model tests
-  - `test_rbac.py` — Role-based access control
-  - `test_users.py` — User management
+- **Test categories (35 files, 245+ tests):**
+  - Route tests: `test_health`, `test_api_integration`, `test_routes_architecture`, `test_routes_bicep`, `test_routes_projects`, `test_routes_questionnaire_state`, `test_routes_scoring`
+  - Service tests: `test_questionnaire`, `test_archetypes`, `test_compliance`, `test_compliance_scoring`, `test_bicep_generator`, `test_deployment`, `test_deployment_extended`, `test_ai_foundry`, `test_ai_foundry_extended`, `test_credentials`, `test_credentials_extended`, `test_prompts`, `test_prompts_extended`, `test_policy_mapping`
+  - Model/schema tests: `test_models`, `test_models_extended`, `test_schemas`
+  - Infrastructure tests: `test_config`, `test_security`, `test_db_session`, `test_database`, `test_seed`, `test_startup`, `test_entra`
+  - Integration tests: `test_e2e_flow`, `test_performance`, `test_rbac`, `test_users`
 
 - **Running tests:**
   ```bash
@@ -259,6 +287,15 @@ onramp/
   - `document.createElement` mocks break jsdom rendering — mock `URL.createObjectURL` after `render()`
   - Fluent UI Checkbox does not reliably toggle via `userEvent.click` in jsdom
   - Type-only files (`src/types/**`) are excluded from coverage
+- **Test categories (24 files, 122+ tests):**
+  - Auth: `AuthProvider.test.tsx`, `useAuth.test.ts`
+  - Pages: `HomePage`, `WizardPage`, `ArchitecturePage`, `CompliancePage`, `BicepPage`, `DeployPage`
+  - Wizard components: `QuestionCard`, `ProgressBar`, `WizardComplete`, `UnsureReview`
+  - Visualizer components: `ArchitectureDiagram`, `ArchitectureChat`, `DetailPanel`, `ExportMenu`
+  - Shared components: `Layout`, `ErrorBoundary`, `ApiError`, `PageSkeleton`
+  - Services: `api.test.ts`
+  - Utils: `exportUtils.test.ts`
+  - Types: `index.test.ts`
 - **Linting:** ESLint with typescript-eslint and react-hooks plugin. Run with `npm run lint`.
 - **Type checking:** `tsc -b` (run as part of `npm run build`).
 
@@ -349,6 +386,39 @@ Services are singleton instances created at module level:
 - Every choice question includes an `"_unsure"` option: "I'm not sure. Make a recommendation based on my requirements."
 - Questions may have `"min_org_size"` for adaptive filtering based on organization size.
 
+### API Endpoints Reference
+
+| Route Module | Prefix | Endpoints |
+|-------------|--------|-----------|
+| questionnaire | `/api/questionnaire` | `GET /categories`, `GET /questions`, `GET /questions/{category}`, `POST /next`, `POST /validate`, `POST /resolve-unsure`, `POST /progress` |
+| questionnaire_state | `/api/questionnaire/state` | `POST /save`, `GET /load/{project_id}` |
+| architecture | `/api/architecture` | `GET /archetypes`, `POST /generate`, `POST /estimate-costs`, `POST /refine` |
+| compliance | `/api/compliance` | `GET /frameworks`, `GET /frameworks/{short_name}`, `POST /controls` |
+| scoring | `/api/scoring` | `POST /evaluate` |
+| bicep | `/api/bicep` | `GET /templates`, `GET /templates/{template_name}`, `POST /generate`, `POST /download` |
+| deployment | `/api/deployment` | `POST /validate`, `POST /create`, `POST /{id}/start`, `GET /{id}`, `POST /{id}/rollback`, `GET /{id}/audit`, `GET /` |
+| projects | `/api/projects` | `GET /`, `POST /`, `GET /{id}`, `DELETE /{id}` |
+| users | `/api/users` | `GET /me`, `GET /me/projects` |
+
+All routes are registered in `backend/app/main.py`. Add new routes by creating a module in `backend/app/api/routes/` and calling `app.include_router()`.
+
+---
+
+## Adding a New Feature
+
+Follow this checklist when implementing a new feature:
+
+1. **Backend schema** — Define request/response models in `backend/app/schemas/`
+2. **Backend service** — Add business logic in `backend/app/services/`. Instantiate as singleton.
+3. **Backend route** — Create route module in `backend/app/api/routes/`. Register in `main.py`.
+4. **Backend tests** — Add `backend/tests/test_<feature>.py` with route and service tests.
+5. **Frontend API method** — Add method to `frontend/src/services/api.ts`.
+6. **Frontend page/component** — Create in `frontend/src/pages/` or `frontend/src/components/`.
+7. **Frontend route** — Add lazy-loaded route in `frontend/src/App.tsx`.
+8. **Frontend tests** — Add colocated `.test.tsx` file with component tests.
+9. **Database migration** — If schema changes needed, run `alembic revision --autogenerate`.
+10. **Verify** — Run `cd backend && pytest tests/ -v` and `cd frontend && npm run test:coverage`.
+
 ---
 
 ## Documentation
@@ -357,6 +427,9 @@ Services are singleton instances created at module level:
 - `docs/api.md` — API endpoint reference
 - `docs/development.md` — Developer setup and contribution guide
 - `README.md` — Project overview, quickstart, Deploy to Azure button
+- `.github/copilot-instructions.md` — This file (Copilot context)
+- `.github/instructions/` — Path-scoped Copilot instructions
+- `AGENTS.md` — Copilot coding agent workflow instructions
 
 ### Docstring Standards
 
