@@ -50,6 +50,25 @@ check_prereqs() {
         echo "Install Docker Desktop: https://docs.docker.com/get-docker/"
         exit 1
     fi
+
+    # Start Docker daemon if it isn't running
+    if ! docker info &>/dev/null 2>&1; then
+        echo -e "${YELLOW}Docker daemon is not running. Starting...${NC}"
+        sudo systemctl start docker 2>/dev/null \
+            || sudo service docker start 2>/dev/null \
+            || { echo -e "${RED}Could not start Docker. Please start it manually.${NC}"; exit 1; }
+        # Wait up to 15s for the daemon to be ready
+        local waited=0
+        while ! docker info &>/dev/null 2>&1 && [ $waited -lt 15 ]; do
+            sleep 1
+            waited=$((waited + 1))
+        done
+        if ! docker info &>/dev/null 2>&1; then
+            echo -e "${RED}Docker daemon failed to start within 15s.${NC}"
+            exit 1
+        fi
+        echo -e "${GREEN}Docker daemon started.${NC}"
+    fi
 }
 
 wait_for_health() {
