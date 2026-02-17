@@ -3,7 +3,7 @@ import {
   Tree,
   TreeItem,
   TreeItemLayout,
-  TreeOpenChangeData,
+  type TreeOpenChangeData,
   makeStyles,
   tokens,
   Badge,
