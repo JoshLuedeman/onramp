@@ -70,7 +70,7 @@ class ComplianceScoringEngine:
                     "control_name": control["title"],
                     "severity": control["severity"],
                     "status": "partial",
-                    "gap_description": f"Control partially satisfied — additional configuration needed",
+                    "gap_description": "Control partially satisfied — additional configuration needed",
                     "remediation": self._get_remediation(control),
                 })
             else:
@@ -80,7 +80,7 @@ class ComplianceScoringEngine:
                     "control_name": control["title"],
                     "severity": control["severity"],
                     "status": "gap",
-                    "gap_description": f"Control not satisfied in current architecture",
+                    "gap_description": "Control not satisfied in current architecture",
                     "remediation": self._get_remediation(control),
                 })
 
@@ -140,25 +140,57 @@ class ComplianceScoringEngine:
             "require-nsg": True,  # NSGs are included in all archetypes
             "require-firewall": security.get("azure_firewall", False),
             "require-waf": security.get("waf", False),
-            "require-diagnostics": management.get("log_analytics", {}).get("workspace_count", 0) > 0 if isinstance(management.get("log_analytics"), dict) else bool(management.get("log_analytics")),
-            "require-log-analytics": management.get("log_analytics", {}).get("workspace_count", 0) > 0 if isinstance(management.get("log_analytics"), dict) else bool(management.get("log_analytics")),
+            "require-diagnostics": (
+                management.get("log_analytics", {}).get("workspace_count", 0) > 0
+                if isinstance(management.get("log_analytics"), dict)
+                else bool(management.get("log_analytics"))
+            ),
+            "require-log-analytics": (
+                management.get("log_analytics", {}).get("workspace_count", 0) > 0
+                if isinstance(management.get("log_analytics"), dict)
+                else bool(management.get("log_analytics"))
+            ),
             "enable-defender": security.get("defender_for_cloud", False),
             "enable-sentinel": security.get("sentinel", False),
-            "require-tags": len(governance.get("tagging_strategy", {}).get("mandatory_tags", [])) > 0 if isinstance(governance.get("tagging_strategy"), dict) else False,
+            "require-tags": (
+                len(governance.get("tagging_strategy", {}).get("mandatory_tags", [])) > 0
+                if isinstance(governance.get("tagging_strategy"), dict)
+                else False
+            ),
             "require-encryption-at-rest": True,  # Azure default
             "require-tls": True,  # Azure default
-            "require-backup": management.get("backup", {}).get("enabled", False) if isinstance(management.get("backup"), dict) else bool(management.get("backup")),
-            "require-geo-redundancy": management.get("backup", {}).get("geo_redundant", False) if isinstance(management.get("backup"), dict) else False,
+            "require-backup": (
+                management.get("backup", {}).get("enabled", False)
+                if isinstance(management.get("backup"), dict)
+                else bool(management.get("backup"))
+            ),
+            "require-geo-redundancy": (
+                management.get("backup", {}).get("geo_redundant", False)
+                if isinstance(management.get("backup"), dict)
+                else False
+            ),
             "require-key-vault": security.get("key_vault_per_subscription", False),
             "deny-public-ip": True,  # Policy-based, assumed present
             "require-https": True,  # Azure default
             "require-vpn": True,  # Assumed if hybrid connectivity
             "require-vpn-encryption": True,
             "enable-secure-score": security.get("defender_for_cloud", False),
-            "audit-changes": management.get("log_analytics", {}).get("workspace_count", 0) > 0 if isinstance(management.get("log_analytics"), dict) else bool(management.get("log_analytics")),
+            "audit-changes": (
+                management.get("log_analytics", {}).get("workspace_count", 0) > 0
+                if isinstance(management.get("log_analytics"), dict)
+                else bool(management.get("log_analytics"))
+            ),
             "audit-log-retention": True,
-            "require-audit-logs": management.get("log_analytics", {}).get("workspace_count", 0) > 0 if isinstance(management.get("log_analytics"), dict) else bool(management.get("log_analytics")),
-            "require-activity-log": management.get("log_analytics", {}).get("workspace_count", 0) > 0 if isinstance(management.get("log_analytics"), dict) else bool(management.get("log_analytics")),
+            "require-audit-logs": (
+                management.get("log_analytics", {}).get("workspace_count", 0) > 0
+                if isinstance(management.get("log_analytics"), dict)
+                else bool(management.get("log_analytics"))
+            ),
+            "require-activity-log": (
+                management.get("log_analytics", {}).get("workspace_count", 0) > 0
+                if isinstance(management.get("log_analytics"), dict)
+                else bool(management.get("log_analytics"))
+            ),
         }
         return checks.get(policy_key, False)
 
@@ -170,7 +202,10 @@ class ComplianceScoringEngine:
             policy = get_policy_definition(key)
             if policy:
                 remediation_parts.append(f"Enable: {policy['display_name']}")
-        return "; ".join(remediation_parts) if remediation_parts else "Review control requirements and update architecture"
+        return (
+            "; ".join(remediation_parts) if remediation_parts
+            else "Review control requirements and update architecture"
+        )
 
     def _generate_recommendations(self, framework_results: list[dict]) -> list[str]:
         """Generate top recommendations from compliance gaps."""

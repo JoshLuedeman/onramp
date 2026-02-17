@@ -2,7 +2,6 @@
 
 from copy import deepcopy
 
-
 # Recommended defaults for resolving "_unsure" answers before archetype building
 RECOMMENDED_DEFAULTS: dict[str, str | list[str]] = {
     "org_size": "medium",
@@ -29,7 +28,10 @@ RECOMMENDED_DEFAULTS: dict[str, str | list[str]] = {
 ARCHETYPES: dict[str, dict] = {
     "small": {
         "name": "Small Organization Landing Zone",
-        "description": "Simplified landing zone for organizations with 1-5 subscriptions. Minimal management group hierarchy with essential governance.",
+        "description": (
+            "Simplified landing zone for organizations with 1-5 subscriptions."
+            " Minimal management group hierarchy with essential governance."
+        ),
         "organization_size": "small",
         "management_groups": {
             "root": {
@@ -51,9 +53,24 @@ ARCHETYPES: dict[str, dict] = {
             }
         },
         "subscriptions": [
-            {"name": "sub-platform", "purpose": "Shared platform services (identity, networking, monitoring)", "management_group": "platform", "budget_usd": 500},
-            {"name": "sub-workload-prod", "purpose": "Production workloads", "management_group": "workloads", "budget_usd": 1000},
-            {"name": "sub-workload-dev", "purpose": "Development and testing", "management_group": "sandbox", "budget_usd": 300},
+            {
+                "name": "sub-platform",
+                "purpose": "Shared platform services (identity, networking, monitoring)",
+                "management_group": "platform",
+                "budget_usd": 500,
+            },
+            {
+                "name": "sub-workload-prod",
+                "purpose": "Production workloads",
+                "management_group": "workloads",
+                "budget_usd": 1000,
+            },
+            {
+                "name": "sub-workload-dev",
+                "purpose": "Development and testing",
+                "management_group": "sandbox",
+                "budget_usd": 300,
+            },
         ],
         "network_topology": {
             "type": "hub-spoke",
@@ -116,7 +133,11 @@ ARCHETYPES: dict[str, dict] = {
     },
     "medium": {
         "name": "Medium Organization Landing Zone",
-        "description": "Standard CAF enterprise-scale landing zone for organizations with 5-20 subscriptions. Full management group hierarchy with platform and landing zone separation.",
+        "description": (
+            "Standard CAF enterprise-scale landing zone for organizations with"
+            " 5-20 subscriptions. Full management group hierarchy with platform"
+            " and landing zone separation."
+        ),
         "organization_size": "medium",
         "management_groups": {
             "root": {
@@ -143,12 +164,42 @@ ARCHETYPES: dict[str, dict] = {
             }
         },
         "subscriptions": [
-            {"name": "sub-identity", "purpose": "Identity and access management", "management_group": "identity", "budget_usd": 300},
-            {"name": "sub-management", "purpose": "Monitoring and management", "management_group": "management", "budget_usd": 500},
-            {"name": "sub-connectivity", "purpose": "Hub networking and DNS", "management_group": "connectivity", "budget_usd": 800},
-            {"name": "sub-corp-prod", "purpose": "Corp production workloads", "management_group": "corp", "budget_usd": 2000},
-            {"name": "sub-corp-dev", "purpose": "Corp development", "management_group": "corp", "budget_usd": 500},
-            {"name": "sub-online-prod", "purpose": "Public-facing workloads", "management_group": "online", "budget_usd": 1500},
+            {
+                "name": "sub-identity",
+                "purpose": "Identity and access management",
+                "management_group": "identity",
+                "budget_usd": 300,
+            },
+            {
+                "name": "sub-management",
+                "purpose": "Monitoring and management",
+                "management_group": "management",
+                "budget_usd": 500,
+            },
+            {
+                "name": "sub-connectivity",
+                "purpose": "Hub networking and DNS",
+                "management_group": "connectivity",
+                "budget_usd": 800,
+            },
+            {
+                "name": "sub-corp-prod",
+                "purpose": "Corp production workloads",
+                "management_group": "corp",
+                "budget_usd": 2000,
+            },
+            {
+                "name": "sub-corp-dev",
+                "purpose": "Corp development",
+                "management_group": "corp",
+                "budget_usd": 500,
+            },
+            {
+                "name": "sub-online-prod",
+                "purpose": "Public-facing workloads",
+                "management_group": "online",
+                "budget_usd": 1500,
+            },
         ],
         "network_topology": {
             "type": "hub-spoke",
@@ -219,7 +270,11 @@ ARCHETYPES: dict[str, dict] = {
     },
     "enterprise": {
         "name": "Enterprise Landing Zone",
-        "description": "Full CAF enterprise-scale landing zone for large organizations with 20+ subscriptions. Complete management group hierarchy, multiple regions, and comprehensive governance.",
+        "description": (
+            "Full CAF enterprise-scale landing zone for large organizations"
+            " with 20+ subscriptions. Complete management group hierarchy,"
+            " multiple regions, and comprehensive governance."
+        ),
         "organization_size": "enterprise",
         "management_groups": {
             "root": {
@@ -248,16 +303,66 @@ ARCHETYPES: dict[str, dict] = {
             }
         },
         "subscriptions": [
-            {"name": "sub-identity-prod", "purpose": "Identity services (prod)", "management_group": "identity", "budget_usd": 500},
-            {"name": "sub-management-prod", "purpose": "Central monitoring and management", "management_group": "management", "budget_usd": 1000},
-            {"name": "sub-connectivity-prod", "purpose": "Hub networking (primary region)", "management_group": "connectivity", "budget_usd": 2000},
-            {"name": "sub-connectivity-dr", "purpose": "Hub networking (DR region)", "management_group": "connectivity", "budget_usd": 1000},
-            {"name": "sub-corp-prod-001", "purpose": "Corp workloads - production", "management_group": "corp", "budget_usd": 5000},
-            {"name": "sub-corp-nonprod-001", "purpose": "Corp workloads - non-production", "management_group": "corp", "budget_usd": 2000},
-            {"name": "sub-online-prod-001", "purpose": "Public-facing production", "management_group": "online", "budget_usd": 3000},
-            {"name": "sub-online-nonprod-001", "purpose": "Public-facing non-production", "management_group": "online", "budget_usd": 1000},
-            {"name": "sub-confidential-001", "purpose": "Regulated workloads", "management_group": "confidential_corp", "budget_usd": 3000},
-            {"name": "sub-sandbox-001", "purpose": "Developer sandbox", "management_group": "sandbox", "budget_usd": 500},
+            {
+                "name": "sub-identity-prod",
+                "purpose": "Identity services (prod)",
+                "management_group": "identity",
+                "budget_usd": 500,
+            },
+            {
+                "name": "sub-management-prod",
+                "purpose": "Central monitoring and management",
+                "management_group": "management",
+                "budget_usd": 1000,
+            },
+            {
+                "name": "sub-connectivity-prod",
+                "purpose": "Hub networking (primary region)",
+                "management_group": "connectivity",
+                "budget_usd": 2000,
+            },
+            {
+                "name": "sub-connectivity-dr",
+                "purpose": "Hub networking (DR region)",
+                "management_group": "connectivity",
+                "budget_usd": 1000,
+            },
+            {
+                "name": "sub-corp-prod-001",
+                "purpose": "Corp workloads - production",
+                "management_group": "corp",
+                "budget_usd": 5000,
+            },
+            {
+                "name": "sub-corp-nonprod-001",
+                "purpose": "Corp workloads - non-production",
+                "management_group": "corp",
+                "budget_usd": 2000,
+            },
+            {
+                "name": "sub-online-prod-001",
+                "purpose": "Public-facing production",
+                "management_group": "online",
+                "budget_usd": 3000,
+            },
+            {
+                "name": "sub-online-nonprod-001",
+                "purpose": "Public-facing non-production",
+                "management_group": "online",
+                "budget_usd": 1000,
+            },
+            {
+                "name": "sub-confidential-001",
+                "purpose": "Regulated workloads",
+                "management_group": "confidential_corp",
+                "budget_usd": 3000,
+            },
+            {
+                "name": "sub-sandbox-001",
+                "purpose": "Developer sandbox",
+                "management_group": "sandbox",
+                "budget_usd": 500,
+            },
         ],
         "network_topology": {
             "type": "hub-spoke",
@@ -318,11 +423,19 @@ ARCHETYPES: dict[str, dict] = {
                 {"name": "Enforce HTTPS only", "scope": "root", "effect": "deny"},
             ],
             "tagging_strategy": {
-                "mandatory_tags": ["Environment", "Owner", "CostCenter", "Application", "DataClassification", "BusinessUnit"],
+                "mandatory_tags": [
+                    "Environment", "Owner", "CostCenter",
+                    "Application", "DataClassification", "BusinessUnit",
+                ],
                 "optional_tags": ["Project", "Compliance", "SLA"],
             },
             "naming_convention": "Azure CAF recommended",
-            "cost_management": {"budgets_enabled": True, "alerts_enabled": True, "optimization_recommendations": True, "reserved_instances": True},
+            "cost_management": {
+                "budgets_enabled": True,
+                "alerts_enabled": True,
+                "optimization_recommendations": True,
+                "reserved_instances": True,
+            },
         },
         "management": {
             "log_analytics": {"workspace_count": 1, "retention_days": 365},

@@ -3,7 +3,7 @@
 import logging
 import uuid
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session_factory
@@ -81,7 +81,7 @@ async def _seed_questions(session: AsyncSession):
 
 async def _seed_compliance_frameworks(session: AsyncSession):
     """Seed compliance frameworks and controls."""
-    from app.models import ComplianceFramework, ComplianceControl
+    from app.models import ComplianceControl, ComplianceFramework
     from app.services.compliance_data import COMPLIANCE_FRAMEWORKS
 
     count = await session.scalar(select(func.count()).select_from(ComplianceFramework))

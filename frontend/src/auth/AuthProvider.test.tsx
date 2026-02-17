@@ -15,19 +15,19 @@ describe("AuthProvider – dev mode (no client ID)", () => {
 
   it("exports msalInstance as null initially", async () => {
     vi.resetModules();
-    const { msalInstance } = await import("./AuthProvider");
+    const { msalInstance } = await import("./msalInstance");
     expect(msalInstance).toBeNull();
   });
 
   it("exports initMsal function", async () => {
     vi.resetModules();
-    const { initMsal } = await import("./AuthProvider");
+    const { initMsal } = await import("./msalInstance");
     expect(typeof initMsal).toBe("function");
   });
 
   it("initMsal returns null when no client ID", async () => {
     vi.resetModules();
-    const { initMsal } = await import("./AuthProvider");
+    const { initMsal } = await import("./msalInstance");
     const result = await initMsal();
     expect(result).toBeNull();
   });

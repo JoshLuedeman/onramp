@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.auth import get_current_user
 from app.services.compliance_data import (
     get_all_frameworks,
-    get_framework_by_short_name,
     get_controls_for_frameworks,
+    get_framework_by_short_name,
 )
 
 router = APIRouter(prefix="/api/compliance", tags=["compliance"])

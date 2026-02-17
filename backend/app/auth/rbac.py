@@ -1,7 +1,5 @@
 """Role-based access control middleware."""
 
-from functools import wraps
-from typing import Callable
 
 from fastapi import Depends, HTTPException, status
 

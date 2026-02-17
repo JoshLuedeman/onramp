@@ -1,6 +1,6 @@
 """Architecture model — stores generated landing zone designs."""
 
-from sqlalchemy import String, Text, Integer, ForeignKey, JSON
+from sqlalchemy import JSON, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, generate_uuid

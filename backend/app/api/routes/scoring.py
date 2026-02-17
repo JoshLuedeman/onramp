@@ -6,7 +6,6 @@ from pydantic import BaseModel
 from app.auth import get_current_user
 from app.services.compliance_scoring import compliance_scorer
 
-
 router = APIRouter(prefix="/api/scoring", tags=["scoring"])
 
 

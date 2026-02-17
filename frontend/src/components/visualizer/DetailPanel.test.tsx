@@ -4,7 +4,7 @@ import { FluentProvider, teamsLightTheme } from "@fluentui/react-components";
 import DetailPanel from "./DetailPanel";
 
 function renderPanel(
-  component: { type: string; name: string; properties?: Record<string, any>; tags?: Record<string, string> },
+  component: { type: string; name: string; properties?: Record<string, unknown>; tags?: Record<string, string> },
   onClose = vi.fn(),
 ) {
   return render(

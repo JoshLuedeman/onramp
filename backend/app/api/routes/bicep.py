@@ -1,14 +1,11 @@
 """Bicep template preview and download API routes."""
 
-import json
 from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.auth import get_current_user
 from app.services.bicep_generator import bicep_generator
-from app.services.archetypes import get_archetype
-
 
 router = APIRouter(prefix="/api/bicep", tags=["bicep"])
 

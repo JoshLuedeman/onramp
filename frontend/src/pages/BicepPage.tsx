@@ -78,8 +78,8 @@ export default function BicepPage() {
       });
       const data = await resp.json();
       setFiles(data.files || []);
-    } catch (e: any) {
-      setError(e.message || "Generation failed");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Generation failed");
     } finally {
       setLoading(false);
     }
@@ -100,8 +100,8 @@ export default function BicepPage() {
       a.download = "onramp-landing-zone.bicep";
       a.click();
       URL.revokeObjectURL(url);
-    } catch (e: any) {
-      setError(e.message || "Download failed");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Download failed");
     }
   };
 

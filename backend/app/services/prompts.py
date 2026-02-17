@@ -3,7 +3,7 @@
 Contains structured prompts for different AI tasks, organized by function.
 """
 
-ARCHITECTURE_SYSTEM_PROMPT = """You are an expert Azure Solutions Architect specializing in the 
+ARCHITECTURE_SYSTEM_PROMPT = """You are an expert Azure Solutions Architect specializing in the
 Microsoft Cloud Adoption Framework (CAF) and Azure landing zone design. You have deep knowledge of:
 
 - Azure management group hierarchies and subscription organization
@@ -37,7 +37,7 @@ OUTPUT JSON SCHEMA:
     "subscriptions": [
         {
             "name": "string",
-            "purpose": "string", 
+            "purpose": "string",
             "management_group": "string",
             "budget_usd": number
         }
@@ -109,7 +109,7 @@ OUTPUT JSON SCHEMA:
 }"""
 
 
-COMPLIANCE_EVALUATION_PROMPT = """You are an Azure compliance and security expert. 
+COMPLIANCE_EVALUATION_PROMPT = """You are an Azure compliance and security expert.
 Evaluate the given landing zone architecture against the specified compliance frameworks.
 
 For each framework, assess:
@@ -132,7 +132,7 @@ Return a JSON object with:
             "gaps": [
                 {
                     "control_id": "string",
-                    "control_name": "string", 
+                    "control_name": "string",
                     "severity": "high|medium|low",
                     "gap_description": "string",
                     "remediation": "string",
@@ -175,7 +175,7 @@ are the Bicep content:
 }"""
 
 
-COST_ESTIMATION_PROMPT = """You are an Azure cost estimation expert. Given a landing zone 
+COST_ESTIMATION_PROMPT = """You are an Azure cost estimation expert. Given a landing zone
 architecture definition, estimate the monthly Azure costs.
 
 Consider:
@@ -203,12 +203,12 @@ Return JSON:
 }"""
 
 
-ARCHITECTURE_REFINEMENT_PROMPT = """You are an Azure Solutions Architect reviewing a 
+ARCHITECTURE_REFINEMENT_PROMPT = """You are an Azure Solutions Architect reviewing a
 landing zone architecture. The customer wants to make specific modifications.
 
-Analyze the current architecture and the requested changes, then return an updated 
+Analyze the current architecture and the requested changes, then return an updated
 architecture JSON that incorporates the modifications while maintaining CAF compliance
-and best practices. Explain your reasoning for any adjustments you make beyond the 
+and best practices. Explain your reasoning for any adjustments you make beyond the
 specific request."""
 
 

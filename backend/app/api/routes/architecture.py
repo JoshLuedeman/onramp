@@ -2,7 +2,6 @@
 
 import json
 import uuid
-from typing import Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -112,7 +111,7 @@ async def refine_architecture(
     )
 
     # Try to parse as JSON (updated architecture)
-    updated_architecture: Optional[dict] = None
+    updated_architecture: dict | None = None
     response_text = raw
     try:
         parsed = json.loads(raw)

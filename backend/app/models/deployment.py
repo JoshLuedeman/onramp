@@ -1,8 +1,9 @@
 """Deployment model — tracks deployments to Azure."""
 
-from sqlalchemy import String, Text, ForeignKey, JSON, DateTime
-from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime
+
+from sqlalchemy import JSON, DateTime, ForeignKey, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, generate_uuid
 

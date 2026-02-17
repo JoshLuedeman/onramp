@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Optional, AsyncGenerator
+from collections.abc import AsyncGenerator
 
 from app.config import settings
 
@@ -58,7 +58,7 @@ class AIFoundryClient:
         user_prompt: str,
         temperature: float = 0.3,
         max_tokens: int = 4096,
-        model: Optional[str] = None,
+        model: str | None = None,
     ) -> str:
         """Generate a completion using Azure AI Foundry."""
         client = self._get_client()
@@ -89,7 +89,7 @@ class AIFoundryClient:
         user_prompt: str,
         temperature: float = 0.3,
         max_tokens: int = 4096,
-        model: Optional[str] = None,
+        model: str | None = None,
     ) -> str:
         """Generate a completion asynchronously."""
         client = self._get_async_client()
@@ -118,7 +118,7 @@ class AIFoundryClient:
         user_prompt: str,
         temperature: float = 0.3,
         max_tokens: int = 4096,
-        model: Optional[str] = None,
+        model: str | None = None,
     ) -> AsyncGenerator[str, None]:
         """Stream a completion token by token."""
         client = self._get_async_client()
@@ -225,16 +225,28 @@ class AIFoundryClient:
                                 "control_name": "Logical and Physical Access Controls",
                                 "severity": "high",
                                 "status": "gap",
-                                "gap_description": "Privileged Identity Management (PIM) is not enabled for just-in-time access to critical resources",
-                                "remediation": "Enable Azure AD PIM for all privileged roles and configure activation approval workflows",
+                                "gap_description": (
+                                    "Privileged Identity Management (PIM) is not enabled"
+                                    " for just-in-time access to critical resources"
+                                ),
+                                "remediation": (
+                                    "Enable Azure AD PIM for all privileged roles"
+                                    " and configure activation approval workflows"
+                                ),
                             },
                             {
                                 "control_id": "SOC2-CC7.2",
                                 "control_name": "System Monitoring",
                                 "severity": "medium",
                                 "status": "partial",
-                                "gap_description": "Microsoft Sentinel is not enabled for centralized security monitoring and alerting",
-                                "remediation": "Deploy Microsoft Sentinel workspace and configure analytics rules for key threat scenarios",
+                                "gap_description": (
+                                    "Microsoft Sentinel is not enabled for centralized"
+                                    " security monitoring and alerting"
+                                ),
+                                "remediation": (
+                                    "Deploy Microsoft Sentinel workspace and configure"
+                                    " analytics rules for key threat scenarios"
+                                ),
                             },
                         ],
                     },
@@ -251,16 +263,28 @@ class AIFoundryClient:
                                 "control_name": "Account Management",
                                 "severity": "high",
                                 "status": "gap",
-                                "gap_description": "No automated account lifecycle management or periodic access reviews configured",
-                                "remediation": "Configure Azure AD Access Reviews for all privileged and guest accounts with quarterly review cycles",
+                                "gap_description": (
+                                    "No automated account lifecycle management"
+                                    " or periodic access reviews configured"
+                                ),
+                                "remediation": (
+                                    "Configure Azure AD Access Reviews for all privileged"
+                                    " and guest accounts with quarterly review cycles"
+                                ),
                             },
                             {
                                 "control_id": "NIST-AU-6",
                                 "control_name": "Audit Review, Analysis, and Reporting",
                                 "severity": "medium",
                                 "status": "partial",
-                                "gap_description": "Log Analytics workspace exists but lacks cross-workspace correlation and automated alerting",
-                                "remediation": "Enable diagnostic settings for all resources and configure Azure Monitor alert rules for critical events",
+                                "gap_description": (
+                                    "Log Analytics workspace exists but lacks"
+                                    " cross-workspace correlation and automated alerting"
+                                ),
+                                "remediation": (
+                                    "Enable diagnostic settings for all resources and configure"
+                                    " Azure Monitor alert rules for critical events"
+                                ),
                             },
                             {
                                 "control_id": "NIST-IR-4",
@@ -268,17 +292,35 @@ class AIFoundryClient:
                                 "severity": "high",
                                 "status": "gap",
                                 "gap_description": "No automated incident response playbooks configured",
-                                "remediation": "Deploy Microsoft Sentinel with automated playbooks for common incident types using Logic Apps",
+                                "remediation": (
+                                    "Deploy Microsoft Sentinel with automated playbooks"
+                                    " for common incident types using Logic Apps"
+                                ),
                             },
                         ],
                     },
                 ],
                 "top_recommendations": [
-                    "Enable Azure AD PIM for just-in-time privileged access across all subscriptions",
-                    "Deploy Microsoft Sentinel for centralized SIEM and SOAR capabilities",
-                    "Configure automated access reviews for privileged and guest accounts",
-                    "Enable diagnostic settings for all Azure resources to Log Analytics",
-                    "Implement automated incident response playbooks with Logic Apps",
+                    (
+                        "Enable Azure AD PIM for just-in-time privileged access"
+                        " across all subscriptions"
+                    ),
+                    (
+                        "Deploy Microsoft Sentinel for centralized SIEM"
+                        " and SOAR capabilities"
+                    ),
+                    (
+                        "Configure automated access reviews for privileged"
+                        " and guest accounts"
+                    ),
+                    (
+                        "Enable diagnostic settings for all Azure resources"
+                        " to Log Analytics"
+                    ),
+                    (
+                        "Implement automated incident response playbooks"
+                        " with Logic Apps"
+                    ),
                 ],
             })
         if "cost" in prompt_lower and "estimat" in prompt_lower:
@@ -286,16 +328,66 @@ class AIFoundryClient:
                 "estimated_monthly_total_usd": 4250,
                 "confidence": "medium",
                 "breakdown": [
-                    {"category": "Networking", "service": "Azure Firewall Premium", "estimated_monthly_usd": 1750, "notes": "Premium SKU with IDPS enabled, ~1TB processed/month"},
-                    {"category": "Networking", "service": "VPN Gateway", "estimated_monthly_usd": 350, "notes": "VpnGw1 for hybrid connectivity"},
-                    {"category": "Security", "service": "Microsoft Defender for Cloud", "estimated_monthly_usd": 450, "notes": "Defender for Servers P2, App Service, Key Vault, DNS"},
-                    {"category": "Security", "service": "Microsoft Sentinel", "estimated_monthly_usd": 400, "notes": "~5GB/day ingestion to Log Analytics"},
-                    {"category": "Management", "service": "Log Analytics Workspace", "estimated_monthly_usd": 350, "notes": "Commitment tier for ~10GB/day ingestion"},
-                    {"category": "Management", "service": "Azure Monitor", "estimated_monthly_usd": 150, "notes": "Metrics, alerts, and diagnostic settings"},
-                    {"category": "Storage", "service": "Azure Backup", "estimated_monthly_usd": 200, "notes": "VM and SQL backup with 30-day retention"},
-                    {"category": "Identity", "service": "Entra ID P2", "estimated_monthly_usd": 270, "notes": "30 users with PIM and conditional access"},
-                    {"category": "Management", "service": "Key Vault", "estimated_monthly_usd": 30, "notes": "2 vaults, ~1000 operations/month each"},
-                    {"category": "Networking", "service": "Azure Bastion", "estimated_monthly_usd": 300, "notes": "Standard SKU for secure VM access"},
+                    {
+                        "category": "Networking",
+                        "service": "Azure Firewall Premium",
+                        "estimated_monthly_usd": 1750,
+                        "notes": "Premium SKU with IDPS enabled, ~1TB processed/month",
+                    },
+                    {
+                        "category": "Networking",
+                        "service": "VPN Gateway",
+                        "estimated_monthly_usd": 350,
+                        "notes": "VpnGw1 for hybrid connectivity",
+                    },
+                    {
+                        "category": "Security",
+                        "service": "Microsoft Defender for Cloud",
+                        "estimated_monthly_usd": 450,
+                        "notes": "Defender for Servers P2, App Service, Key Vault, DNS",
+                    },
+                    {
+                        "category": "Security",
+                        "service": "Microsoft Sentinel",
+                        "estimated_monthly_usd": 400,
+                        "notes": "~5GB/day ingestion to Log Analytics",
+                    },
+                    {
+                        "category": "Management",
+                        "service": "Log Analytics Workspace",
+                        "estimated_monthly_usd": 350,
+                        "notes": "Commitment tier for ~10GB/day ingestion",
+                    },
+                    {
+                        "category": "Management",
+                        "service": "Azure Monitor",
+                        "estimated_monthly_usd": 150,
+                        "notes": "Metrics, alerts, and diagnostic settings",
+                    },
+                    {
+                        "category": "Storage",
+                        "service": "Azure Backup",
+                        "estimated_monthly_usd": 200,
+                        "notes": "VM and SQL backup with 30-day retention",
+                    },
+                    {
+                        "category": "Identity",
+                        "service": "Entra ID P2",
+                        "estimated_monthly_usd": 270,
+                        "notes": "30 users with PIM and conditional access",
+                    },
+                    {
+                        "category": "Management",
+                        "service": "Key Vault",
+                        "estimated_monthly_usd": 30,
+                        "notes": "2 vaults, ~1000 operations/month each",
+                    },
+                    {
+                        "category": "Networking",
+                        "service": "Azure Bastion",
+                        "estimated_monthly_usd": 300,
+                        "notes": "Standard SKU for secure VM access",
+                    },
                 ],
                 "cost_optimization_tips": [
                     "Consider Azure Firewall Basic SKU if IDPS is not required — saves ~$1,000/month",
@@ -313,12 +405,119 @@ class AIFoundryClient:
                 ],
             })
         if "bicep" in prompt_lower:
+            main_bicep = (
+                "targetScope = 'subscription'\n\n"
+                "@description('Primary Azure region')\n"
+                "param location string = 'eastus2'\n\n"
+                "@description('Environment name')\n"
+                "param environment string = 'prod'\n\n"
+                "var tags = {\n  managedBy: 'OnRamp'\n"
+                "  environment: environment\n}\n\n"
+                "module managementGroups "
+                "'modules/management-groups.bicep' = {\n"
+                "  name: 'management-groups'\n"
+                "  scope: tenant()\n}\n\n"
+                "resource rgNetworking "
+                "'Microsoft.Resources/resourceGroups@2024-03-01'"
+                " = {\n  name: 'rg-networking-${environment}'\n"
+                "  location: location\n  tags: tags\n}\n\n"
+                "module networking 'modules/networking.bicep'"
+                " = {\n  scope: rgNetworking\n"
+                "  name: 'hub-spoke-networking'\n"
+                "  params: {\n    location: location\n"
+                "    tags: tags\n  }\n}\n\n"
+                "resource rgSecurity "
+                "'Microsoft.Resources/resourceGroups@2024-03-01'"
+                " = {\n  name: 'rg-security-${environment}'\n"
+                "  location: location\n  tags: tags\n}\n\n"
+                "module policyAssignments "
+                "'modules/policy-assignments.bicep' = {\n"
+                "  name: 'policy-assignments'\n"
+                "  params: {\n    environment: environment\n"
+                "  }\n}\n"
+            )
+            mg_bicep = (
+                "targetScope = 'tenant'\n\n"
+                "@description('Top-level management group name')\n"
+                "param topLevelMgName string = 'Organization'\n\n"
+                "resource topLevelMg "
+                "'Microsoft.Management/managementGroups@2023-04-01'"
+                " = {\n  name: topLevelMgName\n"
+                "  properties: {\n"
+                "    displayName: topLevelMgName\n  }\n}\n\n"
+                "resource platformMg "
+                "'Microsoft.Management/managementGroups@2023-04-01'"
+                " = {\n  name: '${topLevelMgName}-Platform'\n"
+                "  properties: {\n    displayName: 'Platform'\n"
+                "    details: {\n      parent: {\n"
+                "        id: topLevelMg.id\n"
+                "      }\n    }\n  }\n}\n\n"
+                "resource landingZonesMg "
+                "'Microsoft.Management/managementGroups@2023-04-01'"
+                " = {\n  name: '${topLevelMgName}-LandingZones'\n"
+                "  properties: {\n"
+                "    displayName: 'Landing Zones'\n"
+                "    details: {\n      parent: {\n"
+                "        id: topLevelMg.id\n"
+                "      }\n    }\n  }\n}\n\n"
+                "output topLevelMgId string = topLevelMg.id\n"
+            )
+            net_bicep = (
+                "// Hub-spoke networking module\n\n"
+                "@description('Azure region for resources')\n"
+                "param location string\n\n"
+                "@description('Hub VNET CIDR')\n"
+                "param hubCidr string = '10.0.0.0/16'\n\n"
+                "@description('Resource tags')\n"
+                "param tags object = {}\n\n"
+                "resource hubVnet "
+                "'Microsoft.Network/virtualNetworks@2024-01-01'"
+                " = {\n  name: 'vnet-hub'\n"
+                "  location: location\n  tags: tags\n"
+                "  properties: {\n    addressSpace: {\n"
+                "      addressPrefixes: [\n        hubCidr\n"
+                "      ]\n    }\n    subnets: [\n      {\n"
+                "        name: 'AzureFirewallSubnet'\n"
+                "        properties: {\n"
+                "          addressPrefix: cidrSubnet(hubCidr, 26, 0)\n"
+                "        }\n      }\n      {\n"
+                "        name: 'AzureBastionSubnet'\n"
+                "        properties: {\n"
+                "          addressPrefix: cidrSubnet(hubCidr, 26, 1)\n"
+                "        }\n      }\n    ]\n  }\n}\n\n"
+                "output hubVnetId string = hubVnet.id\n"
+            )
+            policy_bicep = (
+                "// Azure Policy assignments for governance\n\n"
+                "@description('Environment name')\n"
+                "param environment string\n\n"
+                "targetScope = 'managementGroup'\n\n"
+                "resource allowedLocations "
+                "'Microsoft.Authorization/"
+                "policyAssignments@2024-04-01' = {\n"
+                "  name: 'allowed-locations-${environment}'\n"
+                "  properties: {\n"
+                "    displayName: 'Allowed Locations'\n"
+                "    policyDefinitionId: '/providers/"
+                "Microsoft.Authorization/policyDefinitions/"
+                "e56962a6-4747-49cd-b67b-bf8b01975c4c'\n"
+                "    parameters: {\n"
+                "      listOfAllowedLocations: {\n"
+                "        value: [\n          'eastus2'\n"
+                "          'centralus'\n        ]\n"
+                "      }\n    }\n  }\n}\n"
+            )
+            params_bicep = (
+                "using './main.bicep'\n\n"
+                "param location = 'eastus2'\n"
+                "param environment = 'prod'\n"
+            )
             return json.dumps({
-                "main.bicep": "targetScope = 'subscription'\n\n@description('Primary Azure region')\nparam location string = 'eastus2'\n\n@description('Environment name')\nparam environment string = 'prod'\n\nvar tags = {\n  managedBy: 'OnRamp'\n  environment: environment\n}\n\nmodule managementGroups 'modules/management-groups.bicep' = {\n  name: 'management-groups'\n  scope: tenant()\n}\n\nresource rgNetworking 'Microsoft.Resources/resourceGroups@2024-03-01' = {\n  name: 'rg-networking-${environment}'\n  location: location\n  tags: tags\n}\n\nmodule networking 'modules/networking.bicep' = {\n  scope: rgNetworking\n  name: 'hub-spoke-networking'\n  params: {\n    location: location\n    tags: tags\n  }\n}\n\nresource rgSecurity 'Microsoft.Resources/resourceGroups@2024-03-01' = {\n  name: 'rg-security-${environment}'\n  location: location\n  tags: tags\n}\n\nmodule policyAssignments 'modules/policy-assignments.bicep' = {\n  name: 'policy-assignments'\n  params: {\n    environment: environment\n  }\n}\n",
-                "modules/management-groups.bicep": "targetScope = 'tenant'\n\n@description('Top-level management group name')\nparam topLevelMgName string = 'Organization'\n\nresource topLevelMg 'Microsoft.Management/managementGroups@2023-04-01' = {\n  name: topLevelMgName\n  properties: {\n    displayName: topLevelMgName\n  }\n}\n\nresource platformMg 'Microsoft.Management/managementGroups@2023-04-01' = {\n  name: '${topLevelMgName}-Platform'\n  properties: {\n    displayName: 'Platform'\n    details: {\n      parent: {\n        id: topLevelMg.id\n      }\n    }\n  }\n}\n\nresource landingZonesMg 'Microsoft.Management/managementGroups@2023-04-01' = {\n  name: '${topLevelMgName}-LandingZones'\n  properties: {\n    displayName: 'Landing Zones'\n    details: {\n      parent: {\n        id: topLevelMg.id\n      }\n    }\n  }\n}\n\noutput topLevelMgId string = topLevelMg.id\n",
-                "modules/networking.bicep": "// Hub-spoke networking module\n\n@description('Azure region for resources')\nparam location string\n\n@description('Hub VNET CIDR')\nparam hubCidr string = '10.0.0.0/16'\n\n@description('Resource tags')\nparam tags object = {}\n\nresource hubVnet 'Microsoft.Network/virtualNetworks@2024-01-01' = {\n  name: 'vnet-hub'\n  location: location\n  tags: tags\n  properties: {\n    addressSpace: {\n      addressPrefixes: [\n        hubCidr\n      ]\n    }\n    subnets: [\n      {\n        name: 'AzureFirewallSubnet'\n        properties: {\n          addressPrefix: cidrSubnet(hubCidr, 26, 0)\n        }\n      }\n      {\n        name: 'AzureBastionSubnet'\n        properties: {\n          addressPrefix: cidrSubnet(hubCidr, 26, 1)\n        }\n      }\n    ]\n  }\n}\n\noutput hubVnetId string = hubVnet.id\n",
-                "modules/policy-assignments.bicep": "// Azure Policy assignments for governance\n\n@description('Environment name')\nparam environment string\n\ntargetScope = 'managementGroup'\n\nresource allowedLocations 'Microsoft.Authorization/policyAssignments@2024-04-01' = {\n  name: 'allowed-locations-${environment}'\n  properties: {\n    displayName: 'Allowed Locations'\n    policyDefinitionId: '/providers/Microsoft.Authorization/policyDefinitions/e56962a6-4747-49cd-b67b-bf8b01975c4c'\n    parameters: {\n      listOfAllowedLocations: {\n        value: [\n          'eastus2'\n          'centralus'\n        ]\n      }\n    }\n  }\n}\n",
-                "parameters/env.bicepparam": "using './main.bicep'\n\nparam location = 'eastus2'\nparam environment = 'prod'\n"
+                "main.bicep": main_bicep,
+                "modules/management-groups.bicep": mg_bicep,
+                "modules/networking.bicep": net_bicep,
+                "modules/policy-assignments.bicep": policy_bicep,
+                "parameters/env.bicepparam": params_bicep,
             })
         if "architecture" in prompt_lower or "landing zone" in prompt_lower:
             from app.services.archetypes import get_archetype_for_answers

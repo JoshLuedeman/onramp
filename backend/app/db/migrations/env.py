@@ -7,7 +7,6 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.config import settings
 from app.db.session import get_database_url
 from app.models import Base
 

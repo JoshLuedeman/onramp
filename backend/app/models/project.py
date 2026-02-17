@@ -1,6 +1,6 @@
 """Project model — represents a landing zone design project."""
 
-from sqlalchemy import String, Text, ForeignKey, JSON
+from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, generate_uuid

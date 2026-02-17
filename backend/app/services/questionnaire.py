@@ -122,7 +122,11 @@ CAF_QUESTIONS: list[dict[str, Any]] = [
         "text": "How do you want to organize your management group hierarchy?",
         "type": "single_choice",
         "options": [
-            {"value": "caf_recommended", "label": "CAF recommended (Platform + Landing Zones + Sandbox)", "recommended": True},
+            {
+                "value": "caf_recommended",
+                "label": "CAF recommended (Platform + Landing Zones + Sandbox)",
+                "recommended": True,
+            },
             {"value": "by_business_unit", "label": "By business unit / department"},
             {"value": "by_environment", "label": "By environment (Dev/Test/Prod)"},
             {"value": "_unsure", "label": "I'm not sure. Make a recommendation based on my requirements."},
@@ -282,7 +286,11 @@ CAF_QUESTIONS: list[dict[str, Any]] = [
         "text": "How important is cost management and optimization?",
         "type": "single_choice",
         "options": [
-            {"value": "critical", "label": "Critical — need budgets, alerts, and optimization recommendations", "recommended": True},
+            {
+                "value": "critical",
+                "label": "Critical — need budgets, alerts, and optimization recommendations",
+                "recommended": True,
+            },
             {"value": "important", "label": "Important — need budgets and basic alerts"},
             {"value": "standard", "label": "Standard — track costs but no strict budgets"},
             {"value": "_unsure", "label": "I'm not sure. Make a recommendation based on my requirements."},

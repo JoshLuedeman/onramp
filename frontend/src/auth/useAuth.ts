@@ -1,36 +1,25 @@
+import { useMsal, useIsAuthenticated } from "@azure/msal-react";
+import { loginRequest } from "./msalConfig";
+
 const clientId = import.meta.env.VITE_AZURE_CLIENT_ID || "";
 
-export function useAuth() {
-  // Dev mode — no MSAL, return mock auth state
-  if (!clientId) {
-    return {
-      isAuthenticated: false,
-      user: null,
-      login: async () => { console.info("Auth not configured in dev mode"); },
-      logout: async () => {},
-      getAccessToken: async () => null,
-    };
-  }
-
-  // Production mode — use MSAL
-  const { useMsal, useIsAuthenticated } = require("@azure/msal-react");
-  const { loginRequest } = require("./msalConfig");
+function useMsalAuth() {
   const { instance, accounts } = useMsal();
   const isAuthenticated = useIsAuthenticated();
 
   const login = async () => {
     try {
       await instance.loginPopup(loginRequest);
-    } catch (error) {
-      console.error("Login failed:", error);
+    } catch (err) {
+      console.error("Login failed:", err);
     }
   };
 
   const logout = async () => {
     try {
       await instance.logoutPopup();
-    } catch (error) {
-      console.error("Logout failed:", error);
+    } catch (err) {
+      console.error("Logout failed:", err);
     }
   };
 
@@ -42,7 +31,7 @@ export function useAuth() {
         account: accounts[0],
       });
       return response.accessToken;
-    } catch (error) {
+    } catch {
       try {
         const response = await instance.acquireTokenPopup(loginRequest);
         return response.accessToken;
@@ -60,4 +49,20 @@ export function useAuth() {
   } : null;
 
   return { isAuthenticated, user, login, logout, getAccessToken };
+}
+
+const devAuth = {
+  isAuthenticated: false,
+  user: null,
+  login: async () => { console.info("Auth not configured in dev mode"); },
+  logout: async () => {},
+  getAccessToken: async () => null,
+};
+
+export function useAuth() {
+  const msalAuth = useMsalAuth();
+  if (!clientId) {
+    return devAuth;
+  }
+  return msalAuth;
 }

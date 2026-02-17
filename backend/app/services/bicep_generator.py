@@ -1,7 +1,6 @@
 """Bicep template generator — creates deployable Bicep from architecture definitions."""
 
 import json
-import os
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
@@ -150,7 +149,7 @@ class BicepGenerator:
             "    location: location",
             f"    hubCidr: '{architecture.get('network_topology', {}).get('hub', {}).get('vnet_cidr', '10.0.0.0/16')}'",
             f"    enableFirewall: {str(architecture.get('security', {}).get('azure_firewall', True)).lower()}",
-            f"    enableBastion: true",
+            "    enableBastion: true",
             "    tags: tags",
             "  }",
             "}",

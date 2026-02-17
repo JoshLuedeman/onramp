@@ -4,7 +4,10 @@ COMPLIANCE_FRAMEWORKS: list[dict] = [
     {
         "name": "SOC 2 Type II",
         "short_name": "SOC2",
-        "description": "Service Organization Control 2 — Trust Services Criteria for security, availability, processing integrity, confidentiality, and privacy.",
+        "description": (
+            "Service Organization Control 2 — Trust Services Criteria for security,"
+            " availability, processing integrity, confidentiality, and privacy."
+        ),
         "version": "2017",
         "controls": [
             {
@@ -61,7 +64,10 @@ COMPLIANCE_FRAMEWORKS: list[dict] = [
     {
         "name": "HIPAA",
         "short_name": "HIPAA",
-        "description": "Health Insurance Portability and Accountability Act — safeguards for protecting sensitive patient health information.",
+        "description": (
+            "Health Insurance Portability and Accountability Act — safeguards for"
+            " protecting sensitive patient health information."
+        ),
         "version": "2013",
         "controls": [
             {
@@ -115,7 +121,10 @@ COMPLIANCE_FRAMEWORKS: list[dict] = [
     {
         "name": "PCI DSS v4.0",
         "short_name": "PCI-DSS",
-        "description": "Payment Card Industry Data Security Standard — requirements for organizations handling credit card data.",
+        "description": (
+            "Payment Card Industry Data Security Standard —"
+            " requirements for organizations handling credit card data."
+        ),
         "version": "4.0",
         "controls": [
             {
@@ -165,7 +174,10 @@ COMPLIANCE_FRAMEWORKS: list[dict] = [
     {
         "name": "FedRAMP Moderate",
         "short_name": "FedRAMP",
-        "description": "Federal Risk and Authorization Management Program — standardized security assessment for cloud services used by US federal agencies.",
+        "description": (
+            "Federal Risk and Authorization Management Program — standardized security"
+            " assessment for cloud services used by US federal agencies."
+        ),
         "version": "Moderate",
         "controls": [
             {

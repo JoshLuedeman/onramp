@@ -34,7 +34,11 @@ def validate_environment() -> dict:
 
     # Check Database
     if settings.database_url:
-        db_type = "MSSQL" if "mssql" in settings.database_url else "SQLite" if "sqlite" in settings.database_url else "Other"
+        db_type = (
+            "MSSQL" if "mssql" in settings.database_url
+            else "SQLite" if "sqlite" in settings.database_url
+            else "Other"
+        )
         logger.info("✅ Database configured (%s)", db_type)
     else:
         warnings.append("Database not configured — data will not persist")

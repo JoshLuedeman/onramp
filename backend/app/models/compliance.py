@@ -1,6 +1,6 @@
 """Compliance framework models."""
 
-from sqlalchemy import String, Text, Integer, ForeignKey, JSON, Boolean
+from sqlalchemy import JSON, Boolean, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, generate_uuid

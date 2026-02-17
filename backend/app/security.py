@@ -1,7 +1,6 @@
 """Security configuration and middleware."""
 
 from fastapi import Request
-from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 

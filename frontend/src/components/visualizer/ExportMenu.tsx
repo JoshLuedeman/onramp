@@ -14,7 +14,7 @@ import {
 } from "@fluentui/react-icons";
 
 interface ExportMenuProps {
-  architecture: Record<string, any>;
+  architecture: Record<string, unknown>;
 }
 
 export default function ExportMenu({ architecture }: ExportMenuProps) {
@@ -27,7 +27,7 @@ export default function ExportMenu({ architecture }: ExportMenuProps) {
 
   const exportAsSvg = () => {
     const items = Object.entries(architecture).map(
-      ([key, _], i) =>
+      ([key], i) =>
         `<text x="20" y="${40 + i * 24}" font-family="Segoe UI" font-size="14">${key}</text>`
     );
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="${60 + items.length * 24}">
@@ -41,7 +41,7 @@ export default function ExportMenu({ architecture }: ExportMenuProps) {
 
   const exportAsMarkdown = () => {
     const lines = ["# OnRamp Architecture\n"];
-    const renderSection = (key: string, value: any, depth = 2) => {
+    const renderSection = (key: string, value: unknown, depth = 2) => {
       lines.push(`${"#".repeat(depth)} ${key}\n`);
       if (typeof value === "object" && value !== null) {
         if (Array.isArray(value)) {

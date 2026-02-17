@@ -1,6 +1,6 @@
-from app.schemas.tenant import TenantBase, TenantCreate, TenantResponse
-from app.schemas.user import UserBase, UserCreate, UserResponse, UserProfile
 from app.schemas.project import ProjectBase, ProjectCreate, ProjectResponse
+from app.schemas.tenant import TenantBase, TenantCreate, TenantResponse
+from app.schemas.user import UserBase, UserCreate, UserProfile, UserResponse
 
 __all__ = [
     "TenantBase",

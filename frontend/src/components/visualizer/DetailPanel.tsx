@@ -45,7 +45,7 @@ interface DetailPanelProps {
   component: {
     type: string;
     name: string;
-    properties?: Record<string, any>;
+    properties?: Record<string, unknown>;
     tags?: Record<string, string>;
   };
   onClose: () => void;

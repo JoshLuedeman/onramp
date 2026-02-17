@@ -3,7 +3,6 @@
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
 
 
 class DeploymentStatus(str, Enum):
@@ -23,10 +22,10 @@ class DeploymentStep:
         self.resource_type = resource_type
         self.template = template
         self.status = DeploymentStatus.PENDING
-        self.started_at: Optional[datetime] = None
-        self.completed_at: Optional[datetime] = None
-        self.error: Optional[str] = None
-        self.deployment_id: Optional[str] = None
+        self.started_at: datetime | None = None
+        self.completed_at: datetime | None = None
+        self.error: str | None = None
+        self.deployment_id: str | None = None
 
     def to_dict(self):
         return {
@@ -50,9 +49,9 @@ class DeploymentRecord:
         self.status = DeploymentStatus.PENDING
         self.steps: list[DeploymentStep] = []
         self.created_at = datetime.now(timezone.utc)
-        self.started_at: Optional[datetime] = None
-        self.completed_at: Optional[datetime] = None
-        self.error: Optional[str] = None
+        self.started_at: datetime | None = None
+        self.completed_at: datetime | None = None
+        self.error: str | None = None
         self.audit_log: list[dict] = []
 
     def add_audit_entry(self, action: str, details: str, user: str = "system"):
@@ -178,8 +177,8 @@ class DeploymentOrchestrator:
         self, step: DeploymentStep, subscription_id: str, architecture: dict
     ) -> dict:
         """Deploy a single step via Azure Resource Manager."""
-        from app.services.credentials import credential_manager
         from app.services.bicep_generator import bicep_generator
+        from app.services.credentials import credential_manager
 
         resource_client = credential_manager.get_resource_client(subscription_id)
         if resource_client is None:
@@ -200,7 +199,6 @@ class DeploymentOrchestrator:
         # Deploy via ARM — Bicep is compiled to ARM JSON by Azure
         # For direct ARM deployment, we need the JSON template
         # In production, this would use az CLI or Bicep SDK to compile first
-        import json
         deployment_name = f"onramp-{step.name}-{uuid.uuid4().hex[:8]}"
 
         try:
@@ -238,10 +236,10 @@ class DeploymentOrchestrator:
         except Exception as e:
             raise RuntimeError(f"ARM deployment failed: {str(e)}")
 
-    def get_deployment(self, deployment_id: str) -> Optional[DeploymentRecord]:
+    def get_deployment(self, deployment_id: str) -> DeploymentRecord | None:
         return self._deployments.get(deployment_id)
 
-    def list_deployments(self, project_id: Optional[str] = None) -> list[DeploymentRecord]:
+    def list_deployments(self, project_id: str | None = None) -> list[DeploymentRecord]:
         records = list(self._deployments.values())
         if project_id:
             records = [r for r in records if r.project_id == project_id]

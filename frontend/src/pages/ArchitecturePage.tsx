@@ -127,7 +127,7 @@ export default function ArchitecturePage() {
         <Card style={{ marginTop: "24px", padding: "16px" }}>
           <Body1 className={styles.cardTitle}>🏗️ Management Group Hierarchy</Body1>
           <ArchitectureDiagram
-            managementGroups={arch.management_groups as Record<string, any>}
+            managementGroups={arch.management_groups as Record<string, Record<string, unknown>>}
             subscriptions={arch.subscriptions}
           />
         </Card>

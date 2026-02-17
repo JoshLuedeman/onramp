@@ -113,8 +113,8 @@ export default function CompliancePage() {
       });
       const data = await resp.json();
       setResult(data);
-    } catch (e: any) {
-      setError(e.message || "Scoring failed");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Scoring failed");
     } finally {
       setLoading(false);
     }
@@ -183,7 +183,7 @@ export default function CompliancePage() {
                 <Text weight="semibold">Overall Compliance Score</Text>
                 <ProgressBar
                   value={result.overall_score / 100}
-                  color={scoreColor(result.overall_score) as any}
+                  color={scoreColor(result.overall_score) as "success" | "warning" | "danger"}
                   style={{ marginTop: "4px" }}
                 />
               </div>
@@ -195,7 +195,7 @@ export default function CompliancePage() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <Text weight="semibold">{fw.name}</Text>
                 <Badge
-                  color={scoreColor(fw.score) as any}
+                  color={scoreColor(fw.score) as "success" | "warning" | "danger"}
                   size="large"
                 >
                   {Math.round(fw.score)}%
@@ -206,7 +206,7 @@ export default function CompliancePage() {
               </Text>
               <ProgressBar
                 value={fw.score / 100}
-                color={scoreColor(fw.score) as any}
+                color={scoreColor(fw.score) as "success" | "warning" | "danger"}
                 style={{ margin: "8px 0" }}
               />
 

@@ -62,7 +62,7 @@ export default function DeployPage() {
   const [validating, setValidating] = useState(false);
   const [validated, setValidated] = useState(false);
   const [deploying, setDeploying] = useState(false);
-  const [deploymentId, setDeploymentId] = useState<string | null>(null);
+  const [, setDeploymentId] = useState<string | null>(null);
   const [steps, setSteps] = useState<DeploymentStep[]>([]);
   const [status, setStatus] = useState<string>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -106,8 +106,8 @@ export default function DeployPage() {
     try {
       await api.validateSubscription(subscriptionId, "eastus2");
       setValidated(true);
-    } catch (e: any) {
-      setError(e.message || "Validation failed");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Validation failed");
     } finally {
       setValidating(false);
     }
@@ -142,8 +142,8 @@ export default function DeployPage() {
 
       // Start polling every 3 seconds
       pollRef.current = setInterval(() => pollStatus(depId), 3000);
-    } catch (e: any) {
-      setError(e.message || "Deployment failed");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Deployment failed");
       setDeploying(false);
     }
   };

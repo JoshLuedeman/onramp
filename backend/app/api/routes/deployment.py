@@ -7,7 +7,6 @@ from app.auth import get_current_user, require_architect
 from app.services.credentials import credential_manager
 from app.services.deployment_orchestrator import deployment_orchestrator
 
-
 router = APIRouter(prefix="/api/deployment", tags=["deployment"])
 
 
