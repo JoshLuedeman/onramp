@@ -79,7 +79,7 @@ async def create_project(
             description=project.description,
             status="draft",
             tenant_id=tenant_id,
-            created_by=user.get("oid", user.get("id")),
+            created_by=user.get("oid", user.get("id", user.get("sub", "unknown"))),
             created_at=now,
             updated_at=now,
         )

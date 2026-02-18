@@ -19,11 +19,42 @@ async def seed_database():
         return
 
     async with factory() as session:
+        await _seed_dev_tenant(session)
         await _seed_question_categories(session)
         await _seed_questions(session)
         await _seed_compliance_frameworks(session)
         await session.commit()
         logger.info("Database seeding complete")
+
+
+async def _seed_dev_tenant(session: AsyncSession):
+    """Seed a dev tenant and user for local development."""
+    from app.config import settings
+    if settings.azure_tenant_id:
+        return  # Only seed dev data in dev mode
+
+    from app.models.tenant import Tenant
+    from app.models.user import User
+
+    count = await session.scalar(select(func.count()).select_from(Tenant))
+    if count and count > 0:
+        return
+
+    tenant = Tenant(id="dev-tenant", name="Development Tenant", is_active=True)
+    session.add(tenant)
+    await session.flush()
+
+    user = User(
+        id="dev-user-id",
+        entra_object_id="dev-user-id",
+        email="dev@onramp.local",
+        display_name="Development User",
+        role="admin",
+        is_active=True,
+        tenant_id="dev-tenant",
+    )
+    session.add(user)
+    logger.info("Seeded dev tenant and user")
 
 
 async def _seed_question_categories(session: AsyncSession):
