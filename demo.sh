@@ -10,14 +10,41 @@
 #   5. Generate Bicep templates
 #   6. Create a deployment plan
 #
-# Usage: ./demo.sh [API_BASE_URL]
+# Usage: ./demo.sh [--name "Project Name"] [API_BASE_URL]
+#   Default project name: "Enterprise Landing Zone — <timestamp>"
 #   Default API_BASE_URL: http://localhost:8000
 #
 # Requirements: curl, jq
 # ═══════════════════════════════════════════════════════════════════
 set -euo pipefail
 
-API="${1:-http://localhost:8000}"
+# ── Parse arguments ─────────────────────────────────────────────
+PROJECT_NAME=""
+API="http://localhost:8000"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --name|-n)
+            PROJECT_NAME="$2"
+            shift 2
+            ;;
+        --help|-h)
+            echo "Usage: ./demo.sh [--name \"Project Name\"] [API_BASE_URL]"
+            echo "  --name, -n    Project name (default: auto-generated)"
+            echo "  API_BASE_URL  Backend API URL (default: http://localhost:8000)"
+            exit 0
+            ;;
+        *)
+            API="$1"
+            shift
+            ;;
+    esac
+done
+
+if [ -z "$PROJECT_NAME" ]; then
+    PROJECT_NAME="Enterprise Landing Zone — $(date '+%Y-%m-%d %H:%M')"
+fi
+
 OUTPUT_DIR=$(mktemp -d -t onramp-demo-XXXXXX)
 
 # ── Colors ──────────────────────────────────────────────────────
@@ -35,6 +62,17 @@ step()   { echo -e "  ${GREEN}✓${RESET} $1"; }
 info()   { echo -e "  ${DIM}$1${RESET}"; }
 warn()   { echo -e "  ${YELLOW}⚠ $1${RESET}"; }
 fail()   { echo -e "  ${RED}✗ $1${RESET}"; exit 1; }
+
+# Update project status in the database
+update_status() {
+    local status="$1"
+    curl -sf "${API}/api/projects/${PROJECT_ID}" \
+        -X PUT \
+        -H 'Content-Type: application/json' \
+        -d "{\"status\": \"${status}\"}" > /dev/null 2>&1 \
+        && info "Project status → ${status}" \
+        || true
+}
 
 # ── Preflight ───────────────────────────────────────────────────
 for cmd in curl jq; do
@@ -60,10 +98,8 @@ banner "Step 1 — Create Project"
 PROJECT=$(curl -sf "${API}/api/projects/" \
     -X POST \
     -H 'Content-Type: application/json' \
-    -d '{
-        "name": "Contoso Global Financial — Enterprise Landing Zone",
-        "description": "Full CAF enterprise-scale landing zone for a global financial services organization. 50+ subscriptions, hybrid identity, multi-region, maximum security and compliance."
-    }') || fail "Failed to create project"
+    -d "$(jq -n --arg name "$PROJECT_NAME" --arg desc "Full CAF enterprise-scale landing zone for a global financial services organization. 50+ subscriptions, hybrid identity, multi-region, maximum security and compliance." \
+        '{name: $name, description: $desc}')") || fail "Failed to create project"
 
 PROJECT_ID=$(echo "$PROJECT" | jq -r '.id')
 step "Project created: ${PROJECT_ID}"
@@ -149,6 +185,7 @@ done
 
 step "Questionnaire complete — all ${QUESTION_NUM} questions answered"
 echo "$CURRENT_ANSWERS" | jq '.' > "${OUTPUT_DIR}/02-answers.json"
+update_status "questionnaire_complete"
 
 # Save questionnaire state to project
 curl -sf "${API}/api/questionnaire/state/save" \
@@ -203,6 +240,7 @@ echo "$ARCHITECTURE" | jq -r '.subscriptions[] | "  │ \(.name) — \(.purpose)
 
 echo "$ARCHITECTURE" | jq '.' > "${OUTPUT_DIR}/03-architecture.json"
 step "Architecture saved to ${OUTPUT_DIR}/03-architecture.json"
+update_status "architecture_generated"
 
 # ═══════════════════════════════════════════════════════════════
 # STEP 4: Compliance Scoring
@@ -246,6 +284,7 @@ fi
 
 echo "$SCORING" | jq '.' > "${OUTPUT_DIR}/04-compliance.json"
 step "Compliance report saved to ${OUTPUT_DIR}/04-compliance.json"
+update_status "compliance_scored"
 
 # ═══════════════════════════════════════════════════════════════
 # STEP 5: Generate Bicep Templates
@@ -274,6 +313,7 @@ done
 
 echo "$BICEP" | jq '.' > "${OUTPUT_DIR}/05-bicep.json"
 step "Bicep templates saved to ${OUTPUT_DIR}/bicep/"
+update_status "bicep_ready"
 
 # ═══════════════════════════════════════════════════════════════
 # STEP 6: Create Deployment Plan
@@ -314,7 +354,7 @@ step "Deployment plan saved to ${OUTPUT_DIR}/06-deployment.json"
 # ═══════════════════════════════════════════════════════════════
 banner "Demo Complete — Summary"
 
-echo -e "  ${BOLD}Project:${RESET}           Contoso Global Financial — Enterprise Landing Zone"
+echo -e "  ${BOLD}Project:${RESET}           ${PROJECT_NAME}"
 echo -e "  ${BOLD}Project ID:${RESET}        ${PROJECT_ID}"
 echo -e "  ${BOLD}Archetype:${RESET}         ${ARCH_NAME}"
 echo -e "  ${BOLD}Subscriptions:${RESET}     ${NUM_SUBS}"
