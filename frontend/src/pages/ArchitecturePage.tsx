@@ -79,11 +79,20 @@ export default function ArchitecturePage() {
   const [costError, setCostError] = useState<string | null>(null);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("onramp_architecture");
-    if (stored) {
-      setArchitecture(JSON.parse(stored));
+    // Load architecture: from API for project-scoped, from sessionStorage for legacy
+    if (projectId) {
+      api.architecture.getByProject(projectId).then((data) => {
+        if (data.architecture) {
+          setArchitecture(data.architecture);
+        }
+      }).catch(console.error);
+    } else {
+      const stored = sessionStorage.getItem("onramp_architecture");
+      if (stored) {
+        setArchitecture(JSON.parse(stored));
+      }
     }
-  }, []);
+  }, [projectId]);
 
   if (!architecture) {
     return (

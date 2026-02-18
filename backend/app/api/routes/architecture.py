@@ -71,6 +71,30 @@ async def generate_architecture(
     return {"architecture": architecture}
 
 
+@router.get("/project/{project_id}")
+async def get_project_architecture(
+    project_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Load the persisted architecture for a project."""
+    if db is None:
+        return {"architecture": None, "project_id": project_id}
+
+    from sqlalchemy import select
+
+    from app.models import Architecture as ArchModel
+
+    result = await db.execute(
+        select(ArchModel).where(ArchModel.project_id == project_id)
+    )
+    arch = result.scalar_one_or_none()
+    if not arch:
+        return {"architecture": None, "project_id": project_id}
+
+    return {"architecture": arch.architecture_data, "project_id": project_id}
+
+
 @router.post("/estimate-costs")
 async def estimate_costs(
     request: CostEstimateRequest, user: dict = Depends(get_current_user),

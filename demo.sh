@@ -254,7 +254,8 @@ SCORING=$(curl -sf "${API}/api/scoring/evaluate" \
     -H 'Content-Type: application/json' \
     -d "{
         \"architecture\": ${ARCHITECTURE},
-        \"frameworks\": ${FRAMEWORKS}
+        \"frameworks\": ${FRAMEWORKS},
+        \"project_id\": \"${PROJECT_ID}\"
     }") || fail "Compliance scoring failed"
 
 OVERALL=$(echo "$SCORING" | jq -r '.overall_score')
@@ -294,7 +295,7 @@ banner "Step 5 — Generate Bicep Templates"
 BICEP=$(curl -sf "${API}/api/bicep/generate" \
     -X POST \
     -H 'Content-Type: application/json' \
-    -d "{\"architecture\": ${ARCHITECTURE}}") || fail "Bicep generation failed"
+    -d "{\"architecture\": ${ARCHITECTURE}, \"project_id\": \"${PROJECT_ID}\"}") || fail "Bicep generation failed"
 
 NUM_FILES=$(echo "$BICEP" | jq '.files | length')
 TOTAL_BYTES=$(echo "$BICEP" | jq '[.files[].size_bytes] | add')

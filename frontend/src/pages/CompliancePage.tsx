@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   Text,
@@ -20,6 +20,8 @@ import {
   ArrowDownloadRegular,
 } from "@fluentui/react-icons";
 import { exportComplianceReport } from "../utils/exportUtils";
+import { useParams } from "react-router-dom";
+import { api } from "../services/api";
 
 const useStyles = makeStyles({
   container: {
@@ -86,13 +88,35 @@ interface ScoringResult {
 
 export default function CompliancePage() {
   const styles = useStyles();
+  const { projectId } = useParams<{ projectId: string }>();
   const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ScoringResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [architecture, setArchitecture] = useState<Record<string, unknown> | null>(null);
 
-  const stored = sessionStorage.getItem("onramp_architecture");
-  const architecture = stored ? JSON.parse(stored) : null;
+  useEffect(() => {
+    if (projectId) {
+      api.architecture.getByProject(projectId).then((data) => {
+        if (data.architecture) {
+          setArchitecture(data.architecture as Record<string, unknown>);
+        }
+      }).catch(console.error);
+    } else {
+      const stored = sessionStorage.getItem("onramp_architecture");
+      if (stored) setArchitecture(JSON.parse(stored));
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    if (projectId) {
+      api.scoring.getByProject(projectId).then((data) => {
+        if (data.results && data.results.length > 0) {
+          setResult(data.results[0].scoring_data as unknown as ScoringResult);
+        }
+      }).catch(console.error);
+    }
+  }, [projectId]);
 
   const toggleFramework = (id: string) => {
     setSelected((prev) =>

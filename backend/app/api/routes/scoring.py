@@ -1,10 +1,18 @@
 """Compliance scoring API routes."""
 
+import logging
+import uuid
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
+from app.db.session import get_db
 from app.services.compliance_scoring import compliance_scorer
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/scoring", tags=["scoring"])
 
@@ -13,11 +21,14 @@ class ScoreRequest(BaseModel):
     architecture: dict
     frameworks: list[str]
     use_ai: bool = True
+    project_id: str = ""
 
 
 @router.post("/evaluate")
 async def evaluate_compliance(
-    request: ScoreRequest, user: dict = Depends(get_current_user)
+    request: ScoreRequest,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """Evaluate an architecture against compliance frameworks."""
     if request.use_ai:
@@ -26,4 +37,56 @@ async def evaluate_compliance(
         )
     else:
         result = compliance_scorer.score_architecture(request.architecture, request.frameworks)
+
+    # Persist result if project_id provided and DB available
+    if request.project_id and db is not None:
+        try:
+            from app.models import ComplianceResult
+
+            await db.execute(
+                delete(ComplianceResult).where(ComplianceResult.project_id == request.project_id)
+            )
+            record = ComplianceResult(
+                id=str(uuid.uuid4()),
+                project_id=request.project_id,
+                scoring_data=result,
+                frameworks_evaluated=request.frameworks,
+                overall_score=result.get("overall_score", 0),
+            )
+            db.add(record)
+            await db.flush()
+        except Exception as e:
+            logger.warning(f"Failed to persist compliance result: {e}")
+
     return result
+
+
+@router.get("/project/{project_id}")
+async def get_project_compliance_results(
+    project_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Load persisted compliance results for a project."""
+    if db is None:
+        return {"results": [], "project_id": project_id}
+
+    from app.models import ComplianceResult
+
+    result = await db.execute(
+        select(ComplianceResult).where(ComplianceResult.project_id == project_id)
+    )
+    rows = result.scalars().all()
+    return {
+        "results": [
+            {
+                "id": r.id,
+                "scoring_data": r.scoring_data,
+                "frameworks_evaluated": r.frameworks_evaluated,
+                "overall_score": r.overall_score,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ],
+        "project_id": project_id,
+    }

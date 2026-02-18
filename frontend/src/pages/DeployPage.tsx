@@ -18,6 +18,7 @@ import {
   CheckmarkCircleRegular,
   ErrorCircleRegular,
 } from "@fluentui/react-icons";
+import { useParams } from "react-router-dom";
 import { api } from "../services/api";
 import type { Architecture } from "../services/api";
 
@@ -58,6 +59,7 @@ interface DeploymentStep {
 
 export default function DeployPage() {
   const styles = useStyles();
+  const { projectId } = useParams<{ projectId: string }>();
   const [subscriptionId, setSubscriptionId] = useState("");
   const [validating, setValidating] = useState(false);
   const [validated, setValidated] = useState(false);
@@ -67,9 +69,20 @@ export default function DeployPage() {
   const [status, setStatus] = useState<string>("idle");
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [architecture, setArchitecture] = useState<Architecture | null>(null);
 
-  const stored = sessionStorage.getItem("onramp_architecture");
-  const architecture: Architecture | null = stored ? JSON.parse(stored) : null;
+  useEffect(() => {
+    if (projectId) {
+      api.architecture.getByProject(projectId).then((data) => {
+        if (data.architecture) {
+          setArchitecture(data.architecture as Architecture);
+        }
+      }).catch(console.error);
+    } else {
+      const stored = sessionStorage.getItem("onramp_architecture");
+      if (stored) setArchitecture(JSON.parse(stored));
+    }
+  }, [projectId]);
 
   // Poll for deployment status updates
   const pollStatus = useCallback(async (depId: string) => {

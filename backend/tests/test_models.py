@@ -29,7 +29,7 @@ def test_all_models_importable():
 
     # Verify all tables are registered in metadata
     table_names = Base.metadata.tables.keys()
-    assert len(list(table_names)) == 10
+    assert len(list(table_names)) == 12
 
 
 def test_all_schemas_importable():

@@ -128,7 +128,9 @@ export default function WizardPage() {
     }
     const newAnswers = { ...answers, [questionId]: answer };
     setAnswers(newAnswers);
-    sessionStorage.setItem("onramp_wizard_answers", JSON.stringify(newAnswers));
+    if (!projectId) {
+      sessionStorage.setItem("onramp_wizard_answers", JSON.stringify(newAnswers));
+    }
     if (projectId) {
       api.questionnaire.saveState(projectId, newAnswers).catch(console.error);
     }
@@ -174,9 +176,15 @@ export default function WizardPage() {
     setGenerating(true);
     try {
       const finalAnswers = resolvedAnswers || answers;
-      const result = await api.architecture.generate(finalAnswers);
-      sessionStorage.setItem("onramp_architecture", JSON.stringify(result.architecture));
-      sessionStorage.setItem("onramp_answers", JSON.stringify(finalAnswers));
+      const result = await api.architecture.generate(
+        finalAnswers,
+        false,
+        projectId ? { project_id: projectId, use_archetype: true } : undefined
+      );
+      if (!projectId) {
+        sessionStorage.setItem("onramp_architecture", JSON.stringify(result.architecture));
+        sessionStorage.setItem("onramp_answers", JSON.stringify(finalAnswers));
+      }
       navigate(projectId ? `/projects/${projectId}/architecture` : "/architecture");
     } catch (error) {
       console.error("Failed to generate architecture:", error);

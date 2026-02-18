@@ -40,3 +40,9 @@ class Project(Base, TimestampMixin):
     deployments: Mapped[list["Deployment"]] = relationship(
         "Deployment", back_populates="project", cascade="all, delete-orphan"
     )
+    bicep_files: Mapped[list["BicepFile"]] = relationship(
+        "BicepFile", back_populates="project", cascade="all, delete-orphan"
+    )
+    compliance_results: Mapped[list["ComplianceResult"]] = relationship(
+        "ComplianceResult", back_populates="project", cascade="all, delete-orphan"
+    )

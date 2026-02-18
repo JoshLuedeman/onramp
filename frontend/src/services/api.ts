@@ -47,10 +47,18 @@ export const api = {
   },
   architecture: {
     getArchetypes: () => fetchApi<{ archetypes: Archetype[] }>("/api/architecture/archetypes"),
-    generate: (answers: Record<string, string | string[]>, useAi = false) =>
+    getByProject: (projectId: string) =>
+      fetchApi<{ architecture: Architecture | null; project_id: string }>(
+        `/api/architecture/project/${projectId}`
+      ),
+    generate: (
+      answers: Record<string, string | string[]>,
+      useAi = false,
+      options?: { project_id?: string; use_archetype?: boolean },
+    ) =>
       fetchApi<{ architecture: Architecture }>("/api/architecture/generate", {
         method: "POST",
-        body: JSON.stringify({ answers, use_ai: useAi }),
+        body: JSON.stringify({ answers, use_ai: useAi, ...options }),
       }),
     refine: (architecture: Record<string, unknown>, message: string) =>
       fetchApi<{ response: string; updated_architecture: Record<string, unknown> | null }>(
@@ -70,6 +78,18 @@ export const api = {
     }),
   compliance: {
     getFrameworks: () => fetchApi<{ frameworks: Framework[] }>("/api/compliance/frameworks"),
+  },
+  scoring: {
+    getByProject: (projectId: string) =>
+      fetchApi<{ results: Array<{ scoring_data: Record<string, unknown>; overall_score: number }>; project_id: string }>(
+        `/api/scoring/project/${projectId}`
+      ),
+  },
+  bicep: {
+    getByProject: (projectId: string) =>
+      fetchApi<{ files: Array<{ name: string; file_path: string; content: string; size_bytes: number }>; project_id: string }>(
+        `/api/bicep/project/${projectId}`
+      ),
   },
   projects: {
     list: () => fetchApi<{ projects: Project[] }>("/api/projects/"),
