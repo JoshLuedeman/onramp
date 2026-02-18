@@ -120,8 +120,8 @@ cmd_up() {
     echo ""
     echo -e "${BLUE}Waiting for services to be healthy...${NC}"
 
-    # SQL Server takes the longest — wait for it first
-    wait_for_health "SQL Server" "http://${HOST_IP}:8000/health" 90 || true
+    # SQL Server needs time to initialize
+    wait_for_health "SQL Server" "http://${HOST_IP}:8000/health" 120 || true
     wait_for_health "Backend" "http://${HOST_IP}:8000/health" 30 || true
     wait_for_health "Frontend" "http://${HOST_IP}:5173" 30 || true
 
@@ -133,8 +133,9 @@ cmd_up() {
     echo -e "  Backend:   ${BLUE}http://${HOST_IP}:8000${NC}"
     echo -e "  API Docs:  ${BLUE}http://${HOST_IP}:8000/docs${NC}"
     echo -e "  Health:    ${BLUE}http://${HOST_IP}:8000/health${NC}"
+    echo -e "  SQL Server: ${BLUE}localhost:1433${NC}"
     echo ""
-    echo -e "  ${YELLOW}Running in dev mode — mock auth, mock AI, hot reload enabled${NC}"
+    echo -e "  ${YELLOW}Running in dev mode — mock auth, mock AI, SQL Server database${NC}"
     echo ""
     echo -e "  Edit frontend code in ${BLUE}frontend/src/${NC} — changes hot-reload"
     echo -e "  Edit backend code in  ${BLUE}backend/app/${NC}  — uvicorn auto-restarts"

@@ -75,9 +75,54 @@ async def init_db():
     engine = get_engine()
     if engine is None:
         return
+    # For MSSQL, create the database if it doesn't exist
+    db_url = get_database_url()
+    if "mssql" in db_url and "aioodbc" in db_url:
+        await _ensure_mssql_database(db_url)
     from app.models import Base
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+
+async def _ensure_mssql_database(db_url: str):
+    """Create the MSSQL database if it doesn't exist."""
+    import logging
+    import re
+
+    logger = logging.getLogger(__name__)
+    match = re.search(r"/(\w+)\?", db_url)
+    if not match:
+        return
+    db_name = match.group(1)
+    # Extract connection params from URL
+    host_match = re.search(r"@([^/]+)/", db_url)
+    user_match = re.search(r"//([^:]+):", db_url)
+    pass_match = re.search(r":([^@]+)@", db_url)
+    if not (host_match and user_match and pass_match):
+        return
+    host = host_match.group(1)
+    user = user_match.group(1)
+    password = pass_match.group(1)
+    try:
+        import pyodbc
+        conn_str = (
+            f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+            f"SERVER={host};UID={user};PWD={password};"
+            f"DATABASE=master;TrustServerCertificate=yes"
+        )
+        conn = pyodbc.connect(conn_str, autocommit=True)
+        cursor = conn.cursor()
+        cursor.execute(
+            f"IF NOT EXISTS (SELECT 1 FROM sys.databases WHERE name = '{db_name}') "
+            f"CREATE DATABASE [{db_name}]"
+        )
+        cursor.close()
+        conn.close()
+        logger.info("Database '%s' ensured", db_name)
+    except ImportError:
+        logger.warning("pyodbc not available — skipping database creation")
+    except Exception as e:
+        logger.warning("Could not ensure database '%s': %s", db_name, e)
 
 
 async def close_db():
