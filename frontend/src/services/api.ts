@@ -1,3 +1,5 @@
+import type { Project, ProjectCreate, ProjectUpdate, ProjectStats } from "../types/project";
+
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
@@ -33,6 +35,15 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ answers }),
       }),
+    saveState: (projectId: string, answers: Record<string, string | string[]>) =>
+      fetchApi<{ saved: boolean }>("/api/questionnaire/state/save", {
+        method: "POST",
+        body: JSON.stringify({ project_id: projectId, answers }),
+      }),
+    loadState: (projectId: string) =>
+      fetchApi<{ answers: Record<string, string | string[]> }>(
+        `/api/questionnaire/state/load/${projectId}`,
+      ),
   },
   architecture: {
     getArchetypes: () => fetchApi<{ archetypes: Archetype[] }>("/api/architecture/archetypes"),
@@ -59,6 +70,23 @@ export const api = {
     }),
   compliance: {
     getFrameworks: () => fetchApi<{ frameworks: Framework[] }>("/api/compliance/frameworks"),
+  },
+  projects: {
+    list: () => fetchApi<{ projects: Project[] }>("/api/projects/"),
+    get: (id: string) => fetchApi<Project>(`/api/projects/${id}`),
+    create: (data: ProjectCreate) =>
+      fetchApi<Project>("/api/projects/", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: ProjectUpdate) =>
+      fetchApi<Project>(`/api/projects/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      fetchApi<{ deleted: boolean }>(`/api/projects/${id}`, { method: "DELETE" }),
+    getStats: () => fetchApi<ProjectStats>("/api/projects/stats"),
   },
 };
 

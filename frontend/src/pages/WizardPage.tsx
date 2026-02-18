@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { makeStyles, Spinner, Title1, Button, Text, tokens } from "@fluentui/react-components";
 import { ArrowLeftRegular, ArrowResetRegular } from "@fluentui/react-icons";
 import QuestionCard from "../components/wizard/QuestionCard";
@@ -49,6 +49,7 @@ const useStyles = makeStyles({
 export default function WizardPage() {
   const styles = useStyles();
   const navigate = useNavigate();
+  const { projectId } = useParams<{ projectId: string }>();
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [questionHistory, setQuestionHistory] = useState<Question[]>([]);
@@ -96,17 +97,28 @@ export default function WizardPage() {
   }, []);
 
   useEffect(() => {
-    const saved = sessionStorage.getItem("onramp_wizard_answers");
-    if (saved) {
-      try {
-        const savedAnswers = JSON.parse(saved);
-        setAnswers(savedAnswers);
-        fetchNext(savedAnswers);
-      } catch {
+    if (projectId) {
+      api.questionnaire.loadState(projectId).then((data) => {
+        if (data.answers && Object.keys(data.answers).length > 0) {
+          setAnswers(data.answers);
+          fetchNext(data.answers);
+        } else {
+          fetchNext({});
+        }
+      }).catch(() => fetchNext({}));
+    } else {
+      const saved = sessionStorage.getItem("onramp_wizard_answers");
+      if (saved) {
+        try {
+          const savedAnswers = JSON.parse(saved);
+          setAnswers(savedAnswers);
+          fetchNext(savedAnswers);
+        } catch {
+          fetchNext({});
+        }
+      } else {
         fetchNext({});
       }
-    } else {
-      fetchNext({});
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -117,6 +129,9 @@ export default function WizardPage() {
     const newAnswers = { ...answers, [questionId]: answer };
     setAnswers(newAnswers);
     sessionStorage.setItem("onramp_wizard_answers", JSON.stringify(newAnswers));
+    if (projectId) {
+      api.questionnaire.saveState(projectId, newAnswers).catch(console.error);
+    }
     fetchNext(newAnswers);
   };
 
@@ -162,7 +177,7 @@ export default function WizardPage() {
       const result = await api.architecture.generate(finalAnswers);
       sessionStorage.setItem("onramp_architecture", JSON.stringify(result.architecture));
       sessionStorage.setItem("onramp_answers", JSON.stringify(finalAnswers));
-      navigate("/architecture");
+      navigate(projectId ? `/projects/${projectId}/architecture` : "/architecture");
     } catch (error) {
       console.error("Failed to generate architecture:", error);
     } finally {

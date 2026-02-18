@@ -61,3 +61,39 @@ def test_create_project_missing_name():
     """Create without name returns 422."""
     r = client.post("/api/projects/", json={"description": "no name"})
     assert r.status_code == 422
+
+
+def test_get_project_stats():
+    """GET /api/projects/stats returns stats with total and by_status."""
+    r = client.get("/api/projects/stats")
+    assert r.status_code == 200
+    data = r.json()
+    assert "total" in data
+    assert "by_status" in data
+    assert isinstance(data["total"], int)
+    assert isinstance(data["by_status"], dict)
+
+
+def test_update_project():
+    """PUT /api/projects/{id} returns updated project data."""
+    r = client.put(
+        "/api/projects/some-id",
+        json={"status": "deployed"},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["id"] == "some-id"
+    assert data["status"] == "deployed"
+
+
+def test_create_and_list():
+    """POST to create then GET list; list returns projects array."""
+    create_resp = client.post(
+        "/api/projects/", json={"name": "Integration Test"}
+    )
+    assert create_resp.status_code == 200
+    assert create_resp.json()["name"] == "Integration Test"
+
+    list_resp = client.get("/api/projects/")
+    assert list_resp.status_code == 200
+    assert "projects" in list_resp.json()

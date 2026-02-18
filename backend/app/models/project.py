@@ -5,6 +5,17 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, generate_uuid
 
+PROJECT_STATUSES = [
+    "draft",
+    "questionnaire_complete",
+    "architecture_generated",
+    "compliance_scored",
+    "bicep_ready",
+    "deploying",
+    "deployed",
+    "failed",
+]
+
 
 class Project(Base, TimestampMixin):
     __tablename__ = "projects"
