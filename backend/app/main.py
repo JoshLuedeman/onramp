@@ -15,7 +15,11 @@ from app.api.routes.users import router as users_router
 from app.config import settings
 from app.db.seed import seed_database
 from app.db.session import close_db, init_db
-from app.security import SecurityHeadersMiddleware
+from app.security import (
+    RateLimitMiddleware,
+    RequestValidationMiddleware,
+    SecurityHeadersMiddleware,
+)
 from app.startup import get_startup_status, validate_environment
 
 
@@ -35,14 +39,26 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# CORS — restrict methods/headers in production
+_cors_methods = (
+    ["*"] if settings.is_dev_mode
+    else ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+)
+_cors_headers = (
+    ["*"] if settings.is_dev_mode
+    else ["Authorization", "Content-Type", "Accept", "X-Requested-With"]
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=_cors_methods,
+    allow_headers=_cors_headers,
 )
 app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestValidationMiddleware)
+app.add_middleware(RateLimitMiddleware)
 
 app.include_router(users_router)
 app.include_router(questionnaire_router)
@@ -57,12 +73,15 @@ app.include_router(questionnaire_state_router)
 
 @app.get("/health")
 async def health_check():
+    """Health endpoint — minimal in production, verbose in dev mode."""
     status = get_startup_status()
-    return {
-        "status": "healthy",
-        "service": "onramp-api",
-        "mode": status["mode"],
-        "auth": status["auth"],
-        "ai": status["ai"],
-        "database": status["database"],
-    }
+    if settings.is_dev_mode:
+        return {
+            "status": "healthy",
+            "service": "onramp-api",
+            "mode": status["mode"],
+            "auth": status["auth"],
+            "ai": status["ai"],
+            "database": status["database"],
+        }
+    return {"status": "healthy"}
