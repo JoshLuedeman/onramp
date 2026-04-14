@@ -5,6 +5,7 @@ from app.models.bicep_file import BicepFile
 from app.models.compliance import ComplianceControl, ComplianceFramework
 from app.models.compliance_result import ComplianceResult
 from app.models.deployment import Deployment
+from app.models.discovery import DiscoveredResource, DiscoveryScan
 from app.models.project import Project
 from app.models.questionnaire import Question, QuestionCategory, QuestionnaireResponse
 from app.models.tenant import Tenant
@@ -25,4 +26,6 @@ __all__ = [
     "BicepFile",
     "ComplianceResult",
     "AuditEntry",
+    "DiscoveryScan",
+    "DiscoveredResource",
 ]
