@@ -114,12 +114,7 @@ export default function BicepPage() {
   const handleDownload = async () => {
     if (!architecture) return;
     try {
-      const resp = await fetch("/api/bicep/download", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ architecture }),
-      });
-      const blob = await resp.blob();
+      const blob = await api.bicep.download(architecture);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

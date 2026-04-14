@@ -87,9 +87,7 @@ export default function DeployPage() {
   // Poll for deployment status updates
   const pollStatus = useCallback(async (depId: string) => {
     try {
-      const resp = await fetch(`/api/deployment/${depId}`);
-      if (!resp.ok) return;
-      const data = await resp.json();
+      const data = await api.deployment.status(depId);
       setSteps(data.steps || []);
       setStatus(data.status || "unknown");
 
