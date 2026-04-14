@@ -70,12 +70,27 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > self.MAX_CONTENT_LENGTH:
-            return Response(
-                content='{"detail":"Request body too large"}',
-                status_code=413,
-                media_type="application/json",
-            )
+        if content_length:
+            try:
+                parsed = int(content_length)
+            except ValueError:
+                return Response(
+                    content='{"detail":"Invalid Content-Length header"}',
+                    status_code=400,
+                    media_type="application/json",
+                )
+            if parsed < 0:
+                return Response(
+                    content='{"detail":"Invalid Content-Length header"}',
+                    status_code=400,
+                    media_type="application/json",
+                )
+            if parsed > self.MAX_CONTENT_LENGTH:
+                return Response(
+                    content='{"detail":"Request body too large"}',
+                    status_code=413,
+                    media_type="application/json",
+                )
 
         if ".." in request.url.path:
             return Response(
@@ -112,8 +127,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return settings.rate_limit_default
 
     def _get_client_key(self, request: Request, path: str) -> str:
-        """Build a key from client IP + path tier."""
-        client_ip = request.client.host if request.client else "unknown"
+        """Build a key from client IP + path tier.
+
+        Uses X-Forwarded-For when behind a reverse proxy, falling back to
+        request.client.host.
+        """
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            client_ip = forwarded.split(",")[0].strip()
+        else:
+            client_ip = request.client.host if request.client else "unknown"
         if path.startswith("/api/architecture/generate") or path.startswith("/api/architecture/refine"):
             return f"{client_ip}:ai"
         if path.startswith("/api/deployment"):
@@ -125,8 +148,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if settings.is_dev_mode:
             return await call_next(request)
 
-        # Skip health checks
-        if request.url.path == "/health":
+        # Skip health checks and CORS preflight requests
+        if request.url.path == "/health" or request.method == "OPTIONS":
             return await call_next(request)
 
         path = request.url.path
@@ -136,12 +159,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         window_start = now - self.WINDOW_SECONDS
 
         # Prune old entries and count recent requests
-        self._requests[key] = [
-            ts for ts in self._requests[key] if ts > window_start
-        ]
+        recent = [ts for ts in self._requests[key] if ts > window_start]
+        if recent:
+            self._requests[key] = recent
+        else:
+            # Evict empty keys to prevent unbounded memory growth
+            self._requests.pop(key, None)
+            recent = []
 
-        if len(self._requests[key]) >= limit:
-            retry_after = int(self.WINDOW_SECONDS - (now - self._requests[key][0])) + 1
+        if len(recent) >= limit:
+            retry_after = int(self.WINDOW_SECONDS - (now - recent[0])) + 1
             return Response(
                 content='{"detail":"Rate limit exceeded. Try again later."}',
                 status_code=429,
@@ -149,5 +176,5 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 headers={"Retry-After": str(max(1, retry_after))},
             )
 
-        self._requests[key].append(now)
+        self._requests[key] = recent + [now]
         return await call_next(request)

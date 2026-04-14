@@ -1,6 +1,8 @@
 """Tests for security headers middleware, CSP, request validation, and rate limiting."""
 
-from unittest.mock import patch
+import asyncio
+import time
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -88,9 +90,6 @@ def test_csp_production_no_ws():
 
 def test_request_validation_blocks_path_traversal():
     """Requests with .. in path should be rejected with 400."""
-    # TestClient normalizes '..' in URLs, so test the middleware directly
-    from unittest.mock import AsyncMock, MagicMock
-    import asyncio
     from app.security import RequestValidationMiddleware
 
     mw = RequestValidationMiddleware(app=None)
@@ -108,8 +107,6 @@ def test_request_validation_blocks_path_traversal():
 
 def test_request_validation_blocks_oversized_body():
     """Requests with Content-Length exceeding limit should get 413."""
-    from unittest.mock import AsyncMock, MagicMock
-    import asyncio
     from app.security import RequestValidationMiddleware
 
     mw = RequestValidationMiddleware(app=None)
@@ -123,6 +120,40 @@ def test_request_validation_blocks_oversized_body():
     )
     assert response.status_code == 413
     call_next.assert_not_called()
+
+
+def test_request_validation_rejects_invalid_content_length():
+    """Non-numeric Content-Length should be rejected with 400."""
+    from app.security import RequestValidationMiddleware
+
+    mw = RequestValidationMiddleware(app=None)
+    request = MagicMock()
+    request.url.path = "/api/test"
+    request.headers = {"content-length": "not-a-number"}
+    call_next = AsyncMock()
+
+    response = asyncio.get_event_loop().run_until_complete(
+        mw.dispatch(request, call_next)
+    )
+    assert response.status_code == 400
+    assert b"Invalid Content-Length" in response.body
+
+
+def test_request_validation_rejects_negative_content_length():
+    """Negative Content-Length should be rejected with 400."""
+    from app.security import RequestValidationMiddleware
+
+    mw = RequestValidationMiddleware(app=None)
+    request = MagicMock()
+    request.url.path = "/api/test"
+    request.headers = {"content-length": "-1"}
+    call_next = AsyncMock()
+
+    response = asyncio.get_event_loop().run_until_complete(
+        mw.dispatch(request, call_next)
+    )
+    assert response.status_code == 400
+    assert b"Invalid Content-Length" in response.body
 
 
 def test_request_validation_allows_normal_requests():
@@ -149,16 +180,16 @@ def test_health_dev_mode_verbose():
 
 
 def test_health_production_minimal():
-    """Production health should return only status."""
+    """Production health should return ONLY status — no dev-only keys."""
     with patch("app.main.settings") as mock_settings:
         mock_settings.is_dev_mode = False
         mock_settings.cors_origins = ["https://example.com"]
-        # Re-call the endpoint — settings.is_dev_mode is checked at call time
         r = client.get("/health")
         data = r.json()
         assert data["status"] == "healthy"
-        # In dev mode the test client still runs dev settings at module level,
-        # but the health function checks settings.is_dev_mode dynamically
+        # Dev-only keys must be absent in production
+        for key in ("service", "mode", "auth", "ai", "database"):
+            assert key not in data, f"Dev-only key '{key}' found in production health"
 
 
 # --------------------------------------------------------------------------- #
@@ -167,10 +198,11 @@ def test_health_production_minimal():
 
 
 def test_rate_limiting_disabled_in_dev_mode():
-    """Rate limiting should be disabled in dev mode — no 429s."""
+    """Rate limiting should be disabled in dev mode — no 429s on API endpoints."""
     for _ in range(100):
-        r = client.get("/health")
-        assert r.status_code == 200
+        r = client.get("/api/questionnaire/categories")
+        # Should never get 429 in dev mode (404 or 200 are both fine)
+        assert r.status_code != 429
 
 
 def test_rate_limit_middleware_exists():
@@ -183,15 +215,62 @@ def test_rate_limit_returns_429_when_exceeded():
     """Rate limiter should return 429 with Retry-After when limit exceeded."""
     from app.security import RateLimitMiddleware
 
-    # Test the middleware logic directly
     mw = RateLimitMiddleware(app=None)
-    import time
-    key = "test-client:default"
     now = time.monotonic()
-    # Fill up the bucket
-    mw._requests[key] = [now] * 100
-    # Check that the bucket is full
-    assert len(mw._requests[key]) >= 60
+    call_next = AsyncMock(return_value=MagicMock())
+
+    # Simulate production mode
+    with patch("app.security.settings") as mock_settings:
+        mock_settings.is_dev_mode = False
+        mock_settings.rate_limit_default = 2
+        mock_settings.rate_limit_ai = 5
+        mock_settings.rate_limit_deploy = 3
+
+        # Build a mock request for a non-exempt endpoint
+        request = MagicMock()
+        request.url.path = "/api/questionnaire/next"
+        request.method = "POST"
+        request.headers = {}
+        request.client.host = "10.0.0.1"
+
+        # First two requests should succeed
+        for _ in range(2):
+            resp = asyncio.get_event_loop().run_until_complete(
+                mw.dispatch(request, call_next)
+            )
+        assert call_next.call_count == 2
+
+        # Third request should be rate limited
+        resp = asyncio.get_event_loop().run_until_complete(
+            mw.dispatch(request, call_next)
+        )
+        assert resp.status_code == 429
+        assert "Retry-After" in resp.headers
+
+
+def test_rate_limit_skips_options_preflight():
+    """OPTIONS (CORS preflight) requests should bypass rate limiting."""
+    from app.security import RateLimitMiddleware
+
+    mw = RateLimitMiddleware(app=None)
+    call_next = AsyncMock(return_value=MagicMock())
+
+    with patch("app.security.settings") as mock_settings:
+        mock_settings.is_dev_mode = False
+
+        request = MagicMock()
+        request.url.path = "/api/architecture/generate"
+        request.method = "OPTIONS"
+        request.headers = {}
+        request.client.host = "10.0.0.2"
+
+        # OPTIONS should always pass through
+        for _ in range(20):
+            asyncio.get_event_loop().run_until_complete(
+                mw.dispatch(request, call_next)
+            )
+        # All 20 should have been forwarded (no 429)
+        assert call_next.call_count == 20
 
 
 def test_rate_limit_config_settings():
@@ -200,7 +279,6 @@ def test_rate_limit_config_settings():
     assert settings.rate_limit_default == 60
     assert settings.rate_limit_ai == 5
     assert settings.rate_limit_deploy == 3
-    assert settings.rate_limit_auth == 10
 
 
 def test_rate_limit_path_tiers():
@@ -216,6 +294,50 @@ def test_rate_limit_path_tiers():
     assert mw._get_limit_for_path("/health") == settings.rate_limit_default
 
 
+def test_rate_limit_uses_x_forwarded_for():
+    """Rate limiter should use X-Forwarded-For header when present."""
+    from app.security import RateLimitMiddleware
+
+    mw = RateLimitMiddleware(app=None)
+    request = MagicMock()
+    request.url.path = "/api/test"
+    request.headers = {"x-forwarded-for": "1.2.3.4, 10.0.0.1"}
+    request.client.host = "10.0.0.1"
+
+    key = mw._get_client_key(request, "/api/test")
+    assert key.startswith("1.2.3.4:")
+
+
+def test_rate_limit_memory_eviction():
+    """Expired entries should be evicted to prevent unbounded memory growth."""
+    from app.security import RateLimitMiddleware
+
+    mw = RateLimitMiddleware(app=None)
+    key = "eviction-test:default"
+    # Add entries from 120 seconds ago (well outside the 60s window)
+    old_time = time.monotonic() - 120
+    mw._requests[key] = [old_time] * 5
+
+    call_next = AsyncMock(return_value=MagicMock())
+    with patch("app.security.settings") as mock_settings:
+        mock_settings.is_dev_mode = False
+        mock_settings.rate_limit_default = 60
+        mock_settings.rate_limit_ai = 5
+        mock_settings.rate_limit_deploy = 3
+
+        request = MagicMock()
+        request.url.path = "/api/test"
+        request.method = "GET"
+        request.headers = {}
+        request.client.host = "eviction-test"
+
+        asyncio.get_event_loop().run_until_complete(
+            mw.dispatch(request, call_next)
+        )
+    # After processing, the old entries should be gone and key should have 1 new entry
+    assert len(mw._requests.get("eviction-test:default", [])) == 1
+
+
 # --------------------------------------------------------------------------- #
 # CORS configuration tests (#51)                                               #
 # --------------------------------------------------------------------------- #
@@ -227,3 +349,29 @@ def test_cors_dev_mode_permissive():
     # In dev mode (no azure_tenant_id), CORS should be permissive
     assert _cors_methods == ["*"]
     assert _cors_headers == ["*"]
+
+
+# --------------------------------------------------------------------------- #
+# is_dev_mode alignment (#51)                                                  #
+# --------------------------------------------------------------------------- #
+
+
+def test_is_dev_mode_requires_both_tenant_and_client():
+    """is_dev_mode should be True unless BOTH tenant and client IDs are set."""
+    from app.config import Settings
+
+    # No credentials = dev mode
+    s = Settings(azure_tenant_id="", azure_client_id="")
+    assert s.is_dev_mode is True
+
+    # Only tenant = still dev mode
+    s = Settings(azure_tenant_id="tid", azure_client_id="")
+    assert s.is_dev_mode is True
+
+    # Only client = still dev mode
+    s = Settings(azure_tenant_id="", azure_client_id="cid")
+    assert s.is_dev_mode is True
+
+    # Both set = production mode
+    s = Settings(azure_tenant_id="tid", azure_client_id="cid")
+    assert s.is_dev_mode is False

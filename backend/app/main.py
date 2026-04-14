@@ -49,6 +49,12 @@ _cors_headers = (
     else ["Authorization", "Content-Type", "Accept", "X-Requested-With"]
 )
 
+# Middleware ordering: Starlette applies middleware in reverse add order.
+# Add rate-limit/validation first so CORS and security headers wrap ALL responses
+# (including 429/413/400 early returns).
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(RequestValidationMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -56,9 +62,6 @@ app.add_middleware(
     allow_methods=_cors_methods,
     allow_headers=_cors_headers,
 )
-app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(RequestValidationMiddleware)
-app.add_middleware(RateLimitMiddleware)
 
 app.include_router(users_router)
 app.include_router(questionnaire_router)

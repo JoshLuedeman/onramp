@@ -29,14 +29,13 @@ class Settings(BaseSettings):
     rate_limit_default: int = 60
     rate_limit_ai: int = 5
     rate_limit_deploy: int = 3
-    rate_limit_auth: int = 10
 
     model_config = {"env_prefix": "ONRAMP_", "env_file": ".env"}
 
     @property
     def is_dev_mode(self) -> bool:
-        """True when running without Azure tenant (local dev)."""
-        return not self.azure_tenant_id
+        """True when Azure production settings are not fully configured."""
+        return not (self.azure_tenant_id and self.azure_client_id)
 
 
 settings = Settings()
