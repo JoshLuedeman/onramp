@@ -130,9 +130,9 @@ export default function WizardPage() {
           ? data.answers : null;
 
         // Conflict: both local and server state exist with different content.
-        // Use sorted-key serialisation to avoid spurious conflicts from key-order differences.
+        // Use sorted-entry serialisation to avoid spurious conflicts from key-order differences.
         const stableStringify = (obj: Record<string, string | string[]>) =>
-          JSON.stringify(obj, Object.keys(obj).sort());
+          JSON.stringify(Object.fromEntries(Object.entries(obj).sort()));
         if (localAnswers && Object.keys(localAnswers).length > 0 && serverAnswers
             && stableStringify(localAnswers) !== stableStringify(serverAnswers)) {
           setConflictData({ local: localAnswers, server: serverAnswers });

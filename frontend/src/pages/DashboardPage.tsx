@@ -1,3 +1,4 @@
+import type React from "react";
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -383,8 +384,10 @@ export default function DashboardPage() {
                       className={styles.statusBarFill}
                       style={{
                         width: `${pct}%`,
-                        ["--status-bar-color" as string]: color,
-                      }}
+                        // CSS custom property for themed status bar colour.
+                        // The `as` cast is the standard pattern for CSS vars in React TypeScript.
+                        ["--status-bar-color"]: color,
+                      } as React.CSSProperties}
                     />
                   </div>
                 </div>
