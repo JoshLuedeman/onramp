@@ -130,13 +130,12 @@ export default function CompliancePage() {
     setLoading(true);
     setError(null);
     try {
-      const resp = await fetch("/api/scoring/evaluate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ architecture, frameworks: selected }),
-      });
-      const data = await resp.json();
-      setResult(data);
+      const data = await api.scoring.evaluate(
+        architecture as Record<string, unknown>,
+        selected,
+        { use_ai: true, project_id: projectId || "" },
+      );
+      setResult(data as unknown as ScoringResult);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Scoring failed");
     } finally {

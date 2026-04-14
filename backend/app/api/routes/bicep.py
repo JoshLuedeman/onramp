@@ -56,24 +56,39 @@ async def generate_bicep(
     # Persist generated files if project_id provided and DB available
     if request.project_id and db is not None:
         try:
-            from app.models import BicepFile
+            from app.models import BicepFile, Project
 
-            await db.execute(
-                delete(BicepFile).where(BicepFile.project_id == request.project_id)
-            )
-            for name, content in files.items():
-                record = BicepFile(
-                    id=str(uuid.uuid4()),
-                    project_id=request.project_id,
-                    file_name=name,
-                    file_path=f"modules/{name}",
-                    content=content,
-                    size_bytes=len(content),
+            tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
+            project_check = await db.execute(
+                select(Project.id).where(
+                    Project.id == request.project_id,
+                    Project.tenant_id == tenant_id,
                 )
-                db.add(record)
-            await db.flush()
+            )
+            if project_check.scalar_one_or_none() is None:
+                logger.warning(
+                    "Skipping bicep file persist: project %s not found for tenant %s",
+                    request.project_id,
+                    tenant_id,
+                )
+            else:
+                async with db.begin_nested():
+                    await db.execute(
+                        delete(BicepFile).where(BicepFile.project_id == request.project_id)
+                    )
+                    for name, content in files.items():
+                        record = BicepFile(
+                            id=str(uuid.uuid4()),
+                            project_id=request.project_id,
+                            file_name=name,
+                            file_path=f"modules/{name}",
+                            content=content,
+                            size_bytes=len(content),
+                        )
+                        db.add(record)
+                    await db.flush()
         except Exception as e:
-            logger.warning(f"Failed to persist bicep files: {e}")
+            logger.warning("Failed to persist bicep files: %s", e)
 
     return {
         "files": [
@@ -95,10 +110,13 @@ async def get_project_bicep_files(
     if db is None:
         return {"files": [], "project_id": project_id}
 
-    from app.models import BicepFile
+    from app.models import BicepFile, Project
 
+    tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
     result = await db.execute(
-        select(BicepFile).where(BicepFile.project_id == project_id)
+        select(BicepFile)
+        .join(Project, BicepFile.project_id == Project.id)
+        .where(BicepFile.project_id == project_id, Project.tenant_id == tenant_id)
     )
     rows = result.scalars().all()
     return {

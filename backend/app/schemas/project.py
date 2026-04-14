@@ -3,7 +3,7 @@
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ProjectStatus(str, Enum):
@@ -48,4 +48,4 @@ class ProjectStatsResponse(BaseModel):
     by_status: dict[str, int]
     avg_compliance_score: float | None = None
     deployment_success_rate: float | None = None
-    recent_projects: list[ProjectResponse] = []
+    recent_projects: list[ProjectResponse] = Field(default_factory=list)

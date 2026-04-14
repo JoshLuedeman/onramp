@@ -99,12 +99,10 @@ export default function BicepPage() {
     setLoading(true);
     setError(null);
     try {
-      const resp = await fetch("/api/bicep/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ architecture }),
+      const data = await api.bicep.generate(architecture, {
+        use_ai: true,
+        project_id: projectId || "",
       });
-      const data = await resp.json();
       setFiles(data.files || []);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Generation failed");

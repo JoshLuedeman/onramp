@@ -70,16 +70,37 @@ async def create_project(
         }
 
     try:
-        from app.models import Project
+        from app.models import Project, User
 
         tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
+
+        # Resolve or create the User row so created_by holds a valid users.id FK.
+        entra_oid = user.get("oid", user.get("sub", "unknown"))
+        user_result = await db.execute(
+            select(User.id).where(User.entra_object_id == entra_oid)
+        )
+        db_user_id = user_result.scalar_one_or_none()
+        if db_user_id is None:
+            new_user = User(
+                id=str(uuid.uuid4()),
+                entra_object_id=entra_oid,
+                email=user.get("email", f"{entra_oid}@onramp.local"),
+                display_name=user.get("name", "Unknown User"),
+                role="viewer",
+                is_active=True,
+                tenant_id=tenant_id,
+            )
+            db.add(new_user)
+            await db.flush()
+            db_user_id = new_user.id
+
         new_project = Project(
             id=str(uuid.uuid4()),
             name=project.name,
             description=project.description,
             status="draft",
             tenant_id=tenant_id,
-            created_by=user.get("oid", user.get("id", user.get("sub", "unknown"))),
+            created_by=db_user_id,
             created_at=now,
             updated_at=now,
         )

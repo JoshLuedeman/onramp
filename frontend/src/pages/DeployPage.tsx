@@ -131,25 +131,17 @@ export default function DeployPage() {
     setDeploying(true);
     setError(null);
     try {
-      const resp = await fetch("/api/deployment/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          project_id: "default",
-          architecture,
-          subscription_ids: [subscriptionId],
-        }),
-      });
-      const data = await resp.json();
+      const data = await api.deployment.create(
+        projectId || "default",
+        architecture as unknown as Record<string, unknown>,
+        [subscriptionId],
+      );
       const depId = data.id;
       setDeploymentId(depId);
       setSteps(data.steps || []);
 
       // Start deployment
-      const startResp = await fetch(`/api/deployment/${depId}/start`, {
-        method: "POST",
-      });
-      const startData = await startResp.json();
+      const startData = await api.deployment.start(depId);
       setSteps(startData.steps || []);
       setStatus(startData.status);
 
