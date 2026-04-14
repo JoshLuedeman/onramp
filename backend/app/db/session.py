@@ -71,7 +71,7 @@ async def get_db() -> AsyncSession:
 
 
 async def init_db():
-    """Initialize database - create tables if needed."""
+    """Initialize database — run Alembic migrations to create/update schema."""
     import asyncio
     import logging
     logger = logging.getLogger(__name__)
@@ -82,24 +82,51 @@ async def init_db():
     db_url = get_database_url()
     if "mssql" in db_url and "aioodbc" in db_url:
         await _ensure_mssql_database(db_url)
-    # Create tables with retry logic for slow-starting databases
+    # Run Alembic migrations with retry logic for slow-starting databases
     max_retries = 3
     for attempt in range(1, max_retries + 1):
         try:
-            from app.models import Base
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
-            logger.info("Database tables initialized")
+            await _run_migrations(engine)
+            logger.info("Database schema initialized via Alembic migrations")
             return
         except Exception as e:
             if attempt < max_retries:
-                logger.info("Table creation attempt %d/%d failed: %s — retrying in %ds",
+                logger.info("Migration attempt %d/%d failed: %s — retrying in %ds",
                             attempt, max_retries, e, attempt * 2)
                 await asyncio.sleep(attempt * 2)
             else:
                 logger.warning("Database initialization failed after %d attempts: %s",
                                max_retries, e)
                 logger.warning("Continuing without database — routes will return mock data")
+
+
+async def _run_migrations(engine):
+    """Run Alembic migrations using the given async engine."""
+    import os
+
+    from alembic.config import Config
+
+    # Find the alembic.ini relative to this file
+    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    alembic_ini = os.path.join(backend_dir, "alembic.ini")
+
+    alembic_cfg = Config(alembic_ini)
+    # Override the script_location to use our migrations directory
+    migrations_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "migrations")
+    alembic_cfg.set_main_option("script_location", migrations_dir)
+
+    # Run migrations synchronously inside an async connection
+    async with engine.connect() as conn:
+        await conn.run_sync(lambda sync_conn: _do_upgrade(alembic_cfg, sync_conn))
+        await conn.commit()
+
+
+def _do_upgrade(alembic_cfg, connection):
+    """Execute Alembic upgrade head using the provided connection."""
+    from alembic import command
+
+    alembic_cfg.attributes["connection"] = connection
+    command.upgrade(alembic_cfg, "head")
 
 
 async def _ensure_mssql_database(db_url: str):

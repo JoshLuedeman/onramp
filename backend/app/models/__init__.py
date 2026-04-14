@@ -1,4 +1,5 @@
 from app.models.architecture import Architecture
+from app.models.audit_entry import AuditEntry
 from app.models.base import Base
 from app.models.bicep_file import BicepFile
 from app.models.compliance import ComplianceControl, ComplianceFramework
@@ -23,4 +24,5 @@ __all__ = [
     "ComplianceControl",
     "BicepFile",
     "ComplianceResult",
+    "AuditEntry",
 ]
