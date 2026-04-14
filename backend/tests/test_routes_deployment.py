@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
+from app.services.credentials import credential_manager
 
 client = TestClient(app)
 
@@ -144,21 +145,32 @@ def test_validate_deployment_missing_field():
     assert r.status_code == 422
 
 
-def test_validate_deployment_uses_region_not_location():
+def test_validate_deployment_uses_region_not_location(monkeypatch):
     """Verify the API uses 'region' parameter (not 'location') matching frontend contract."""
+    captured_regions = []
+    original_check = credential_manager.check_subscription_quotas
+
+    async def capture_region(sub_id, region):
+        captured_regions.append(region)
+        return await original_check(sub_id, region)
+
+    monkeypatch.setattr(credential_manager, "check_subscription_quotas", capture_region)
+
+    # Explicit region should be passed through
     r = client.post("/api/deployment/validate", json={
         "subscription_id": "test-sub",
         "region": "westus2",
     })
     assert r.status_code == 200
+    assert captured_regions[-1] == "westus2"
 
-    # 'location' alone (without region) should still work via default
+    # 'location' is not a valid field — Pydantic ignores it, uses default 'eastus2'
     r2 = client.post("/api/deployment/validate", json={
         "subscription_id": "test-sub",
         "location": "westus2",
     })
     assert r2.status_code == 200
-    # 'location' is ignored — Pydantic strips unknown fields, uses default region
+    assert captured_regions[-1] == "eastus2"  # default, not 'westus2'
 
 
 def test_create_deployment_missing_fields():
