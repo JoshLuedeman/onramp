@@ -18,6 +18,14 @@ param sqlAdminLogin string
 @secure()
 param sqlAdminPassword string
 
+@description('Azure AI Foundry API key')
+@secure()
+param aiFoundryKey string = ''
+
+@description('Azure AD client secret')
+@secure()
+param clientSecret string = ''
+
 var resourceGroupName = 'rg-${baseName}-${environment}'
 var tags = {
   application: 'OnRamp'
@@ -31,9 +39,11 @@ resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   tags: tags
 }
 
-module containerApps 'modules/container-apps.bicep' = {
+// Deployment order: monitoring → sql → keyvault → ai-foundry → container-apps
+
+module monitoring 'modules/monitoring.bicep' = {
   scope: rg
-  name: 'container-apps'
+  name: 'monitoring'
   params: {
     location: location
     baseName: baseName
@@ -45,6 +55,7 @@ module containerApps 'modules/container-apps.bicep' = {
 module sql 'modules/sql.bicep' = {
   scope: rg
   name: 'sql'
+  dependsOn: [monitoring]
   params: {
     location: location
     baseName: baseName
@@ -58,21 +69,14 @@ module sql 'modules/sql.bicep' = {
 module keyVault 'modules/keyvault.bicep' = {
   scope: rg
   name: 'keyvault'
+  dependsOn: [sql]
   params: {
     location: location
     baseName: baseName
     environment: environment
-    tags: tags
-  }
-}
-
-module monitoring 'modules/monitoring.bicep' = {
-  scope: rg
-  name: 'monitoring'
-  params: {
-    location: location
-    baseName: baseName
-    environment: environment
+    sqlAdminPassword: sqlAdminPassword
+    aiFoundryKey: aiFoundryKey
+    clientSecret: clientSecret
     tags: tags
   }
 }
@@ -80,10 +84,28 @@ module monitoring 'modules/monitoring.bicep' = {
 module aiFoundry 'modules/ai-foundry.bicep' = {
   scope: rg
   name: 'ai-foundry'
+  dependsOn: [monitoring]
   params: {
     location: location
     baseName: baseName
     environment: environment
+    tags: tags
+  }
+}
+
+module containerApps 'modules/container-apps.bicep' = {
+  scope: rg
+  name: 'container-apps'
+  params: {
+    location: location
+    baseName: baseName
+    environment: environment
+    logAnalyticsName: monitoring.outputs.logAnalyticsName
+    keyVaultName: keyVault.outputs.vaultName
+    appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
+    sqlServerFqdn: sql.outputs.serverFqdn
+    sqlDatabaseName: sql.outputs.databaseName
+    aiFoundryEndpoint: aiFoundry.outputs.endpoint
     tags: tags
   }
 }
