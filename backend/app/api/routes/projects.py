@@ -216,7 +216,13 @@ async def update_project(
     try:
         from app.models import Project
 
-        result = await db.execute(select(Project).where(Project.id == project_id))
+        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
+        result = await db.execute(
+            select(Project).where(
+                Project.id == project_id,
+                Project.tenant_id == tenant_id,
+            )
+        )
         project = result.scalar_one_or_none()
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
