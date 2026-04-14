@@ -20,6 +20,7 @@ export interface Project {
 export interface ProjectCreate {
   name: string;
   description?: string;
+  tags?: string[];
 }
 
 export interface ProjectUpdate {

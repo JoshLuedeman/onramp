@@ -163,6 +163,7 @@ export default function DashboardPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  const [newTags, setNewTags] = useState("");
   const [creating, setCreating] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -192,9 +193,13 @@ export default function DashboardPage() {
       await api.projects.create({
         name: newName.trim(),
         description: newDescription.trim() || undefined,
+        tags: newTags.trim()
+          ? newTags.split(",").map((t) => t.trim()).filter(Boolean)
+          : undefined,
       });
       setNewName("");
       setNewDescription("");
+      setNewTags("");
       setDialogOpen(false);
       await loadData();
     } catch {
@@ -281,6 +286,13 @@ export default function DashboardPage() {
                     onChange={(_e, data) => setNewDescription(data.value)}
                     placeholder="Optional project description"
                     rows={3}
+                  />
+                </Field>
+                <Field label="Tags" className={styles.dialogField}>
+                  <Input
+                    value={newTags}
+                    onChange={(_e, data) => setNewTags(data.value)}
+                    placeholder="e.g. production, finance, east-us (comma-separated)"
                   />
                 </Field>
               </DialogBody>

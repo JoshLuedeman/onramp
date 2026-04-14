@@ -1,6 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { makeStyles, Spinner, Title1, Button, Text, tokens } from "@fluentui/react-components";
+import {
+  makeStyles,
+  Spinner,
+  Title1,
+  Button,
+  Text,
+  tokens,
+  Dialog,
+  DialogSurface,
+  DialogTitle,
+  DialogBody,
+  DialogActions,
+  Body1,
+} from "@fluentui/react-components";
 import { ArrowLeftRegular, ArrowResetRegular } from "@fluentui/react-icons";
 import QuestionCard from "../components/wizard/QuestionCard";
 import WizardProgressBar from "../components/wizard/ProgressBar";
@@ -61,6 +74,11 @@ export default function WizardPage() {
     { question_id: string; recommended_value: string; reason: string }[]
   >([]);
   const [resolvedAnswers, setResolvedAnswers] = useState<Record<string, string | string[]> | null>(null);
+  const [restoringState, setRestoringState] = useState(false);
+  const [conflictData, setConflictData] = useState<{
+    local: Record<string, string | string[]>;
+    server: Record<string, string | string[]>;
+  } | null>(null);
 
   const fetchNext = useCallback(async (currentAnswers: Record<string, string | string[]>) => {
     setLoading(true);
@@ -98,14 +116,40 @@ export default function WizardPage() {
 
   useEffect(() => {
     if (projectId) {
+      setRestoringState(true);
+      const localSaved = sessionStorage.getItem("onramp_wizard_answers");
+      const localAnswers = localSaved ? JSON.parse(localSaved) as Record<string, string | string[]> : null;
+
       api.questionnaire.loadState(projectId).then((data) => {
-        if (data.answers && Object.keys(data.answers).length > 0) {
-          setAnswers(data.answers);
-          fetchNext(data.answers);
+        const serverAnswers = data.answers && Object.keys(data.answers).length > 0
+          ? data.answers : null;
+
+        // Conflict: both local and server state exist with different content
+        if (localAnswers && Object.keys(localAnswers).length > 0 && serverAnswers
+            && JSON.stringify(localAnswers) !== JSON.stringify(serverAnswers)) {
+          setConflictData({ local: localAnswers, server: serverAnswers });
+          setRestoringState(false);
+        } else if (serverAnswers) {
+          setAnswers(serverAnswers);
+          fetchNext(serverAnswers);
+          setRestoringState(false);
+        } else if (localAnswers && Object.keys(localAnswers).length > 0) {
+          setAnswers(localAnswers);
+          fetchNext(localAnswers);
+          setRestoringState(false);
+        } else {
+          fetchNext({});
+          setRestoringState(false);
+        }
+      }).catch(() => {
+        if (localAnswers && Object.keys(localAnswers).length > 0) {
+          setAnswers(localAnswers);
+          fetchNext(localAnswers);
         } else {
           fetchNext({});
         }
-      }).catch(() => fetchNext({}));
+        setRestoringState(false);
+      });
     } else {
       const saved = sessionStorage.getItem("onramp_wizard_answers");
       if (saved) {
@@ -121,6 +165,18 @@ export default function WizardPage() {
       }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleConflictResolve = (choice: "local" | "server") => {
+    if (!conflictData) return;
+    const chosen = choice === "local" ? conflictData.local : conflictData.server;
+    setAnswers(chosen);
+    setConflictData(null);
+    if (projectId) {
+      api.questionnaire.saveState(projectId, chosen).catch(console.error);
+    }
+    sessionStorage.setItem("onramp_wizard_answers", JSON.stringify(chosen));
+    fetchNext(chosen);
+  };
 
   const handleAnswer = (questionId: string, answer: string | string[]) => {
     if (currentQuestion) {
@@ -203,7 +259,30 @@ export default function WizardPage() {
     <div className={styles.container}>
       <Title1 className={styles.title}>Design Your Landing Zone</Title1>
 
-      {loading && <Spinner className={styles.spinner} label="Loading..." size="large" />}
+      {/* Conflict resolution dialog */}
+      <Dialog open={conflictData !== null}>
+        <DialogSurface>
+          <DialogTitle>State Conflict Detected</DialogTitle>
+          <DialogBody>
+            <Body1>
+              Both local and server-saved progress exist for this project.
+              Local has {conflictData ? Object.keys(conflictData.local).length : 0} answers,
+              server has {conflictData ? Object.keys(conflictData.server).length : 0} answers.
+              Which would you like to continue with?
+            </Body1>
+          </DialogBody>
+          <DialogActions>
+            <Button appearance="secondary" onClick={() => handleConflictResolve("local")}>
+              Use Local
+            </Button>
+            <Button appearance="primary" onClick={() => handleConflictResolve("server")}>
+              Use Server
+            </Button>
+          </DialogActions>
+        </DialogSurface>
+      </Dialog>
+
+      {(loading || restoringState) && <Spinner className={styles.spinner} label={restoringState ? "Restoring progress..." : "Loading..."} size="large" />}
 
       {!loading && !isComplete && progress && <WizardProgressBar progress={progress} />}
 

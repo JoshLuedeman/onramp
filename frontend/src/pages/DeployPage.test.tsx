@@ -6,7 +6,9 @@ import DeployPage from "./DeployPage";
 
 vi.mock("../services/api", () => ({
   api: {
-    validateSubscription: vi.fn().mockResolvedValue({ valid: true }),
+    deployment: {
+      validate: vi.fn().mockResolvedValue({ ready_to_deploy: true }),
+    },
   },
 }));
 

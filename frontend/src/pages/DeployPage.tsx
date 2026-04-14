@@ -117,7 +117,7 @@ export default function DeployPage() {
     setValidating(true);
     setError(null);
     try {
-      await api.validateSubscription(subscriptionId, "eastus2");
+      await api.deployment.validate(subscriptionId, "eastus2");
       setValidated(true);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Validation failed");

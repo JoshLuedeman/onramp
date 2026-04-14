@@ -71,24 +71,91 @@ export const api = {
         { method: "POST", body: JSON.stringify({ architecture }) }
       ),
   },
-  validateSubscription: (subscriptionId: string, location: string) =>
-    fetchApi<{ valid: boolean }>("/api/deployment/validate-subscription", {
-      method: "POST",
-      body: JSON.stringify({ subscription_id: subscriptionId, location }),
-    }),
   compliance: {
     getFrameworks: () => fetchApi<{ frameworks: Framework[] }>("/api/compliance/frameworks"),
   },
   scoring: {
+    evaluate: (
+      architecture: Record<string, unknown>,
+      frameworks: string[],
+      options?: { use_ai?: boolean; project_id?: string },
+    ) =>
+      fetchApi<{ results: Record<string, unknown>; overall_score: number }>(
+        "/api/scoring/evaluate",
+        {
+          method: "POST",
+          body: JSON.stringify({ architecture, frameworks, ...options }),
+        },
+      ),
     getByProject: (projectId: string) =>
       fetchApi<{ results: Array<{ scoring_data: Record<string, unknown>; overall_score: number }>; project_id: string }>(
         `/api/scoring/project/${projectId}`
       ),
   },
   bicep: {
+    templates: () =>
+      fetchApi<{ templates: BicepTemplate[] }>("/api/bicep/templates"),
+    getTemplate: (templateName: string) =>
+      fetchApi<{ name: string; content: string }>(
+        `/api/bicep/templates/${templateName}`,
+      ),
+    generate: (
+      architecture: Record<string, unknown>,
+      options?: { use_ai?: boolean; project_id?: string },
+    ) =>
+      fetchApi<{ files: BicepFile[] }>("/api/bicep/generate", {
+        method: "POST",
+        body: JSON.stringify({ architecture, ...options }),
+      }),
+    download: (architecture: Record<string, unknown>) =>
+      fetchApi<Blob>("/api/bicep/download", {
+        method: "POST",
+        body: JSON.stringify({ architecture }),
+      }),
     getByProject: (projectId: string) =>
       fetchApi<{ files: Array<{ name: string; file_path: string; content: string; size_bytes: number }>; project_id: string }>(
         `/api/bicep/project/${projectId}`
+      ),
+  },
+  deployment: {
+    validate: (subscriptionId: string, region: string = "eastus2") =>
+      fetchApi<DeploymentValidation>("/api/deployment/validate", {
+        method: "POST",
+        body: JSON.stringify({ subscription_id: subscriptionId, region }),
+      }),
+    create: (projectId: string, architecture: Record<string, unknown>, subscriptionIds: string[]) =>
+      fetchApi<DeploymentRecord>("/api/deployment/create", {
+        method: "POST",
+        body: JSON.stringify({
+          project_id: projectId,
+          architecture,
+          subscription_ids: subscriptionIds,
+        }),
+      }),
+    start: (deploymentId: string) =>
+      fetchApi<DeploymentRecord>(`/api/deployment/${deploymentId}/start`, {
+        method: "POST",
+      }),
+    status: (deploymentId: string) =>
+      fetchApi<DeploymentRecord>(`/api/deployment/${deploymentId}`),
+    rollback: (deploymentId: string) =>
+      fetchApi<DeploymentRecord>(`/api/deployment/${deploymentId}/rollback`, {
+        method: "POST",
+      }),
+    audit: (deploymentId: string) =>
+      fetchApi<{ deployment_id: string; entries: AuditEntry[] }>(
+        `/api/deployment/${deploymentId}/audit`,
+      ),
+    list: (projectId?: string) =>
+      fetchApi<{ deployments: DeploymentRecord[] }>(
+        `/api/deployment/${projectId ? `?project_id=${projectId}` : ""}`,
+      ),
+  },
+  users: {
+    me: () => fetchApi<UserProfile>("/api/users/me"),
+    projects: () =>
+      fetchApi<{ projects: Array<{ id: string; name: string; description: string | null; status: string; created_at: string | null }> }>(
+        "/api/users/me/projects",
       ),
   },
   projects: {
@@ -165,4 +232,51 @@ export interface Framework {
   description: string;
   version: string;
   control_count: number;
+}
+
+export interface BicepTemplate {
+  name: string;
+  description: string;
+  file_path: string;
+}
+
+export interface BicepFile {
+  name: string;
+  file_path: string;
+  content: string;
+  size_bytes: number;
+}
+
+export interface DeploymentValidation {
+  subscription_id: string;
+  credentials_valid: boolean;
+  permissions_sufficient: boolean;
+  quotas_sufficient: boolean;
+  ready_to_deploy: boolean;
+  details: Record<string, unknown>;
+}
+
+export interface DeploymentRecord {
+  id: string;
+  project_id: string;
+  status: string;
+  steps: Array<{ name: string; status: string; started_at?: string; completed_at?: string }>;
+  created_at: string;
+  updated_at: string;
+  [key: string]: unknown;
+}
+
+export interface AuditEntry {
+  timestamp: string;
+  action: string;
+  details: string;
+  user?: string;
+}
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  roles: string[];
+  [key: string]: unknown;
 }

@@ -13,12 +13,16 @@ vi.mock("react-router-dom", async () => {
 const mockGetNextQuestion = vi.fn();
 const mockResolveUnsure = vi.fn();
 const mockGenerate = vi.fn();
+const mockLoadState = vi.fn();
+const mockSaveState = vi.fn();
 
 vi.mock("../services/api", () => ({
   api: {
     questionnaire: {
       getNextQuestion: (...args: unknown[]) => mockGetNextQuestion(...args),
       resolveUnsure: (...args: unknown[]) => mockResolveUnsure(...args),
+      loadState: (...args: unknown[]) => mockLoadState(...args),
+      saveState: (...args: unknown[]) => mockSaveState(...args),
     },
     architecture: {
       generate: (...args: unknown[]) => mockGenerate(...args),
