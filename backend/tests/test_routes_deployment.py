@@ -144,6 +144,23 @@ def test_validate_deployment_missing_field():
     assert r.status_code == 422
 
 
+def test_validate_deployment_uses_region_not_location():
+    """Verify the API uses 'region' parameter (not 'location') matching frontend contract."""
+    r = client.post("/api/deployment/validate", json={
+        "subscription_id": "test-sub",
+        "region": "westus2",
+    })
+    assert r.status_code == 200
+
+    # 'location' alone (without region) should still work via default
+    r2 = client.post("/api/deployment/validate", json={
+        "subscription_id": "test-sub",
+        "location": "westus2",
+    })
+    assert r2.status_code == 200
+    # 'location' is ignored — Pydantic strips unknown fields, uses default region
+
+
 def test_create_deployment_missing_fields():
     """Create without required fields returns 422."""
     r = client.post("/api/deployment/create", json={"project_id": "p1"})

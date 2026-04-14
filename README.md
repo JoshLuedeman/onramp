@@ -1,6 +1,6 @@
 # 🚀 OnRamp — Azure Landing Zone Architect & Deployer
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FYOUR-GITHUB-ORG%2Fonramp%2Fmain%2Finfra%2Fazuredeploy.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FJoshLuedeman%2Fonramp%2Fmain%2Finfra%2Fazuredeploy.json)
 
 **OnRamp** is an AI-powered web application that guides Azure customers through designing and deploying Cloud Adoption Framework (CAF) aligned landing zones. Answer questions about your organization, get an AI-generated architecture recommendation, review it visually, and deploy it to Azure with a single click.
 
