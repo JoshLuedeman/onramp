@@ -131,9 +131,13 @@ async def _ensure_mssql_database(db_url: str):
         conn = pyodbc.connect(conn_str, autocommit=True, timeout=10)
         cursor = conn.cursor()
         cursor.execute(
-            f"IF NOT EXISTS (SELECT 1 FROM sys.databases WHERE name = '{db_name}') "
-            f"CREATE DATABASE [{db_name}]"
+            "SELECT 1 FROM sys.databases WHERE name = ?",
+            (db_name,),
         )
+        database_exists = cursor.fetchone() is not None
+        if not database_exists:
+            escaped_db_name = db_name.replace("]", "]]")
+            cursor.execute(f"CREATE DATABASE [{escaped_db_name}]")
         cursor.close()
         conn.close()
 
