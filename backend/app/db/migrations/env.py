@@ -41,7 +41,11 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection):
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        render_as_batch=True,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
@@ -56,6 +60,12 @@ async def run_async_migrations() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
+    # If a connection was injected (e.g., from init_db or tests), use it directly
+    connection = config.attributes.get("connection", None)
+    if connection is not None:
+        do_run_migrations(connection)
+        return
+
     asyncio.run(run_async_migrations())
 
 
