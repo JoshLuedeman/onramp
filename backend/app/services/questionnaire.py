@@ -466,7 +466,7 @@ class QuestionnaireService:
 
     def get_active_questions(
         self,
-        answered_questions: dict[str, str],
+        answered_questions: dict[str, str | list[str]],
         org_size: str | None = None,
         brownfield_context: dict | None = None,
     ) -> list[dict]:
@@ -476,7 +476,7 @@ class QuestionnaireService:
         answers are still included but can be auto-filled by the frontend.
 
         Args:
-            answered_questions: Map of question_id to answer value.
+            answered_questions: Map of question_id to answer value(s).
             org_size: Organization size for adaptive filtering.
             brownfield_context: Discovery-derived context if brownfield.
 
@@ -499,7 +499,7 @@ class QuestionnaireService:
                 ):
                     continue
 
-            # Skip brownfield question for greenfield flow
+            # Always include the branching question for environment type
             if question["id"] == "existing_environment":
                 active.append(question)
                 continue
@@ -521,14 +521,14 @@ class QuestionnaireService:
 
     def get_next_question(
         self,
-        answered_questions: dict[str, str],
+        answered_questions: dict[str, str | list[str]],
         org_size: str | None = None,
         brownfield_context: dict | None = None,
     ) -> dict | None:
         """Get the next unanswered question based on current answers.
 
         Args:
-            answered_questions: Map of question_id to answer value.
+            answered_questions: Map of question_id to answer value(s).
             org_size: Organization size for adaptive filtering.
             brownfield_context: Discovery-derived context if brownfield.
 
@@ -547,7 +547,7 @@ class QuestionnaireService:
 
     def get_progress(
         self,
-        answered_questions: dict[str, str],
+        answered_questions: dict[str, str | list[str]],
         org_size: str | None = None,
         brownfield_context: dict | None = None,
     ) -> dict:

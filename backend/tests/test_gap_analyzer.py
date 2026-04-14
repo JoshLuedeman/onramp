@@ -840,7 +840,6 @@ class TestGapAnalysisRoutes:
             ) as client:
                 resp = await client.post(
                     f"/api/discovery/scan/{scan_id}/analyze",
-                    json={"use_ai": False},
                 )
                 assert resp.status_code == 200
                 data = resp.json()

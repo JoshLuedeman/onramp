@@ -259,11 +259,22 @@ class GapAnalyzer:
             ))
 
         # Check for over-privileged assignments (Owner role at subscription scope)
+        # Known built-in Owner role definition ID suffix
+        owner_role_suffix = "8e3af657-a8ff-443c-a75c-2fe8c4bcb635"
         owner_assignments = [
             r for r in rbac_resources
-            if "owner" in (
-                r.get("properties", {}).get("role_definition_id", "")
-            ).lower()
+            if (
+                # Check role_definition_name (enriched data or mock)
+                "owner" == (
+                    r.get("properties", {})
+                    .get("role_definition_name", "")
+                ).lower()
+                # Or check role_definition_id against known Owner GUID
+                or owner_role_suffix in (
+                    r.get("properties", {})
+                    .get("role_definition_id", "")
+                ).lower()
+            )
         ]
         if len(owner_assignments) > 3:
             findings.append(self._finding(

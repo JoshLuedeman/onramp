@@ -94,7 +94,11 @@ export default function QuestionCard({ question, onAnswer, existingAnswer, disco
     question.type === "single_choice" ? initialValue : ""
   );
   const [checkedValues, setCheckedValues] = useState<string[]>(
-    (existingAnswer as string[]) || []
+    (existingAnswer as string[]) || (
+      discovered && Array.isArray(discovered.value)
+        ? discovered.value as string[]
+        : []
+    )
   );
 
   const handleSubmit = () => {

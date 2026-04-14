@@ -205,10 +205,9 @@ export const api = {
       fetchApi<DiscoveredResourceList>(
         `/api/discovery/scan/${scanId}/resources${category ? `?category=${encodeURIComponent(category)}` : ""}`,
       ),
-    analyzeScanGaps: (scanId: string, useAi = false) =>
+    analyzeScanGaps: (scanId: string) =>
       fetchApi<GapAnalysisResponse>(`/api/discovery/scan/${scanId}/analyze`, {
         method: "POST",
-        body: JSON.stringify({ use_ai: useAi }),
       }),
     getBrownfieldContext: (scanId: string) =>
       fetchApi<BrownfieldContextResponse>(

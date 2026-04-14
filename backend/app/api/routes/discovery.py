@@ -14,7 +14,6 @@ from app.schemas.discovery import (
 )
 from app.schemas.gap_analysis import (
     BrownfieldContext,
-    GapAnalysisRequest,
     GapAnalysisResponse,
 )
 from app.services.discovery_service import discovery_service
@@ -137,7 +136,6 @@ async def get_scan_resources(
 )
 async def analyze_scan_gaps(
     scan_id: str,
-    request: GapAnalysisRequest | None = None,
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

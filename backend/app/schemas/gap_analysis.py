@@ -41,26 +41,6 @@ class GapAnalysisRequest(BaseModel):
     use_ai: bool = Field(default=False, description="Use AI for deeper analysis")
 
 
-class GapAnalysisResponse(BaseModel):
-    """Response containing all gap findings for a scan."""
-    scan_id: str
-    total_findings: int
-    critical_count: int = 0
-    high_count: int = 0
-    medium_count: int = 0
-    low_count: int = 0
-    findings: list[GapFinding] = []
-    areas_checked: list[str] = []
-    areas_skipped: list[str] = []
-
-
-class BrownfieldContext(BaseModel):
-    """Context for brownfield questionnaire flow."""
-    scan_id: str
-    discovered_answers: dict[str, "DiscoveredAnswer"] = {}
-    gap_summary: dict[str, int] = {}
-
-
 class DiscoveredAnswer(BaseModel):
     """A questionnaire answer suggested by discovery scan."""
     value: str | list[str]
@@ -73,3 +53,25 @@ class DiscoveredAnswer(BaseModel):
         description="What discovery evidence supports this answer",
     )
     source: str = "discovered"
+
+
+class GapAnalysisResponse(BaseModel):
+    """Response containing all gap findings for a scan."""
+    scan_id: str
+    total_findings: int
+    critical_count: int = 0
+    high_count: int = 0
+    medium_count: int = 0
+    low_count: int = 0
+    findings: list[GapFinding] = Field(default_factory=list)
+    areas_checked: list[str] = Field(default_factory=list)
+    areas_skipped: list[str] = Field(default_factory=list)
+
+
+class BrownfieldContext(BaseModel):
+    """Context for brownfield questionnaire flow."""
+    scan_id: str
+    discovered_answers: dict[str, DiscoveredAnswer] = Field(
+        default_factory=dict,
+    )
+    gap_summary: dict[str, int] = Field(default_factory=dict)

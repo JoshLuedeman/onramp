@@ -125,4 +125,38 @@ describe("QuestionCard", () => {
     await user.click(screen.getByRole("button", { name: /next/i }));
     expect(onAnswer).toHaveBeenCalledWith("q2", "Contoso");
   });
+
+  it("shows Auto-discovered banner when discoveredAnswer is present", () => {
+    renderWithTheme(
+      <QuestionCard
+        question={singleChoiceQuestion}
+        onAnswer={vi.fn()}
+        discoveredAnswer={{
+          value: "small",
+          confidence: "high",
+          evidence: "Found 50 users",
+          source: "discovered",
+        }}
+      />
+    );
+    expect(screen.getByText(/Auto-discovered/)).toBeInTheDocument();
+    expect(screen.getByText(/Found 50 users/)).toBeInTheDocument();
+  });
+
+  it("hides Auto-discovered banner when existingAnswer is provided", () => {
+    renderWithTheme(
+      <QuestionCard
+        question={singleChoiceQuestion}
+        onAnswer={vi.fn()}
+        existingAnswer="medium"
+        discoveredAnswer={{
+          value: "small",
+          confidence: "high",
+          evidence: "Found 50 users",
+          source: "discovered",
+        }}
+      />
+    );
+    expect(screen.queryByText(/Auto-discovered/)).not.toBeInTheDocument();
+  });
 });
