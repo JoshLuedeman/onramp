@@ -16,14 +16,20 @@ param keyVaultName string
 @description('Application Insights connection string')
 param appInsightsConnectionString string
 
-@description('SQL Server FQDN')
-param sqlServerFqdn string
-
-@description('SQL Database name')
-param sqlDatabaseName string
-
 @description('AI Foundry endpoint URL')
 param aiFoundryEndpoint string
+
+@description('Azure AD tenant ID')
+param azureTenantId string = ''
+
+@description('Azure AD client ID')
+param azureClientId string = ''
+
+@description('Whether AI Foundry key is configured in Key Vault')
+param hasAiFoundryKey bool = false
+
+@description('Whether client secret is configured in Key Vault')
+param hasClientSecret bool = false
 
 @description('Container registry server')
 param containerRegistryServer string = ''
@@ -38,6 +44,75 @@ param backendImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworl
 param tags object
 
 var envName = 'cae-${baseName}-${environment}'
+var isProd = environment == 'prod'
+
+// Build backend secrets array conditionally — only reference KV secrets that exist
+var aiKeySecret = hasAiFoundryKey
+  ? [
+      {
+        name: 'ai-foundry-key'
+        keyVaultUrl: '${keyVault.properties.vaultUri}secrets/ai-foundry-key'
+        identity: managedIdentity.id
+      }
+    ]
+  : []
+var clientSecretKv = hasClientSecret
+  ? [
+      {
+        name: 'client-secret'
+        keyVaultUrl: '${keyVault.properties.vaultUri}secrets/client-secret'
+        identity: managedIdentity.id
+      }
+    ]
+  : []
+// Build backend env vars conditionally
+var baseEnvVars = [
+  { name: 'ONRAMP_DATABASE_URL', secretRef: 'sql-connection-string' }
+  { name: 'ONRAMP_AI_FOUNDRY_ENDPOINT', value: aiFoundryEndpoint }
+  { name: 'ONRAMP_AI_FOUNDRY_MODEL', value: 'gpt-4o' }
+  { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
+  {
+    name: 'ONRAMP_CORS_ORIGINS'
+    value: '["https://${frontendApp.properties.configuration.ingress.fqdn}"]'
+  }
+]
+var tenantEnvVars = !empty(azureTenantId)
+  ? [
+      { name: 'ONRAMP_AZURE_TENANT_ID', value: azureTenantId }
+    ]
+  : []
+var clientIdEnvVars = !empty(azureClientId)
+  ? [
+      { name: 'ONRAMP_AZURE_CLIENT_ID', value: azureClientId }
+    ]
+  : []
+var aiKeyEnvVars = hasAiFoundryKey
+  ? [
+      { name: 'ONRAMP_AI_FOUNDRY_KEY', secretRef: 'ai-foundry-key' }
+    ]
+  : []
+var clientSecretEnvVars = hasClientSecret
+  ? [
+      { name: 'ONRAMP_AZURE_CLIENT_SECRET', secretRef: 'client-secret' }
+    ]
+  : []
+var backendEnvVars = concat(
+  baseEnvVars,
+  tenantEnvVars,
+  clientIdEnvVars,
+  aiKeyEnvVars,
+  clientSecretEnvVars
+)
+
+// Store full connection string as a secret (includes credentials)
+var sqlConnectionStringSecret = [
+  {
+    name: 'sql-connection-string'
+    keyVaultUrl: '${keyVault.properties.vaultUri}secrets/sql-connection-string'
+    identity: managedIdentity.id
+  }
+]
+var allBackendSecrets = concat(sqlConnectionStringSecret, aiKeySecret, clientSecretKv)
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
   name: logAnalyticsName
@@ -100,10 +175,6 @@ resource frontendApp 'Microsoft.App/containerApps@2024-03-01' = {
         external: true
         targetPort: 8080
         transport: 'http'
-        corsPolicy: {
-          allowedOrigins: ['*']
-          allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
-        }
       }
       registries: !empty(containerRegistryServer)
         ? [
@@ -149,8 +220,8 @@ resource frontendApp 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       scale: {
-        minReplicas: environment == 'prod' ? 1 : 0
-        maxReplicas: environment == 'prod' ? 5 : 3
+        minReplicas: isProd ? 1 : 0
+        maxReplicas: isProd ? 5 : 3
         rules: [
           {
             name: 'http-scaling'
@@ -184,23 +255,7 @@ resource backendApp 'Microsoft.App/containerApps@2024-03-01' = {
         targetPort: 8000
         transport: 'http'
       }
-      secrets: [
-        {
-          name: 'sql-admin-password'
-          keyVaultUrl: '${keyVault.properties.vaultUri}secrets/sql-admin-password'
-          identity: managedIdentity.id
-        }
-        {
-          name: 'ai-foundry-key'
-          keyVaultUrl: '${keyVault.properties.vaultUri}secrets/ai-foundry-key'
-          identity: managedIdentity.id
-        }
-        {
-          name: 'client-secret'
-          keyVaultUrl: '${keyVault.properties.vaultUri}secrets/client-secret'
-          identity: managedIdentity.id
-        }
-      ]
+      secrets: allBackendSecrets
       registries: !empty(containerRegistryServer)
         ? [
             {
@@ -219,21 +274,7 @@ resource backendApp 'Microsoft.App/containerApps@2024-03-01' = {
             cpu: json('0.5')
             memory: '1Gi'
           }
-          env: [
-            {
-              name: 'ONRAMP_DATABASE_URL'
-              value: 'mssql+aioodbc://onrampadmin@${sqlServerFqdn}/${sqlDatabaseName}?driver=ODBC+Driver+18+for+SQL+Server'
-            }
-            { name: 'ONRAMP_AI_FOUNDRY_ENDPOINT', value: aiFoundryEndpoint }
-            { name: 'ONRAMP_AI_FOUNDRY_KEY', secretRef: 'ai-foundry-key' }
-            { name: 'ONRAMP_AZURE_CLIENT_SECRET', secretRef: 'client-secret' }
-            { name: 'ONRAMP_AI_FOUNDRY_MODEL', value: 'gpt-4o' }
-            { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
-            {
-              name: 'ONRAMP_CORS_ORIGINS'
-              value: '["https://${frontendApp.properties.configuration.ingress.fqdn}"]'
-            }
-          ]
+          env: backendEnvVars
           probes: [
             {
               type: 'Liveness'
@@ -267,8 +308,8 @@ resource backendApp 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       scale: {
-        minReplicas: environment == 'prod' ? 1 : 0
-        maxReplicas: environment == 'prod' ? 10 : 5
+        minReplicas: isProd ? 1 : 0
+        maxReplicas: isProd ? 10 : 5
         rules: [
           {
             name: 'http-scaling'

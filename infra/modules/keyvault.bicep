@@ -11,6 +11,15 @@ param environment string
 @secure()
 param sqlAdminPassword string = ''
 
+@description('SQL admin login for connection string')
+param sqlAdminLogin string = 'onrampadmin'
+
+@description('SQL Server FQDN for connection string')
+param sqlServerFqdn string = ''
+
+@description('SQL Database name for connection string')
+param sqlDatabaseName string = ''
+
 @description('AI Foundry API key to store as secret')
 @secure()
 param aiFoundryKey string = ''
@@ -65,6 +74,16 @@ resource clientSecretSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if 
   name: 'client-secret'
   properties: {
     value: clientSecret
+    contentType: 'text/plain'
+  }
+}
+
+// Full SQL connection string with credentials
+resource sqlConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(sqlAdminPassword) && !empty(sqlServerFqdn)) {
+  parent: keyVault
+  name: 'sql-connection-string'
+  properties: {
+    value: 'mssql+aioodbc://${sqlAdminLogin}:${sqlAdminPassword}@${sqlServerFqdn}/${sqlDatabaseName}?driver=ODBC+Driver+18+for+SQL+Server'
     contentType: 'text/plain'
   }
 }
