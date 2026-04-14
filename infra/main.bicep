@@ -18,6 +18,20 @@ param sqlAdminLogin string
 @secure()
 param sqlAdminPassword string
 
+@description('Azure AI Foundry API key')
+@secure()
+param aiFoundryKey string = ''
+
+@description('Azure AD client secret')
+@secure()
+param clientSecret string = ''
+
+@description('Azure AD tenant ID for authentication')
+param azureTenantId string = ''
+
+@description('Azure AD client ID for authentication')
+param azureClientId string = ''
+
 var resourceGroupName = 'rg-${baseName}-${environment}'
 var tags = {
   application: 'OnRamp'
@@ -31,9 +45,11 @@ resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   tags: tags
 }
 
-module containerApps 'modules/container-apps.bicep' = {
+// Deployment order: monitoring first, then sql/ai-foundry in parallel, then keyvault, then container-apps
+
+module monitoring 'modules/monitoring.bicep' = {
   scope: rg
-  name: 'container-apps'
+  name: 'monitoring'
   params: {
     location: location
     baseName: baseName
@@ -45,6 +61,7 @@ module containerApps 'modules/container-apps.bicep' = {
 module sql 'modules/sql.bicep' = {
   scope: rg
   name: 'sql'
+  dependsOn: [monitoring]
   params: {
     location: location
     baseName: baseName
@@ -62,17 +79,12 @@ module keyVault 'modules/keyvault.bicep' = {
     location: location
     baseName: baseName
     environment: environment
-    tags: tags
-  }
-}
-
-module monitoring 'modules/monitoring.bicep' = {
-  scope: rg
-  name: 'monitoring'
-  params: {
-    location: location
-    baseName: baseName
-    environment: environment
+    sqlAdminPassword: sqlAdminPassword
+    sqlAdminLogin: sqlAdminLogin
+    sqlServerFqdn: sql.outputs.serverFqdn
+    sqlDatabaseName: sql.outputs.databaseName
+    aiFoundryKey: aiFoundryKey
+    clientSecret: clientSecret
     tags: tags
   }
 }
@@ -80,10 +92,30 @@ module monitoring 'modules/monitoring.bicep' = {
 module aiFoundry 'modules/ai-foundry.bicep' = {
   scope: rg
   name: 'ai-foundry'
+  dependsOn: [monitoring]
   params: {
     location: location
     baseName: baseName
     environment: environment
+    tags: tags
+  }
+}
+
+module containerApps 'modules/container-apps.bicep' = {
+  scope: rg
+  name: 'container-apps'
+  params: {
+    location: location
+    baseName: baseName
+    environment: environment
+    logAnalyticsName: monitoring.outputs.logAnalyticsName
+    keyVaultName: keyVault.outputs.vaultName
+    appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
+    aiFoundryEndpoint: aiFoundry.outputs.endpoint
+    azureTenantId: azureTenantId
+    azureClientId: azureClientId
+    hasAiFoundryKey: !empty(aiFoundryKey)
+    hasClientSecret: !empty(clientSecret)
     tags: tags
   }
 }
