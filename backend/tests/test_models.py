@@ -4,6 +4,8 @@
 def test_all_models_importable():
     from app.models import (
         Base,
+        DiscoveredResource,
+        DiscoveryScan,
         Tenant,
         User,
         Project,
@@ -26,10 +28,12 @@ def test_all_models_importable():
     assert Deployment.__tablename__ == "deployments"
     assert ComplianceFramework.__tablename__ == "compliance_frameworks"
     assert ComplianceControl.__tablename__ == "compliance_controls"
+    assert DiscoveryScan.__tablename__ == "discovery_scans"
+    assert DiscoveredResource.__tablename__ == "discovered_resources"
 
     # Verify all tables are registered in metadata
     table_names = Base.metadata.tables.keys()
-    assert len(list(table_names)) == 13
+    assert len(list(table_names)) == 15
 
 
 def test_all_schemas_importable():

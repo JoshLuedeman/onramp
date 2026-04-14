@@ -189,6 +189,23 @@ export const api = {
       fetchApi<{ deleted: boolean }>(`/api/projects/${id}`, { method: "DELETE" }),
     getStats: () => fetchApi<ProjectStats>("/api/projects/stats"),
   },
+  discovery: {
+    startScan: (projectId: string, subscriptionId: string, scanConfig?: Record<string, unknown>) =>
+      fetchApi<DiscoveryScanResponse>("/api/discovery/scan", {
+        method: "POST",
+        body: JSON.stringify({
+          project_id: projectId,
+          subscription_id: subscriptionId,
+          scan_config: scanConfig,
+        }),
+      }),
+    getScan: (scanId: string) =>
+      fetchApi<DiscoveryScanResponse>(`/api/discovery/scan/${scanId}`),
+    getScanResources: (scanId: string, category?: string) =>
+      fetchApi<DiscoveredResourceList>(
+        `/api/discovery/scan/${scanId}/resources${category ? `?category=${encodeURIComponent(category)}` : ""}`,
+      ),
+  },
 };
 
 export interface Category {
@@ -293,4 +310,35 @@ export interface UserProfile {
   email: string;
   roles: string[];
   [key: string]: unknown;
+}
+
+export interface DiscoveryScanResponse {
+  id: string;
+  project_id: string;
+  subscription_id: string;
+  status: "pending" | "scanning" | "completed" | "failed";
+  scan_config?: Record<string, unknown>;
+  results?: Record<string, unknown>;
+  error_message?: string;
+  resource_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DiscoveredResource {
+  id: string;
+  scan_id: string;
+  category: "resource" | "policy" | "rbac" | "network";
+  resource_type: string;
+  resource_id: string;
+  resource_group?: string;
+  name: string;
+  properties?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface DiscoveredResourceList {
+  resources: DiscoveredResource[];
+  total: number;
+  scan_id: string;
 }
