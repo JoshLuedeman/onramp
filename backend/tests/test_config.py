@@ -14,8 +14,9 @@ def test_env_prefix():
 def test_settings_singleton():
     assert settings.app_name == "OnRamp API"
 
-def test_database_url_defaults_empty():
+def test_database_url_defaults_empty(monkeypatch):
     """Database URL defaults to empty string (dev mode uses SQLite fallback)."""
+    monkeypatch.setenv("ONRAMP_DATABASE_URL", "")
     s = Settings()
     assert s.database_url == ""
 
