@@ -116,6 +116,29 @@ describe("api.bicep", () => {
     expect(body.project_id).toBe("p1");
   });
 
+  it("download returns a Blob from the response", async () => {
+    const fakeBlob = new Blob(["bicep content"], { type: "text/plain" });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      blob: () => Promise.resolve(fakeBlob),
+    }));
+    const result = await api.bicep.download({ mg: {} });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/bicep/download",
+      expect.objectContaining({ method: "POST" })
+    );
+    expect(result).toBeInstanceOf(Blob);
+  });
+
+  it("download throws on non-ok response", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+    }));
+    await expect(api.bicep.download({ mg: {} })).rejects.toThrow("API error: 500");
+  });
+
   it("getByProject fetches bicep files for a project", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: true,
@@ -282,6 +305,18 @@ describe("api.projects", () => {
     );
   });
 
+  it("get fetches a single project by id", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ id: "p1", name: "My Project" }),
+    }));
+    await api.projects.get("p1");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/projects/p1",
+      expect.any(Object)
+    );
+  });
+
   it("create sends project data", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: true,
@@ -294,6 +329,32 @@ describe("api.projects", () => {
     expect(body.tags).toEqual(["prod"]);
   });
 
+  it("update sends PUT with partial fields", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ id: "p1", name: "Updated" }),
+    }));
+    await api.projects.update("p1", { name: "Updated" });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/projects/p1");
+    expect(call[1].method).toBe("PUT");
+    const body = JSON.parse(call[1].body);
+    expect(body.name).toBe("Updated");
+  });
+
+  it("getStats fetches aggregate project statistics", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ total: 5, by_status: { draft: 3, deployed: 2 } }),
+    }));
+    const result = await api.projects.getStats();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/projects/stats",
+      expect.any(Object)
+    );
+    expect(result.total).toBe(5);
+  });
+
   it("delete sends DELETE request", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: true,
@@ -304,5 +365,17 @@ describe("api.projects", () => {
       "/api/projects/p1",
       expect.objectContaining({ method: "DELETE" })
     );
+  });
+});
+
+describe("api.deployment list with projectId", () => {
+  it("list with projectId encodes the query parameter", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ deployments: [] }),
+    }));
+    await api.deployment.list("my project/id");
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toContain(encodeURIComponent("my project/id"));
   });
 });

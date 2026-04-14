@@ -70,7 +70,7 @@ const useStyles = makeStyles({
   projectSwitcher: {
     display: "flex",
     alignItems: "center",
-    gap: "8px",
+    gap: tokens.spacingHorizontalS,
   },
 });
 

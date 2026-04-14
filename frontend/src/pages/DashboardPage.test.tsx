@@ -135,7 +135,7 @@ describe("DashboardPage", () => {
     });
     expect(screen.getByText("5")).toBeInTheDocument();
     expect(screen.getByText("Active")).toBeInTheDocument();
-    expect(screen.getByText("1")).toBeInTheDocument();
+    expect(screen.getAllByText("1").length).toBeGreaterThanOrEqual(1);
     // "Deployed" appears in both summary card and status badge
     expect(screen.getAllByText("Deployed").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("2").length).toBeGreaterThanOrEqual(1);
@@ -239,14 +239,14 @@ describe("DashboardPage", () => {
     expect(viewButton).toBeInTheDocument();
   });
 
-  it("renders donut chart with status data", async () => {
+  it("renders status distribution chart with status data", async () => {
     mockedApi.projects.list.mockResolvedValue({ projects: sampleProjects });
     mockedApi.projects.getStats.mockResolvedValue(sampleStats);
     renderDashboard();
     await waitFor(() => {
-      expect(screen.getByTestId("donut-chart")).toBeInTheDocument();
+      expect(screen.getByText("Status Distribution")).toBeInTheDocument();
     });
-    // "Draft" appears in both donut chart and status badge
+    // "Draft" appears in both status bar and status badge
     expect(screen.getAllByText("Draft").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Deploying")).toBeInTheDocument();
   });

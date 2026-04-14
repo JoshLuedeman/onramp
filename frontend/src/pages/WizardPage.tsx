@@ -117,8 +117,13 @@ export default function WizardPage() {
   useEffect(() => {
     if (projectId) {
       setRestoringState(true);
-      const localSaved = sessionStorage.getItem("onramp_wizard_answers");
-      const localAnswers = localSaved ? JSON.parse(localSaved) as Record<string, string | string[]> : null;
+      let localAnswers: Record<string, string | string[]> | null = null;
+      try {
+        const localSaved = sessionStorage.getItem("onramp_wizard_answers");
+        localAnswers = localSaved ? JSON.parse(localSaved) as Record<string, string | string[]> : null;
+      } catch {
+        localAnswers = null;
+      }
 
       api.questionnaire.loadState(projectId).then((data) => {
         const serverAnswers = data.answers && Object.keys(data.answers).length > 0
@@ -164,7 +169,7 @@ export default function WizardPage() {
         fetchNext({});
       }
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [projectId, fetchNext]);
 
   const handleConflictResolve = (choice: "local" | "server") => {
     if (!conflictData) return;

@@ -35,19 +35,19 @@ import {
   EyeRegular,
   ArrowClockwiseRegular,
 } from "@fluentui/react-icons";
-import { DonutChart } from "@fluentui/react-charting";
 import { api } from "../services/api";
 import type { Project, ProjectStats } from "../types/project";
 
-const STATUS_COLORS: Record<string, string> = {
-  draft: "#0078d4",
-  questionnaire_complete: "#00b7c3",
-  architecture_generated: "#8764b8",
-  compliance_scored: "#e3008c",
-  bicep_ready: "#ffc832",
-  deploying: "#ff8c00",
-  deployed: "#107c10",
-  failed: "#d13438",
+/** Maps status keys to Fluent UI palette foreground tokens for consistent theming. */
+const STATUS_TOKEN_COLORS: Record<string, string> = {
+  draft: tokens.colorPaletteBlueForeground2,
+  questionnaire_complete: tokens.colorPaletteTealForeground2,
+  architecture_generated: tokens.colorPaletteGrapeForeground2,
+  compliance_scored: tokens.colorPaletteBerryForeground2,
+  bicep_ready: tokens.colorPaletteMarigoldForeground2,
+  deploying: tokens.colorPaletteOrangeForeground2,
+  deployed: tokens.colorPaletteGreenForeground2,
+  failed: tokens.colorPaletteRedForeground2,
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -151,6 +151,27 @@ const useStyles = makeStyles({
   dialogField: {
     marginBottom: tokens.spacingVerticalM,
   },
+  statusDistributionList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: tokens.spacingVerticalS,
+    marginTop: tokens.spacingVerticalM,
+  },
+  statusDistributionItem: {
+    display: "flex",
+    flexDirection: "column",
+    gap: tokens.spacingVerticalXS,
+  },
+  statusDistributionLabel: {
+    display: "flex",
+    justifyContent: "space-between",
+  },
+  statusBarTrack: {
+    height: "8px",
+    borderRadius: "4px",
+    backgroundColor: tokens.colorNeutralBackground4,
+    overflow: "hidden",
+  },
 });
 
 export default function DashboardPage() {
@@ -237,13 +258,15 @@ export default function DashboardPage() {
   const deployingCount = stats?.by_status?.deploying ?? 0;
   const deployedCount = stats?.by_status?.deployed ?? 0;
 
-  const donutData = stats
+  const statusBreakdown = stats
     ? Object.entries(stats.by_status)
         .filter(([, count]) => count > 0)
         .map(([status, count]) => ({
-          legend: STATUS_LABELS[status] ?? status,
-          data: count,
-          color: STATUS_COLORS[status] ?? "#888888",
+          status,
+          label: STATUS_LABELS[status] ?? status,
+          count,
+          color: STATUS_TOKEN_COLORS[status] ?? tokens.colorNeutralForeground3,
+          pct: stats.total > 0 ? Math.round((count / stats.total) * 100) : 0,
         }))
     : [];
 
@@ -341,13 +364,26 @@ export default function DashboardPage() {
       <div className={styles.chartsRow}>
         <Card className={styles.chartCard}>
           <CardHeader header={<Title2>Status Distribution</Title2>} />
-          {donutData.length > 0 ? (
-            <DonutChart
-              data={{ chartData: donutData }}
-              innerRadius={55}
-              width={300}
-              height={250}
-            />
+          {statusBreakdown.length > 0 ? (
+            <div className={styles.statusDistributionList}>
+              {statusBreakdown.map(({ status, label, count, color, pct }) => (
+                <div key={status} className={styles.statusDistributionItem}>
+                  <div className={styles.statusDistributionLabel}>
+                    <Body1>{label}</Body1>
+                    <Body1 style={{ color }}>{count}</Body1>
+                  </div>
+                  <div className={styles.statusBarTrack}>
+                    <div style={{
+                      width: `${pct}%`,
+                      height: "100%",
+                      backgroundColor: color,
+                      borderRadius: "4px",
+                      transition: "width 0.3s ease",
+                    }} />
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
             <div className={styles.emptyState}>
               <Body1>No project data to display</Body1>

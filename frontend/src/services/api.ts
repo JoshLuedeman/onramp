@@ -16,6 +16,20 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json();
 }
 
+async function fetchBlob(path: string, options?: RequestInit): Promise<Blob> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...options?.headers,
+    },
+    ...options,
+  });
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`);
+  }
+  return response.blob();
+}
+
 export const api = {
   questionnaire: {
     getCategories: () => fetchApi<{ categories: Category[] }>("/api/questionnaire/categories"),
@@ -108,7 +122,7 @@ export const api = {
         body: JSON.stringify({ architecture, ...options }),
       }),
     download: (architecture: Record<string, unknown>) =>
-      fetchApi<Blob>("/api/bicep/download", {
+      fetchBlob("/api/bicep/download", {
         method: "POST",
         body: JSON.stringify({ architecture }),
       }),
@@ -148,7 +162,7 @@ export const api = {
       ),
     list: (projectId?: string) =>
       fetchApi<{ deployments: DeploymentRecord[] }>(
-        `/api/deployment/${projectId ? `?project_id=${projectId}` : ""}`,
+        `/api/deployment/${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ""}`,
       ),
   },
   users: {
