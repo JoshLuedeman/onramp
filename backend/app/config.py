@@ -5,8 +5,8 @@ class Settings(BaseSettings):
     app_name: str = "OnRamp API"
     debug: bool = False
 
-    # Database
-    database_url: str = "mssql+aioodbc://sa:Password123!@localhost:1433/onramp?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
+    # Database (empty = dev mode with SQLite)
+    database_url: str = ""
 
     # Azure AD / Entra ID
     azure_tenant_id: str = ""

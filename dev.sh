@@ -40,6 +40,23 @@ banner() {
     echo "─────────────────────────────────"
 }
 
+bootstrap_env() {
+    if [ ! -f .env ]; then
+        echo -e "${YELLOW}No .env file found — generating from .env.example...${NC}"
+        cp .env.example .env
+        # Generate a random SA password for local SQL Server
+        local sa_pass
+        sa_pass="OnRamp_$(openssl rand -base64 16 | tr -dc 'A-Za-z0-9' | head -c 16)!"
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s|<generate-a-strong-password>|${sa_pass}|g" .env
+        else
+            sed -i "s|<generate-a-strong-password>|${sa_pass}|g" .env
+        fi
+        echo -e "${GREEN}.env created with generated MSSQL_SA_PASSWORD.${NC}"
+        echo -e "${YELLOW}Review .env and customize as needed.${NC}"
+    fi
+}
+
 check_prereqs() {
     local missing=()
     if ! command -v docker &>/dev/null; then missing+=("docker"); fi
@@ -94,6 +111,7 @@ wait_for_health() {
 cmd_up() {
     banner
     check_prereqs
+    bootstrap_env
 
     echo -e "${BLUE}Building and starting containers...${NC}"
     $COMPOSE build --quiet 2>&1 | tail -1 || true
