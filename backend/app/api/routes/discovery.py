@@ -31,6 +31,21 @@ async def start_discovery_scan(
     """
     tenant_id = user.get("tenant_id", "dev-tenant")
 
+    # Validate project belongs to caller's tenant (skip in dev mode without DB)
+    if db is not None:
+        from sqlalchemy import select
+
+        from app.models.project import Project
+
+        result = await db.execute(
+            select(Project).where(
+                Project.id == request.project_id,
+                Project.tenant_id == tenant_id,
+            )
+        )
+        if result.scalar_one_or_none() is None:
+            raise HTTPException(status_code=404, detail="Project not found")
+
     result = await discovery_service.start_scan(
         project_id=request.project_id,
         tenant_id=tenant_id,

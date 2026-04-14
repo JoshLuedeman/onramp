@@ -202,14 +202,15 @@ class DiscoveryService:
         if factory is None:
             # Dev mode without DB — return immediate mock
             mock_id = generate_uuid()
+            mock_resources = _mock_discovered_resources()
             return {
                 "id": mock_id,
                 "project_id": project_id,
                 "subscription_id": subscription_id,
                 "status": "completed",
                 "results": _mock_discovery_results(),
-                "resources": _mock_discovered_resources(),
-                "resource_count": len(_mock_discovered_resources()),
+                "resources": mock_resources,
+                "resource_count": len(mock_resources),
             }
 
         from app.models.discovery import DiscoveryScan
@@ -260,45 +261,66 @@ class DiscoveryService:
                 logger.error("Scan %s not found", scan_id)
                 return
 
-            # Update status to scanning
+            # Update status to scanning and release the session
             scan.status = "scanning"
+            subscription_id = scan.subscription_id
+            scan_config = scan.scan_config
             await session.commit()
 
-            try:
-                if settings.is_dev_mode:
-                    resources_data = _mock_discovered_resources()
-                    summary = _mock_discovery_results()
-                else:
-                    resources_data, summary = await self._scan_azure(
-                        scan.subscription_id, scan.scan_config
-                    )
+        # Run the actual scan outside the DB session
+        try:
+            if settings.is_dev_mode:
+                resources_data = _mock_discovered_resources()
+                summary = _mock_discovery_results()
+            else:
+                resources_data, summary = await self._scan_azure(
+                    subscription_id, scan_config
+                )
+        except Exception as e:
+            # Persist failure in a fresh session
+            async with factory() as session:
+                from sqlalchemy import select
+                result = await session.execute(
+                    select(DiscoveryScan).where(DiscoveryScan.id == scan_id)
+                )
+                scan = result.scalar_one_or_none()
+                if scan:
+                    scan.status = "failed"
+                    scan.error_message = str(e)[:2000]
+                    await session.commit()
+            logger.error("Discovery scan %s failed: %s", scan_id, e)
+            return
 
-                # Store discovered resources
-                for res_data in resources_data:
-                    resource = DiscoveredResource(
-                        id=res_data.get("id", generate_uuid()),
-                        scan_id=scan_id,
-                        category=res_data["category"],
-                        resource_type=res_data["resource_type"],
-                        resource_id=res_data["resource_id"],
-                        resource_group=res_data.get("resource_group"),
-                        name=res_data["name"],
-                        properties=res_data.get("properties"),
-                    )
-                    session.add(resource)
+        # Persist results in a fresh session
+        async with factory() as session:
+            from sqlalchemy import select
+            result = await session.execute(
+                select(DiscoveryScan).where(DiscoveryScan.id == scan_id)
+            )
+            scan = result.scalar_one_or_none()
+            if scan is None:
+                logger.error("Scan %s disappeared during execution", scan_id)
+                return
 
-                # Reassign whole dict to ensure SQLAlchemy detects the change
-                scan.results = dict(summary)
-                scan.status = "completed"
-                await session.commit()
-                logger.info("Discovery scan %s completed: %d resources",
-                            scan_id, len(resources_data))
+            for res_data in resources_data:
+                resource = DiscoveredResource(
+                    id=res_data.get("id", generate_uuid()),
+                    scan_id=scan_id,
+                    category=res_data["category"],
+                    resource_type=res_data["resource_type"],
+                    resource_id=res_data["resource_id"],
+                    resource_group=res_data.get("resource_group"),
+                    name=res_data["name"],
+                    properties=res_data.get("properties"),
+                )
+                session.add(resource)
 
-            except Exception as e:
-                scan.status = "failed"
-                scan.error_message = str(e)[:2000]
-                await session.commit()
-                logger.error("Discovery scan %s failed: %s", scan_id, e)
+            # Reassign whole dict to ensure SQLAlchemy detects the change
+            scan.results = dict(summary)
+            scan.status = "completed"
+            await session.commit()
+            logger.info("Discovery scan %s completed: %d resources",
+                        scan_id, len(resources_data))
 
     async def _scan_azure(
         self, subscription_id: str, scan_config: dict | None

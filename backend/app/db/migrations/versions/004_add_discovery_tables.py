@@ -38,7 +38,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "updated_at", sa.DateTime,
-            server_default=sa.func.now(), nullable=False,
+            server_default=sa.func.now(), onupdate=sa.func.now(), nullable=False,
         ),
     )
 
@@ -61,7 +61,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "updated_at", sa.DateTime,
-            server_default=sa.func.now(), nullable=False,
+            server_default=sa.func.now(), onupdate=sa.func.now(), nullable=False,
         ),
     )
 

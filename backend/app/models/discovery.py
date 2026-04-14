@@ -5,8 +5,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, generate_uuid
 
-SCAN_STATUSES = ["pending", "scanning", "completed", "failed"]
-
 
 class DiscoveryScan(Base, TimestampMixin):
     """A single discovery scan of an Azure subscription."""
