@@ -81,18 +81,28 @@ async def get_project_architecture(
     if db is None:
         return {"architecture": None, "project_id": project_id}
 
-    from sqlalchemy import select
+    from sqlalchemy import desc, select
 
     from app.models import Architecture as ArchModel
     from app.models import Project
 
     tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
-    result = await db.execute(
+    order_by_clauses = []
+    if hasattr(ArchModel, "updated_at"):
+        order_by_clauses.append(desc(ArchModel.updated_at))
+    if hasattr(ArchModel, "created_at"):
+        order_by_clauses.append(desc(ArchModel.created_at))
+
+    query = (
         select(ArchModel)
         .join(Project, ArchModel.project_id == Project.id)
         .where(ArchModel.project_id == project_id, Project.tenant_id == tenant_id)
     )
-    arch = result.scalar_one_or_none()
+    if order_by_clauses:
+        query = query.order_by(*order_by_clauses)
+
+    result = await db.execute(query)
+    arch = result.scalars().first()
     if not arch:
         return {"architecture": None, "project_id": project_id}
 
