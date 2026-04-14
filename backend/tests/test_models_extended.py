@@ -1,9 +1,18 @@
 """Extended tests for SQLAlchemy models."""
 from app.models import (
-    Base, Tenant, User, Project, QuestionCategory, Question,
-    QuestionnaireResponse, Architecture, Deployment,
-    ComplianceFramework, ComplianceControl,
+    Architecture,
+    Base,
+    ComplianceControl,
+    ComplianceFramework,
+    Deployment,
+    Project,
+    Question,
+    QuestionCategory,
+    QuestionnaireResponse,
+    Tenant,
+    User,
 )
+
 
 def test_model_columns_tenant():
     cols = {c.name for c in Tenant.__table__.columns}
@@ -63,3 +72,12 @@ def test_question_category_model():
     cols = {c.name for c in QuestionCategory.__table__.columns}
     assert "name" in cols
     assert "caf_design_area" in cols
+
+
+def test_generate_uuid():
+    """generate_uuid returns a valid UUID string."""
+    from app.models.base import generate_uuid
+    result = generate_uuid()
+    assert isinstance(result, str)
+    assert len(result) == 36
+    assert result.count("-") == 4

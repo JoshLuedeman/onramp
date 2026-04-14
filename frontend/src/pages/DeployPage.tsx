@@ -18,6 +18,7 @@ import {
   CheckmarkCircleRegular,
   ErrorCircleRegular,
 } from "@fluentui/react-icons";
+import { useParams } from "react-router-dom";
 import { api } from "../services/api";
 import type { Architecture } from "../services/api";
 
@@ -58,6 +59,7 @@ interface DeploymentStep {
 
 export default function DeployPage() {
   const styles = useStyles();
+  const { projectId } = useParams<{ projectId: string }>();
   const [subscriptionId, setSubscriptionId] = useState("");
   const [validating, setValidating] = useState(false);
   const [validated, setValidated] = useState(false);
@@ -67,9 +69,20 @@ export default function DeployPage() {
   const [status, setStatus] = useState<string>("idle");
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [architecture, setArchitecture] = useState<Architecture | null>(null);
 
-  const stored = sessionStorage.getItem("onramp_architecture");
-  const architecture: Architecture | null = stored ? JSON.parse(stored) : null;
+  useEffect(() => {
+    if (projectId) {
+      api.architecture.getByProject(projectId).then((data) => {
+        if (data.architecture) {
+          setArchitecture(data.architecture as Architecture);
+        }
+      }).catch(console.error);
+    } else {
+      const stored = sessionStorage.getItem("onramp_architecture");
+      if (stored) setArchitecture(JSON.parse(stored));
+    }
+  }, [projectId]);
 
   // Poll for deployment status updates
   const pollStatus = useCallback(async (depId: string) => {
@@ -104,7 +117,7 @@ export default function DeployPage() {
     setValidating(true);
     setError(null);
     try {
-      await api.validateSubscription(subscriptionId, "eastus2");
+      await api.deployment.validate(subscriptionId, "eastus2");
       setValidated(true);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Validation failed");
@@ -118,25 +131,17 @@ export default function DeployPage() {
     setDeploying(true);
     setError(null);
     try {
-      const resp = await fetch("/api/deployment/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          project_id: "default",
-          architecture,
-          subscription_ids: [subscriptionId],
-        }),
-      });
-      const data = await resp.json();
+      const data = await api.deployment.create(
+        projectId || "default",
+        architecture as unknown as Record<string, unknown>,
+        [subscriptionId],
+      );
       const depId = data.id;
       setDeploymentId(depId);
       setSteps(data.steps || []);
 
       // Start deployment
-      const startResp = await fetch(`/api/deployment/${depId}/start`, {
-        method: "POST",
-      });
-      const startData = await startResp.json();
+      const startData = await api.deployment.start(depId);
       setSteps(startData.steps || []);
       setStatus(startData.status);
 

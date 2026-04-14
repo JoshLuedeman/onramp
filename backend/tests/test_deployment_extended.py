@@ -137,3 +137,185 @@ def test_list_deployments_filter_by_project():
     assert len(orch.list_deployments("proj-a")) == 2
     assert len(orch.list_deployments("proj-b")) == 1
     assert len(orch.list_deployments("proj-c")) == 0
+
+
+def test_start_deployment_production_success():
+    """Test production mode deployment with mocked credentials."""
+    from unittest.mock import patch, MagicMock
+    orch = DeploymentOrchestrator()
+    arch = {"subscriptions": []}
+    record = orch.create_deployment("proj-prod", arch, ["sub-1"])
+
+    mock_cred = MagicMock()
+    mock_cred.is_configured = True
+
+    mock_deploy_result = {"deployment_name": "deploy-001"}
+    with patch(
+        "app.services.credentials.credential_manager", mock_cred
+    ), patch.object(orch, "_deploy_step", return_value=mock_deploy_result):
+        result = orch.start_deployment(record.id)
+
+    assert result.status == DeploymentStatus.SUCCEEDED
+    assert result.completed_at is not None
+    for step in result.steps:
+        assert step.status == DeploymentStatus.SUCCEEDED
+        assert step.deployment_id == "deploy-001"
+
+
+def test_start_deployment_production_failure():
+    """Test production mode deployment step failure."""
+    from unittest.mock import patch, MagicMock
+    orch = DeploymentOrchestrator()
+    arch = {"subscriptions": []}
+    record = orch.create_deployment("proj-fail", arch, ["sub-1"])
+
+    mock_cred = MagicMock()
+    mock_cred.is_configured = True
+
+    with patch(
+        "app.services.credentials.credential_manager", mock_cred
+    ), patch.object(orch, "_deploy_step", side_effect=Exception("ARM deploy failed")):
+        result = orch.start_deployment(record.id)
+
+    assert result.status == DeploymentStatus.FAILED
+    assert "ARM deploy failed" in result.error
+    failed = [s for s in result.steps if s.status == DeploymentStatus.FAILED]
+    assert len(failed) >= 1
+    assert failed[0].error == "ARM deploy failed"
+
+
+def test_rollback_production_success():
+    """Test production mode rollback with mocked resource client."""
+    from unittest.mock import patch, MagicMock
+    orch = DeploymentOrchestrator()
+    arch = {"subscriptions": []}
+    record = orch.create_deployment("proj-rb-prod", arch, ["sub-1"])
+    # Simulate started & succeeded
+    for step in record.steps:
+        step.status = DeploymentStatus.SUCCEEDED
+    record.status = DeploymentStatus.SUCCEEDED
+
+    mock_cred = MagicMock()
+    mock_cred.is_configured = True
+    mock_client = MagicMock()
+    mock_poller = MagicMock()
+    mock_client.resource_groups.begin_delete.return_value = mock_poller
+    mock_cred.get_resource_client.return_value = mock_client
+
+    with patch("app.services.credentials.credential_manager", mock_cred):
+        result = orch.rollback_deployment(record.id)
+
+    assert result.status == DeploymentStatus.ROLLED_BACK
+    assert mock_client.resource_groups.begin_delete.called
+
+
+def test_rollback_production_error_handling():
+    """Test production mode rollback handles errors gracefully."""
+    from unittest.mock import patch, MagicMock
+    orch = DeploymentOrchestrator()
+    arch = {"subscriptions": []}
+    record = orch.create_deployment("proj-rb-err", arch, ["sub-1"])
+    for step in record.steps:
+        step.status = DeploymentStatus.SUCCEEDED
+    record.status = DeploymentStatus.SUCCEEDED
+
+    mock_cred = MagicMock()
+    mock_cred.is_configured = True
+    mock_client = MagicMock()
+    mock_client.resource_groups.begin_delete.side_effect = Exception("Cannot delete")
+    mock_cred.get_resource_client.return_value = mock_client
+
+    with patch("app.services.credentials.credential_manager", mock_cred):
+        result = orch.rollback_deployment(record.id)
+
+    assert result.status == DeploymentStatus.ROLLED_BACK
+    errors = [e for e in result.audit_log if e["action"] == "rollback_error"]
+    assert len(errors) > 0
+
+
+def test_rollback_production_no_resource_client():
+    """Test rollback when resource client returns None."""
+    from unittest.mock import patch, MagicMock
+    orch = DeploymentOrchestrator()
+    arch = {"subscriptions": []}
+    record = orch.create_deployment("proj-rb-none", arch, ["sub-1"])
+    for step in record.steps:
+        step.status = DeploymentStatus.SUCCEEDED
+
+    mock_cred = MagicMock()
+    mock_cred.is_configured = True
+    mock_cred.get_resource_client.return_value = None
+
+    with patch("app.services.credentials.credential_manager", mock_cred):
+        result = orch.rollback_deployment(record.id)
+
+    assert result.status == DeploymentStatus.ROLLED_BACK
+
+
+def test_deploy_step_no_resource_client():
+    """_deploy_step raises when resource client is None."""
+    from unittest.mock import patch, MagicMock
+    import pytest
+    orch = DeploymentOrchestrator()
+    step = DeploymentStep("test", "Microsoft.Test/res", "test.bicep")
+    mock_cred = MagicMock()
+    mock_cred.get_resource_client.return_value = None
+    with patch("app.services.credentials.credential_manager", mock_cred):
+        with pytest.raises(RuntimeError, match="Cannot get Azure client"):
+            orch._deploy_step(step, "sub-1", {})
+
+
+def test_deploy_step_no_template():
+    """_deploy_step raises when template not found."""
+    from unittest.mock import patch, MagicMock
+    import pytest
+    orch = DeploymentOrchestrator()
+    step = DeploymentStep("test", "Microsoft.Test/res", "nonexistent.bicep")
+    mock_client = MagicMock()
+    mock_cred = MagicMock()
+    mock_cred.get_resource_client.return_value = mock_client
+    mock_gen = MagicMock()
+    mock_gen.get_template.return_value = None
+    with patch("app.services.credentials.credential_manager", mock_cred), \
+         patch("app.services.bicep_generator.bicep_generator", mock_gen):
+        with pytest.raises(RuntimeError, match="Template.*not found"):
+            orch._deploy_step(step, "sub-1", {})
+
+
+def test_deploy_step_success():
+    """_deploy_step succeeds with mocked Azure clients."""
+    from unittest.mock import patch, MagicMock
+    orch = DeploymentOrchestrator()
+    step = DeploymentStep("hub", "Microsoft.Network/vn", "hub.bicep")
+    mock_client = MagicMock()
+    mock_result = MagicMock()
+    mock_result.properties.provisioning_state = "Succeeded"
+    mock_client.deployments.begin_create_or_update.return_value.result.return_value = mock_result
+    mock_cred = MagicMock()
+    mock_cred.get_resource_client.return_value = mock_client
+    mock_gen = MagicMock()
+    mock_gen.get_template.return_value = "some bicep content"
+    with patch("app.services.credentials.credential_manager", mock_cred), \
+         patch("app.services.bicep_generator.bicep_generator", mock_gen):
+        result = orch._deploy_step(step, "sub-1", {"network_topology": {"primary_region": "westus2"}})
+    assert "deployment_name" in result
+    assert result["resource_group"] == "onramp-hub-rg"
+    assert result["provisioning_state"] == "Succeeded"
+
+
+def test_deploy_step_arm_failure():
+    """_deploy_step raises on ARM deployment failure."""
+    from unittest.mock import patch, MagicMock
+    import pytest
+    orch = DeploymentOrchestrator()
+    step = DeploymentStep("hub", "Microsoft.Network/vn", "hub.bicep")
+    mock_client = MagicMock()
+    mock_client.deployments.begin_create_or_update.side_effect = Exception("ARM error")
+    mock_cred = MagicMock()
+    mock_cred.get_resource_client.return_value = mock_client
+    mock_gen = MagicMock()
+    mock_gen.get_template.return_value = "bicep content"
+    with patch("app.services.credentials.credential_manager", mock_cred), \
+         patch("app.services.bicep_generator.bicep_generator", mock_gen):
+        with pytest.raises(RuntimeError, match="ARM deployment failed"):
+            orch._deploy_step(step, "sub-1", {})

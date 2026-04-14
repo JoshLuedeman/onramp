@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   makeStyles,
   Title1,
@@ -72,17 +72,27 @@ const useStyles = makeStyles({
 export default function ArchitecturePage() {
   const styles = useStyles();
   const navigate = useNavigate();
+  const { projectId } = useParams<{ projectId: string }>();
   const [architecture, setArchitecture] = useState<Architecture | null>(null);
   const [costEstimation, setCostEstimation] = useState<CostEstimation | null>(null);
   const [costLoading, setCostLoading] = useState(false);
   const [costError, setCostError] = useState<string | null>(null);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("onramp_architecture");
-    if (stored) {
-      setArchitecture(JSON.parse(stored));
+    // Load architecture: from API for project-scoped, from sessionStorage for legacy
+    if (projectId) {
+      api.architecture.getByProject(projectId).then((data) => {
+        if (data.architecture) {
+          setArchitecture(data.architecture);
+        }
+      }).catch(console.error);
+    } else {
+      const stored = sessionStorage.getItem("onramp_architecture");
+      if (stored) {
+        setArchitecture(JSON.parse(stored));
+      }
     }
-  }, []);
+  }, [projectId]);
 
   if (!architecture) {
     return (
@@ -255,7 +265,7 @@ export default function ArchitecturePage() {
           appearance="primary"
           icon={<ArrowDownloadRegular />}
           size="large"
-          onClick={() => navigate("/deploy")}
+          onClick={() => navigate(projectId ? `/projects/${projectId}/deploy` : "/deploy")}
         >
           Deploy to Azure
         </Button>
@@ -263,14 +273,14 @@ export default function ArchitecturePage() {
           appearance="secondary"
           icon={<DocumentRegular />}
           size="large"
-          onClick={() => navigate("/bicep")}
+          onClick={() => navigate(projectId ? `/projects/${projectId}/bicep` : "/bicep")}
         >
           View Bicep Templates
         </Button>
         <Button
           appearance="secondary"
           size="large"
-          onClick={() => navigate("/compliance")}
+          onClick={() => navigate(projectId ? `/projects/${projectId}/compliance` : "/compliance")}
         >
           Score Compliance
         </Button>

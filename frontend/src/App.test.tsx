@@ -8,6 +8,11 @@ vi.mock("./auth/AuthProvider", () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+// Mock ProjectProvider
+vi.mock("./contexts/ProjectContext", () => ({
+  ProjectProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 // Replace BrowserRouter with MemoryRouter to avoid nested router error
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
@@ -18,8 +23,12 @@ vi.mock("react-router-dom", async () => {
 });
 
 // Mock lazy-loaded pages so we don't need full Suspense resolution
-vi.mock("./pages/HomePage", () => ({
-  default: () => <div data-testid="home-page">Home Page</div>,
+vi.mock("./pages/DashboardPage", () => ({
+  default: () => <div data-testid="dashboard-page">Dashboard Page</div>,
+}));
+
+vi.mock("./pages/ProjectDetailPage", () => ({
+  default: () => <div data-testid="project-detail-page">Project Detail Page</div>,
 }));
 
 vi.mock("./pages/WizardPage", () => ({
@@ -57,7 +66,7 @@ describe("App", () => {
     expect(container).toBeTruthy();
   });
 
-  it("renders home page at root route", async () => {
+  it("renders dashboard page at root route", async () => {
     render(
       <FluentProvider theme={teamsLightTheme}>
         <MemoryRouter initialEntries={["/"]}>
@@ -66,6 +75,6 @@ describe("App", () => {
       </FluentProvider>
     );
     // Wait for lazy load
-    expect(await screen.findByTestId("home-page")).toBeInTheDocument();
+    expect(await screen.findByTestId("dashboard-page")).toBeInTheDocument();
   });
 });

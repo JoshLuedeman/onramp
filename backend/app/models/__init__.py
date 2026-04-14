@@ -1,6 +1,8 @@
 from app.models.architecture import Architecture
 from app.models.base import Base
+from app.models.bicep_file import BicepFile
 from app.models.compliance import ComplianceControl, ComplianceFramework
+from app.models.compliance_result import ComplianceResult
 from app.models.deployment import Deployment
 from app.models.project import Project
 from app.models.questionnaire import Question, QuestionCategory, QuestionnaireResponse
@@ -19,4 +21,6 @@ __all__ = [
     "Deployment",
     "ComplianceFramework",
     "ComplianceControl",
+    "BicepFile",
+    "ComplianceResult",
 ]

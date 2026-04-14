@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   makeStyles,
@@ -6,6 +6,8 @@ import {
   Text,
   Tab,
   TabList,
+  Dropdown,
+  Option,
 } from "@fluentui/react-components";
 import {
   HomeRegular,
@@ -14,8 +16,11 @@ import {
   ShieldCheckmarkRegular,
   CodeRegular,
   RocketRegular,
+  FolderRegular,
 } from "@fluentui/react-icons";
 import AuthButton from "./AuthButton";
+import { api } from "../../services/api";
+import type { Project } from "../../types/project";
 
 const useStyles = makeStyles({
   root: {
@@ -62,6 +67,11 @@ const useStyles = makeStyles({
   content: {
     flex: 1,
   },
+  projectSwitcher: {
+    display: "flex",
+    alignItems: "center",
+    gap: tokens.spacingHorizontalS,
+  },
 });
 
 const NAV_ITEMS = [
@@ -81,6 +91,21 @@ export default function Layout({ children }: LayoutProps) {
   const styles = useStyles();
   const location = useLocation();
   const navigate = useNavigate();
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  useEffect(() => {
+    api.projects.list().then((res) => setProjects(res.projects)).catch(() => {});
+  }, []);
+
+  // Extract projectId from URL if on a project-scoped route
+  const projectMatch = location.pathname.match(/^\/projects\/([^/]+)/);
+  const activeProjectId = projectMatch ? projectMatch[1] : undefined;
+
+  const handleProjectSelect = (_: unknown, data: { optionValue?: string }) => {
+    if (data.optionValue) {
+      navigate(`/projects/${data.optionValue}`);
+    }
+  };
 
   return (
     <div className={styles.root}>
@@ -103,7 +128,25 @@ export default function Layout({ children }: LayoutProps) {
             </TabList>
           </div>
         </div>
-        <AuthButton />
+        <div className={styles.projectSwitcher}>
+          {projects.length > 0 && (
+            <Dropdown
+              placeholder="Switch project..."
+              selectedOptions={activeProjectId ? [activeProjectId] : []}
+              value={projects.find((p) => p.id === activeProjectId)?.name ?? ""}
+              onOptionSelect={handleProjectSelect}
+              size="small"
+              aria-label="Switch project"
+            >
+              {projects.map((p) => (
+                <Option key={p.id} value={p.id} text={p.name}>
+                  <FolderRegular /> {p.name}
+                </Option>
+              ))}
+            </Dropdown>
+          )}
+          <AuthButton />
+        </div>
       </header>
       <main className={styles.content}>{children}</main>
     </div>

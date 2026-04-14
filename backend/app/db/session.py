@@ -72,12 +72,94 @@ async def get_db() -> AsyncSession:
 
 async def init_db():
     """Initialize database - create tables if needed."""
+    import asyncio
+    import logging
+    logger = logging.getLogger(__name__)
     engine = get_engine()
     if engine is None:
         return
-    from app.models import Base
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # For MSSQL, create the database if it doesn't exist
+    db_url = get_database_url()
+    if "mssql" in db_url and "aioodbc" in db_url:
+        await _ensure_mssql_database(db_url)
+    # Create tables with retry logic for slow-starting databases
+    max_retries = 3
+    for attempt in range(1, max_retries + 1):
+        try:
+            from app.models import Base
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            logger.info("Database tables initialized")
+            return
+        except Exception as e:
+            if attempt < max_retries:
+                logger.info("Table creation attempt %d/%d failed: %s — retrying in %ds",
+                            attempt, max_retries, e, attempt * 2)
+                await asyncio.sleep(attempt * 2)
+            else:
+                logger.warning("Database initialization failed after %d attempts: %s",
+                               max_retries, e)
+                logger.warning("Continuing without database — routes will return mock data")
+
+
+async def _ensure_mssql_database(db_url: str):
+    """Create the MSSQL database if it doesn't exist, with retries."""
+    import asyncio
+    import logging
+    from urllib.parse import unquote, urlparse
+
+    logger = logging.getLogger(__name__)
+    parsed = urlparse(db_url)
+    if not parsed.hostname or not parsed.username or not parsed.password or not parsed.path:
+        return
+    db_name = parsed.path.lstrip("/").split("?")[0]
+    if not db_name:
+        return
+    host = parsed.hostname
+    port = parsed.port or 1433
+    user = unquote(parsed.username)
+    password = unquote(parsed.password)
+
+    def _create_db():
+        import pyodbc
+        conn_str = (
+            f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+            f"SERVER={host},{port};UID={user};PWD={password};"
+            f"DATABASE=master;TrustServerCertificate=yes;"
+            f"Connection Timeout=10"
+        )
+        conn = pyodbc.connect(conn_str, autocommit=True, timeout=10)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT 1 FROM sys.databases WHERE name = ?",
+            (db_name,),
+        )
+        database_exists = cursor.fetchone() is not None
+        if not database_exists:
+            escaped_db_name = db_name.replace("]", "]]")
+            cursor.execute(f"CREATE DATABASE [{escaped_db_name}]")
+        cursor.close()
+        conn.close()
+
+    max_retries = 5
+    for attempt in range(1, max_retries + 1):
+        try:
+            await asyncio.to_thread(_create_db)
+            logger.info("Database '%s' ensured", db_name)
+            return
+        except ImportError:
+            logger.warning("pyodbc not available — skipping database creation")
+            return
+        except Exception as e:
+            if attempt < max_retries:
+                logger.info(
+                    "SQL Server not ready (attempt %d/%d): %s — retrying in %ds",
+                    attempt, max_retries, e, attempt * 2,
+                )
+                await asyncio.sleep(attempt * 2)
+            else:
+                logger.warning("Could not ensure database '%s' after %d attempts: %s",
+                               db_name, max_retries, e)
 
 
 async def close_db():

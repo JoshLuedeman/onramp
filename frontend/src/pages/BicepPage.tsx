@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   Text,
@@ -16,6 +16,8 @@ import {
   ArrowDownloadRegular,
   DocumentRegular,
 } from "@fluentui/react-icons";
+import { useParams } from "react-router-dom";
+import { api } from "../services/api";
 
 const useStyles = makeStyles({
   container: {
@@ -58,25 +60,49 @@ interface BicepFile {
 
 export default function BicepPage() {
   const styles = useStyles();
+  const { projectId } = useParams<{ projectId: string }>();
   const [loading, setLoading] = useState(false);
   const [files, setFiles] = useState<BicepFile[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [architecture, setArchitecture] = useState<Record<string, unknown> | null>(null);
 
-  const stored = sessionStorage.getItem("onramp_architecture");
-  const architecture = stored ? JSON.parse(stored) : null;
+  useEffect(() => {
+    if (projectId) {
+      api.architecture.getByProject(projectId).then((data) => {
+        if (data.architecture) {
+          setArchitecture(data.architecture as Record<string, unknown>);
+        }
+      }).catch(console.error);
+    } else {
+      const stored = sessionStorage.getItem("onramp_architecture");
+      if (stored) setArchitecture(JSON.parse(stored));
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    if (projectId) {
+      api.bicep.getByProject(projectId).then((data) => {
+        if (data.files && data.files.length > 0) {
+          setFiles(data.files.map(f => ({
+            name: f.file_path || f.name,
+            content: f.content,
+            size_bytes: f.size_bytes,
+          })));
+        }
+      }).catch(console.error);
+    }
+  }, [projectId]);
 
   const handleGenerate = async () => {
     if (!architecture) return;
     setLoading(true);
     setError(null);
     try {
-      const resp = await fetch("/api/bicep/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ architecture }),
+      const data = await api.bicep.generate(architecture, {
+        use_ai: true,
+        project_id: projectId || "",
       });
-      const data = await resp.json();
       setFiles(data.files || []);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Generation failed");
