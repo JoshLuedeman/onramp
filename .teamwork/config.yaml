@@ -1,0 +1,96 @@
+# .teamwork/config.yaml — OnRamp project orchestration settings
+#
+# OnRamp is an AI-powered Azure Landing Zone Architect & Deployer.
+# Core workflow: Questionnaire → Architecture Generation → Compliance Scoring → Bicep Preview → Deployment
+
+project:
+    name: onramp
+    repo: JoshLuedeman/onramp
+
+roles:
+    core:
+        - planner
+        - architect
+        - coder
+        - tester
+        - reviewer
+        - security-auditor
+        - documenter
+        - orchestrator
+    optional:
+        - devops
+
+workflows:
+    skip_steps:
+        documentation:
+            - security-auditor
+        spike:
+            - tester
+            - security-auditor
+    extra_gates: {}
+
+quality_gates:
+    handoff_complete: true
+    tests_pass: true
+    lint_pass: true
+
+memory:
+    archive_threshold: 50
+    sync_to_memory_md: true
+
+# Model tier configuration
+model_tiers:
+    premium: "claude-sonnet-4"
+    standard: "claude-sonnet-4"
+    fast: "claude-haiku-4.5"
+
+# MCP server definitions
+mcp_servers:
+    github:
+        description: "GitHub repos, PRs, issues, CI workflows"
+        url: "https://api.githubcopilot.com/mcp/"
+        roles: [planner, architect, coder, tester, reviewer, security-auditor, documenter, orchestrator]
+        env_vars: [GH_TOKEN]
+        install: "gh extension install github/gh-mcp"
+
+    context7:
+        description: "Real-time library documentation — prevents API hallucination"
+        url: "https://mcp.context7.com/mcp"
+        roles: [architect, coder, documenter]
+        env_vars: []
+        install: "npx -y @upstash/context7-mcp"
+
+    semgrep:
+        description: "SAST security scanning"
+        command: "uvx semgrep-mcp"
+        roles: [security-auditor, reviewer, coder]
+        env_vars: [SEMGREP_APP_TOKEN]
+        install: "pip install semgrep-mcp"
+
+    coverage:
+        description: "Test coverage report analysis — lcov, Istanbul"
+        command: "uvx teamwork-mcp-coverage"
+        roles: [tester, reviewer, orchestrator]
+        env_vars: []
+        install: "pip install teamwork-mcp-coverage"
+
+    commits:
+        description: "Conventional commit message generation and validation"
+        command: "uvx teamwork-mcp-commits"
+        roles: [coder, reviewer, orchestrator]
+        env_vars: []
+        install: "pip install teamwork-mcp-commits"
+
+    adr:
+        description: "Architecture Decision Record management"
+        command: "uvx teamwork-mcp-adr"
+        roles: [architect, orchestrator, coder]
+        env_vars: []
+        install: "pip install teamwork-mcp-adr"
+
+    complexity:
+        description: "Code complexity analysis"
+        command: "uvx teamwork-mcp-complexity"
+        roles: [reviewer, tester, architect]
+        env_vars: []
+        install: "pip install teamwork-mcp-complexity"
