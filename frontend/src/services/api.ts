@@ -274,7 +274,7 @@ export interface DeploymentRecord {
   id: string;
   project_id: string;
   status: string;
-  steps: Array<{ name: string; status: string; started_at?: string; completed_at?: string }>;
+  steps: Array<{ id: string; name: string; status: string; started_at?: string; completed_at?: string }>;
   created_at: string;
   updated_at: string;
   [key: string]: unknown;

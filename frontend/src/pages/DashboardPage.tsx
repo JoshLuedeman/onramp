@@ -45,7 +45,7 @@ const STATUS_TOKEN_COLORS: Record<string, string> = {
   architecture_generated: tokens.colorPaletteGrapeForeground2,
   compliance_scored: tokens.colorPaletteBerryForeground2,
   bicep_ready: tokens.colorPaletteMarigoldForeground2,
-  deploying: tokens.colorPaletteOrangeForeground2,
+  deploying: tokens.colorPaletteDarkOrangeForeground2,
   deployed: tokens.colorPaletteGreenForeground2,
   failed: tokens.colorPaletteRedForeground2,
 };
