@@ -84,9 +84,13 @@ async def get_project_architecture(
     from sqlalchemy import select
 
     from app.models import Architecture as ArchModel
+    from app.models import Project
 
+    tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
     result = await db.execute(
-        select(ArchModel).where(ArchModel.project_id == project_id)
+        select(ArchModel)
+        .join(Project, ArchModel.project_id == Project.id)
+        .where(ArchModel.project_id == project_id, Project.tenant_id == tenant_id)
     )
     arch = result.scalar_one_or_none()
     if not arch:
