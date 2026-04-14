@@ -21,6 +21,19 @@ cd "$(dirname "$(readlink -f "$0")")"
 COMPOSE="docker compose"
 PROJECT="onramp"
 
+# Graceful shutdown — trap signals to cleanly stop containers during `up`
+_cleanup_running=false
+cleanup() {
+    local exit_code=$?
+    if [ "$_cleanup_running" = true ]; then
+        echo ""
+        echo -e "${YELLOW:-}Caught signal — stopping containers...${NC:-}"
+        $COMPOSE down 2>/dev/null
+        echo -e "${GREEN:-}Containers stopped.${NC:-}"
+    fi
+    exit $exit_code
+}
+
 # Detect host IP — use WSL IP if available, otherwise localhost
 if grep -qi microsoft /proc/version 2>/dev/null; then
     HOST_IP=$(hostname -I | awk '{print $1}')
@@ -112,6 +125,10 @@ cmd_up() {
     banner
     check_prereqs
     bootstrap_env
+
+    # Enable signal trap for graceful shutdown
+    _cleanup_running=true
+    trap cleanup SIGINT SIGTERM EXIT
 
     echo -e "${BLUE}Building and starting containers...${NC}"
     $COMPOSE build --quiet 2>&1 | tail -1 || true
