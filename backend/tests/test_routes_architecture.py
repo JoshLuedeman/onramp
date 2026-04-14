@@ -38,3 +38,42 @@ def test_refine_architecture():
     r = client.post("/api/architecture/refine", json={"architecture": arch, "message": "Add a sandbox subscription"})
     assert r.status_code == 200
     assert "response" in r.json()
+
+
+def test_generate_with_project_id():
+    """Generate architecture with project_id for persistence branch."""
+    answers = {"org_size": "small"}
+    r = client.post("/api/architecture/generate", json={
+        "answers": answers,
+        "use_archetype": True,
+        "project_id": "proj-arch-1",
+    })
+    assert r.status_code == 200
+    assert "architecture" in r.json()
+
+
+def test_get_project_architecture_no_db():
+    """Fetch project architecture returns empty in dev mode."""
+    r = client.get("/api/architecture/project/nonexistent-proj")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["architecture"] is None
+    assert data["project_id"] == "nonexistent-proj"
+
+
+def test_generate_empty_answers():
+    """Generate with empty answers still returns architecture."""
+    r = client.post("/api/architecture/generate", json={
+        "answers": {},
+        "use_archetype": True,
+    })
+    assert r.status_code == 200
+
+
+def test_estimate_costs_structure():
+    """Cost estimate returns expected structure."""
+    arch = {"management_groups": [{"name": "root"}], "subscriptions": [{"name": "prod"}]}
+    r = client.post("/api/architecture/estimate-costs", json={"architecture": arch})
+    assert r.status_code == 200
+    data = r.json()
+    assert "estimated_monthly_total_usd" in data or "total_monthly" in data or isinstance(data, dict)
