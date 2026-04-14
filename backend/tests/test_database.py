@@ -10,9 +10,9 @@ def test_database_module_importable():
 
 
 def test_database_url_construction_default():
-    """Default database URL is MSSQL."""
+    """Default database URL is empty (dev mode — SQLite fallback handled by session.py)."""
     from app.config import settings
-    assert "mssql" in settings.database_url or "sqlite" in settings.database_url
+    assert settings.database_url == "" or "mssql" in settings.database_url or "sqlite" in settings.database_url
 
 
 def test_session_get_database_url_helper():

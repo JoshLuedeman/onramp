@@ -14,9 +14,10 @@ def test_env_prefix():
 def test_settings_singleton():
     assert settings.app_name == "OnRamp API"
 
-def test_database_url_has_default():
+def test_database_url_defaults_empty():
+    """Database URL defaults to empty string (dev mode uses SQLite fallback)."""
     s = Settings()
-    assert "onramp" in s.database_url
+    assert s.database_url == ""
 
 def test_azure_defaults_empty():
     s = Settings()
