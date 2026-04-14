@@ -1,4 +1,5 @@
 """Tests for database session management."""
+import pytest
 from app.db.session import get_database_url, get_engine, get_session_factory
 
 def test_sqlite_url_conversion():
@@ -57,8 +58,6 @@ def test_session_factory_returns_none_without_engine():
     finally:
         sess._session_factory = old_factory
 
-
-import pytest
 
 
 @pytest.mark.asyncio

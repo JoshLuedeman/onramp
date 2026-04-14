@@ -47,7 +47,7 @@ async def list_projects(
             ]
         }
     except Exception as e:
-        return {"projects": [], "error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/")
@@ -74,10 +74,14 @@ async def create_project(
 
         tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
 
-        # Resolve or create the User row so created_by holds a valid users.id FK.
+        # Resolve or create the tenant-scoped User row so created_by holds a
+        # valid users.id FK for the current tenant.
         entra_oid = user.get("oid", user.get("sub", "unknown"))
         user_result = await db.execute(
-            select(User.id).where(User.entra_object_id == entra_oid)
+            select(User.id).where(
+                User.entra_object_id == entra_oid,
+                User.tenant_id == tenant_id,
+            )
         )
         db_user_id = user_result.scalar_one_or_none()
         if db_user_id is None:

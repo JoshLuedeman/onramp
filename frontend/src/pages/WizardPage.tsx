@@ -129,9 +129,12 @@ export default function WizardPage() {
         const serverAnswers = data.answers && Object.keys(data.answers).length > 0
           ? data.answers : null;
 
-        // Conflict: both local and server state exist with different content
+        // Conflict: both local and server state exist with different content.
+        // Use sorted-key serialisation to avoid spurious conflicts from key-order differences.
+        const stableStringify = (obj: Record<string, string | string[]>) =>
+          JSON.stringify(obj, Object.keys(obj).sort());
         if (localAnswers && Object.keys(localAnswers).length > 0 && serverAnswers
-            && JSON.stringify(localAnswers) !== JSON.stringify(serverAnswers)) {
+            && stableStringify(localAnswers) !== stableStringify(serverAnswers)) {
           setConflictData({ local: localAnswers, server: serverAnswers });
           setRestoringState(false);
         } else if (serverAnswers) {
@@ -189,9 +192,9 @@ export default function WizardPage() {
     }
     const newAnswers = { ...answers, [questionId]: answer };
     setAnswers(newAnswers);
-    if (!projectId) {
-      sessionStorage.setItem("onramp_wizard_answers", JSON.stringify(newAnswers));
-    }
+    // Keep sessionStorage in sync as a local cache regardless of whether
+    // the flow is project-scoped (so fallback restore remains up to date).
+    sessionStorage.setItem("onramp_wizard_answers", JSON.stringify(newAnswers));
     if (projectId) {
       api.questionnaire.saveState(projectId, newAnswers).catch(console.error);
     }

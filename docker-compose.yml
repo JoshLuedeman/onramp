@@ -7,7 +7,7 @@ services:
     container_name: onramp-backend
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     environment:
-      ONRAMP_DATABASE_URL: "${ONRAMP_DATABASE_URL:?Set ONRAMP_DATABASE_URL in .env}"
+      ONRAMP_DATABASE_URL: "${ONRAMP_DATABASE_URL:-}"
       ONRAMP_CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000","http://172.19.197.177:5173"]'
       ONRAMP_AZURE_TENANT_ID: ""
       ONRAMP_AZURE_CLIENT_ID: ""

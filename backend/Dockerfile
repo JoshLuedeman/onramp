@@ -22,7 +22,7 @@ RUN if [ "$INSTALL_ODBC" = "1" ]; then \
 
 COPY pyproject.toml ./
 COPY app ./app
-RUN pip install --no-cache-dir ".[dev]" 2>&1 | tail -1
+RUN pip install --no-cache-dir ".[dev]"
 
 COPY . .
 

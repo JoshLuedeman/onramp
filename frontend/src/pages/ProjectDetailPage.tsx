@@ -128,6 +128,9 @@ const useStyles = makeStyles({
     gap: tokens.spacingVerticalM,
     padding: tokens.spacingVerticalXXL,
   },
+  iconComplete: {
+    color: tokens.colorPaletteGreenForeground1,
+  },
 });
 
 export default function ProjectDetailPage() {
@@ -186,9 +189,7 @@ export default function ProjectDetailPage() {
               <div className={styles.stepLabel}>
                 <Text className={styles.stepNumber}>{index + 1}.</Text>
                 {stepStatus === "complete" && (
-                  <CheckmarkCircleRegular
-                    style={{ color: tokens.colorPaletteGreenForeground1 }}
-                  />
+                  <CheckmarkCircleRegular className={styles.iconComplete} />
                 )}
                 {stepStatus === "locked" && <LockClosedRegular />}
                 {stepStatus === "current" && <PlayRegular />}

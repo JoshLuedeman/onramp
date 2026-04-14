@@ -17,17 +17,6 @@ vi.mock("../services/api", () => ({
   },
 }));
 
-// Mock @fluentui/react-charting to avoid rendering issues in jsdom
-vi.mock("@fluentui/react-charting", () => ({
-  DonutChart: ({ data }: { data: { chartData: { legend: string }[] } }) => (
-    <div data-testid="donut-chart">
-      {data.chartData.map((d: { legend: string }) => (
-        <span key={d.legend}>{d.legend}</span>
-      ))}
-    </div>
-  ),
-}));
-
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");

@@ -172,6 +172,12 @@ const useStyles = makeStyles({
     backgroundColor: tokens.colorNeutralBackground4,
     overflow: "hidden",
   },
+  statusBarFill: {
+    height: "100%",
+    borderRadius: "4px",
+    backgroundColor: "var(--status-bar-color)",
+    transition: "width 0.3s ease",
+  },
 });
 
 export default function DashboardPage() {
@@ -373,13 +379,13 @@ export default function DashboardPage() {
                     <Body1 style={{ color }}>{count}</Body1>
                   </div>
                   <div className={styles.statusBarTrack}>
-                    <div style={{
-                      width: `${pct}%`,
-                      height: "100%",
-                      backgroundColor: color,
-                      borderRadius: "4px",
-                      transition: "width 0.3s ease",
-                    }} />
+                    <div
+                      className={styles.statusBarFill}
+                      style={{
+                        width: `${pct}%`,
+                        ["--status-bar-color" as string]: color,
+                      }}
+                    />
                   </div>
                 </div>
               ))}
