@@ -214,6 +214,38 @@ export const api = {
         `/api/discovery/scan/${scanId}/brownfield-context`,
       ),
   },
+
+  workloads: {
+    list: (projectId?: string) =>
+      fetchApi<WorkloadListResponse>(
+        `/api/workloads${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ""}`,
+      ),
+    create: (body: WorkloadCreateRequest) =>
+      fetchApi<WorkloadRecord>("/api/workloads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    update: (id: string, body: Partial<WorkloadCreateRequest>) =>
+      fetchApi<WorkloadRecord>(`/api/workloads/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    delete: (id: string) =>
+      fetchApi<void>(`/api/workloads/${id}`, { method: "DELETE" }),
+    importFile: async (file: File, projectId: string): Promise<WorkloadImportResult> => {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("project_id", projectId);
+      const res = await fetch(`/api/workloads/import`, { method: "POST", body: form });
+      if (!res.ok) {
+        const detail = await res.text();
+        throw new Error(detail || "Import failed");
+      }
+      return res.json() as Promise<WorkloadImportResult>;
+    },
+  },
 };
 
 export interface Category {
@@ -386,4 +418,53 @@ export interface BrownfieldContextResponse {
   scan_id: string;
   discovered_answers: Record<string, DiscoveredAnswer>;
   gap_summary: Record<string, number>;
+}
+
+export interface WorkloadRecord {
+  id: string;
+  project_id: string;
+  name: string;
+  type: string;
+  source_platform: string;
+  cpu_cores: number | null;
+  memory_gb: number | null;
+  storage_gb: number | null;
+  os_type: string | null;
+  os_version: string | null;
+  criticality: string;
+  compliance_requirements: string[];
+  dependencies: string[];
+  migration_strategy: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkloadCreateRequest {
+  project_id: string;
+  name: string;
+  type: string;
+  source_platform: string;
+  cpu_cores?: number | null;
+  memory_gb?: number | null;
+  storage_gb?: number | null;
+  os_type?: string | null;
+  os_version?: string | null;
+  criticality?: string;
+  compliance_requirements?: string[];
+  dependencies?: string[];
+  migration_strategy?: string;
+  notes?: string | null;
+}
+
+export interface WorkloadListResponse {
+  workloads: WorkloadRecord[];
+  total: number;
+}
+
+export interface WorkloadImportResult {
+  imported_count: number;
+  failed_count: number;
+  errors: string[];
+  workloads: WorkloadRecord[];
 }

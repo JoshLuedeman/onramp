@@ -15,6 +15,7 @@ const BicepPage = lazy(() => import("./pages/BicepPage"));
 const DeployPage = lazy(() => import("./pages/DeployPage"));
 const ProjectDetailPage = lazy(() => import("./pages/ProjectDetailPage"));
 const GapAnalysisPage = lazy(() => import("./pages/GapAnalysisPage"));
+const WorkloadsPage = lazy(() => import("./pages/WorkloadsPage"));
 
 function App() {
   return (
@@ -56,6 +57,11 @@ function App() {
 
                   {/* Gap analysis */}
                   <Route path="/gap-analysis/:scanId" element={<GapAnalysisPage />} />
+
+                  {/* Workloads */}
+                  <Route path="/projects/:projectId/workloads" element={
+                    <ProjectProvider><WorkloadsPage /></ProjectProvider>
+                  } />
                 </Routes>
               </Suspense>
             </ErrorBoundary>
