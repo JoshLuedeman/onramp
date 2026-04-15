@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
 from app.db.session import get_db
+from app.models.project import Project
 from app.models.workload import Workload
 from app.schemas.workload import (
     WorkloadCreate,
@@ -17,7 +18,7 @@ from app.schemas.workload import (
     WorkloadResponse,
     WorkloadUpdate,
 )
-from app.services.workload_importer import detect_format
+from app.services.workload_importer import detect_format, parse_file
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ def _to_response(workload: Workload) -> WorkloadResponse:
 async def import_workloads(
     file: UploadFile = File(...),
     project_id: str = Query(..., description="Target project ID"),
-    _user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> WorkloadImportResult:
     """Parse an uploaded CSV or JSON file and bulk-insert workloads."""
@@ -66,67 +67,20 @@ async def import_workloads(
     fmt = detect_format(filename, content)
     logger.info("Importing workloads from %s (format: %s, size: %d)", filename, fmt, len(content))
 
+    # Tenant/project scoping — only enforced when a real DB is available
+    tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
+    if db is not None:
+        proj_result = await db.execute(
+            select(Project).where(Project.id == project_id, Project.tenant_id == tenant_id)
+        )
+        if proj_result.scalar_one_or_none() is None:
+            raise HTTPException(status_code=403, detail="Project not found or access denied")
+
     # Parse file — collect row-level errors instead of aborting entirely
-    parsed: list[WorkloadCreate] = []
-    errors: list[str] = []
-
-    if fmt == "json":
-        # JSON: parse items individually to collect per-item errors
-        try:
-            import json as _json
-            data = _json.loads(content)
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail=f"Invalid JSON: {exc}") from exc
-
-        if isinstance(data, dict):
-            data = data.get("workloads", [data])
-        if not isinstance(data, list):
-            raise HTTPException(status_code=422, detail="JSON must be an array of workload objects")
-
-        from app.services.workload_importer import _build_workload, _normalise_column  # noqa: PLC0415
-
-        for idx, item in enumerate(data):
-            if not isinstance(item, dict):
-                errors.append(f"Item {idx}: expected object, got {type(item).__name__}")
-                continue
-            normalised: dict = {}
-            for key, value in item.items():
-                canonical = _normalise_column(str(key))
-                if isinstance(value, list):
-                    normalised[canonical] = value
-                else:
-                    normalised[canonical] = str(value) if value is not None else ""
-            try:
-                parsed.append(_build_workload(normalised, project_id))
-            except ValueError as exc:
-                errors.append(f"Item {idx}: {exc}")
-    else:
-        # CSV: parse rows individually
-        import csv as _csv
-        import io as _io
-
-        try:
-            text = content.decode("utf-8-sig")
-        except UnicodeDecodeError:
-            text = content.decode("latin-1")
-
-        reader = _csv.DictReader(_io.StringIO(text))
-        if reader.fieldnames is None:
-            raise HTTPException(status_code=422, detail="CSV file has no headers")
-
-        from app.services.workload_importer import _build_workload, _normalise_column  # noqa: PLC0415
-
-        for row_num, raw_row in enumerate(reader, start=2):
-            normalised = {}
-            for col, value in raw_row.items():
-                if col is None:
-                    continue
-                canonical = _normalise_column(col)
-                normalised[canonical] = value or ""
-            try:
-                parsed.append(_build_workload(normalised, project_id))
-            except ValueError as exc:
-                errors.append(f"Row {row_num}: {exc}")
+    try:
+        parsed, errors = parse_file(content, filename, project_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     if not parsed and not errors:
         return WorkloadImportResult(
@@ -205,7 +159,7 @@ async def import_workloads(
 @router.get("", response_model=dict)
 async def list_workloads(
     project_id: str = Query(..., description="Project ID to filter by"),
-    _user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """List all workloads for a given project."""
@@ -213,6 +167,13 @@ async def list_workloads(
         return {"workloads": [], "total": 0}
 
     try:
+        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
+        proj_result = await db.execute(
+            select(Project).where(Project.id == project_id, Project.tenant_id == tenant_id)
+        )
+        if proj_result.scalar_one_or_none() is None:
+            raise HTTPException(status_code=403, detail="Project not found or access denied")
+
         result = await db.execute(
             select(Workload).where(Workload.project_id == project_id)
         )
@@ -221,6 +182,8 @@ async def list_workloads(
             "workloads": [_to_response(w) for w in workloads],
             "total": len(workloads),
         }
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("Failed to list workloads")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -229,7 +192,7 @@ async def list_workloads(
 @router.post("", response_model=WorkloadResponse)
 async def create_workload(
     payload: WorkloadCreate,
-    _user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> WorkloadResponse:
     """Create a single workload (manual entry)."""
@@ -257,6 +220,13 @@ async def create_workload(
         )
 
     try:
+        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
+        proj_result = await db.execute(
+            select(Project).where(Project.id == payload.project_id, Project.tenant_id == tenant_id)
+        )
+        if proj_result.scalar_one_or_none() is None:
+            raise HTTPException(status_code=403, detail="Project not found or access denied")
+
         workload = Workload(
             id=str(uuid.uuid4()),
             project_id=payload.project_id,
@@ -288,7 +258,7 @@ async def create_workload(
 async def update_workload(
     workload_id: str,
     updates: WorkloadUpdate,
-    _user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> WorkloadResponse:
     """Update a workload by ID."""
@@ -303,7 +273,16 @@ async def update_workload(
         if not workload:
             raise HTTPException(status_code=404, detail="Workload not found")
 
+        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
+        proj_result = await db.execute(
+            select(Project).where(Project.id == workload.project_id, Project.tenant_id == tenant_id)
+        )
+        if proj_result.scalar_one_or_none() is None:
+            raise HTTPException(status_code=403, detail="Project not found or access denied")
+
         update_data = updates.model_dump(exclude_unset=True)
+        if "name" in update_data and update_data["name"] is None:
+            raise HTTPException(status_code=422, detail="name cannot be null")
         for field, value in update_data.items():
             setattr(workload, field, value)
         workload.updated_at = datetime.now(timezone.utc)
@@ -320,7 +299,7 @@ async def update_workload(
 @router.delete("/{workload_id}")
 async def delete_workload(
     workload_id: str,
-    _user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Delete a workload by ID."""
@@ -334,6 +313,14 @@ async def delete_workload(
         workload = result.scalar_one_or_none()
         if not workload:
             raise HTTPException(status_code=404, detail="Workload not found")
+
+        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
+        proj_result = await db.execute(
+            select(Project).where(Project.id == workload.project_id, Project.tenant_id == tenant_id)
+        )
+        if proj_result.scalar_one_or_none() is None:
+            raise HTTPException(status_code=403, detail="Project not found or access denied")
+
         await db.delete(workload)
         return {"deleted": True, "id": workload_id}
     except HTTPException:

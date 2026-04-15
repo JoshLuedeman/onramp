@@ -237,8 +237,7 @@ export const api = {
     importFile: async (file: File, projectId: string): Promise<WorkloadImportResult> => {
       const form = new FormData();
       form.append("file", file);
-      form.append("project_id", projectId);
-      const res = await fetch(`/api/workloads/import`, { method: "POST", body: form });
+      const res = await fetch(`${API_BASE}/api/workloads/import?project_id=${encodeURIComponent(projectId)}`, { method: "POST", body: form });
       if (!res.ok) {
         const detail = await res.text();
         throw new Error(detail || "Import failed");

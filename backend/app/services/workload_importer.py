@@ -162,6 +162,69 @@ def detect_format(filename: str, content: bytes) -> str:
     return "csv"
 
 
+def parse_file(
+    content: bytes, filename: str, project_id: str
+) -> tuple[list[WorkloadCreate], list[str]]:
+    """Parse CSV or JSON bytes, collecting per-row errors without aborting.
+
+    Returns ``(parsed_workloads, errors)``.  Raises ``ValueError`` for fatal
+    format errors (invalid JSON syntax, CSV with no header row).
+    """
+    fmt = detect_format(filename, content)
+    parsed: list[WorkloadCreate] = []
+    errors: list[str] = []
+
+    if fmt == "json":
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid JSON: {exc}") from exc
+
+        if isinstance(data, dict):
+            data = data.get("workloads", [data])
+        if not isinstance(data, list):
+            raise ValueError("JSON must be an array of workload objects")
+
+        for idx, item in enumerate(data):
+            if not isinstance(item, dict):
+                errors.append(f"Item {idx}: expected object, got {type(item).__name__}")
+                continue
+            normalised: dict = {}
+            for key, value in item.items():
+                canonical = _normalise_column(str(key))
+                if isinstance(value, list):
+                    normalised[canonical] = value  # type: ignore[assignment]
+                else:
+                    normalised[canonical] = str(value) if value is not None else ""
+            try:
+                parsed.append(_build_workload(normalised, project_id))
+            except ValueError as exc:
+                errors.append(f"Item {idx}: {exc}")
+    else:
+        try:
+            text = content.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            text = content.decode("latin-1")
+
+        reader = csv.DictReader(io.StringIO(text))
+        if reader.fieldnames is None:
+            raise ValueError("CSV file has no headers")
+
+        for row_num, raw_row in enumerate(reader, start=2):
+            normalised = {}
+            for col, value in raw_row.items():
+                if col is None:
+                    continue
+                canonical = _normalise_column(col)
+                normalised[canonical] = value or ""
+            try:
+                parsed.append(_build_workload(normalised, project_id))
+            except ValueError as exc:
+                errors.append(f"Row {row_num}: {exc}")
+
+    return parsed, errors
+
+
 def parse_csv(content: bytes, project_id: str) -> list[WorkloadCreate]:
     """Parse CSV bytes into a list of WorkloadCreate objects.
 
@@ -195,7 +258,7 @@ def parse_csv(content: bytes, project_id: str) -> list[WorkloadCreate]:
             workload = _build_workload(normalised, project_id)
             results.append(workload)
         except ValueError as exc:
-            logger.warning("Skipping CSV row %d: %s", row_num, exc)
+            logger.warning("Invalid CSV row %d: %s", row_num, exc)
             raise ValueError(f"Row {row_num}: {exc}") from exc
 
     return results

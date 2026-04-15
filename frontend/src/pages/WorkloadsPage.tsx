@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 import {
   Badge,
   Button,
@@ -145,7 +146,9 @@ function emptyDraft(projectId: string): WorkloadCreateRequest {
   };
 }
 
-export default function WorkloadsPage({ projectId = "dev-project" }: WorkloadsPageProps) {
+export default function WorkloadsPage({ projectId: propProjectId }: WorkloadsPageProps) {
+  const { projectId: paramProjectId } = useParams<{ projectId: string }>();
+  const projectId = propProjectId ?? paramProjectId ?? "dev-project";
   const styles = useStyles();
   const [activeTab, setActiveTab] = useState<TabValue>("import");
 
