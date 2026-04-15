@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -24,6 +24,7 @@ from app.schemas.migration_wave import (
     WavePlanResponse,
     WaveResponse,
     WaveUpdateRequest,
+    WaveValidateRequest,
     WaveWorkloadResponse,
 )
 from app.services.wave_planner import wave_planner
@@ -155,6 +156,16 @@ async def generate_waves(
             summaries, edges, payload.strategy, payload.max_wave_size
         )
 
+        # Deactivate existing active plans for this project
+        await db.execute(
+            update(MigrationPlan)
+            .where(
+                MigrationPlan.project_id == payload.project_id,
+                MigrationPlan.is_active == True,  # noqa: E712
+            )
+            .values(is_active=False)
+        )
+
         # Persist plan
         plan = MigrationPlan(
             id=str(uuid.uuid4()),
@@ -215,6 +226,21 @@ async def generate_waves(
 
         await db.flush()
 
+        # Auto-validate the generated plan
+        wave_dicts = []
+        for wr in wave_responses:
+            wave_dicts.append({
+                "id": wr.id,
+                "name": wr.name,
+                "order": wr.order,
+                "workload_ids": [wl.workload_id for wl in wr.workloads],
+            })
+        summary_map = {s.id: s for s in summaries}
+        warnings_raw = wave_planner.validate_waves(
+            wave_dicts, summary_map, edges, payload.max_wave_size
+        )
+        gen_warnings = [ValidationWarning(**w) for w in warnings_raw]
+
         return WavePlanResponse(
             id=plan.id,
             project_id=payload.project_id,
@@ -222,7 +248,7 @@ async def generate_waves(
             strategy=plan.strategy,
             is_active=plan.is_active,
             waves=wave_responses,
-            warnings=[],
+            warnings=gen_warnings,
             created_at=now,
             updated_at=now,
         )
@@ -340,10 +366,16 @@ async def get_wave(
         raise HTTPException(status_code=404, detail="Database not configured")
 
     try:
+        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
         result = await db.execute(
             select(MigrationWave)
+            .join(MigrationPlan, MigrationWave.plan_id == MigrationPlan.id)
+            .join(Project, MigrationPlan.project_id == Project.id)
             .options(selectinload(MigrationWave.wave_workloads))
-            .where(MigrationWave.id == wave_id)
+            .where(
+                MigrationWave.id == wave_id,
+                Project.tenant_id == tenant_id,
+            )
         )
         wave = result.scalar_one_or_none()
         if wave is None:
@@ -377,10 +409,16 @@ async def update_wave(
         raise HTTPException(status_code=404, detail="Database not configured")
 
     try:
+        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
         result = await db.execute(
             select(MigrationWave)
+            .join(MigrationPlan, MigrationWave.plan_id == MigrationPlan.id)
+            .join(Project, MigrationPlan.project_id == Project.id)
             .options(selectinload(MigrationWave.wave_workloads))
-            .where(MigrationWave.id == wave_id)
+            .where(
+                MigrationWave.id == wave_id,
+                Project.tenant_id == tenant_id,
+            )
         )
         wave = result.scalar_one_or_none()
         if wave is None:
@@ -434,10 +472,15 @@ async def move_workload(
         )
 
     try:
-        # Find the target wave and its plan
+        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
+        # Find the target wave and verify tenant ownership
         target_result = await db.execute(
-            select(MigrationWave).where(
-                MigrationWave.id == payload.target_wave_id
+            select(MigrationWave)
+            .join(MigrationPlan, MigrationWave.plan_id == MigrationPlan.id)
+            .join(Project, MigrationPlan.project_id == Project.id)
+            .where(
+                MigrationWave.id == payload.target_wave_id,
+                Project.tenant_id == tenant_id,
             )
         )
         target_wave = target_result.scalar_one_or_none()
@@ -508,13 +551,13 @@ async def move_workload(
 
 @router.post("/waves/validate", response_model=WavePlanResponse)
 async def validate_plan(
-    payload: dict,
+    payload: WaveValidateRequest,
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> WavePlanResponse:
     """Validate the current wave plan for dependency violations."""
     now = datetime.now(timezone.utc)
-    project_id = payload.get("project_id", "")
+    project_id = payload.project_id
 
     if db is None:
         return WavePlanResponse(
@@ -746,8 +789,15 @@ async def delete_wave(
         raise HTTPException(status_code=404, detail="Database not configured")
 
     try:
+        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
         result = await db.execute(
-            select(MigrationWave).where(MigrationWave.id == wave_id)
+            select(MigrationWave)
+            .join(MigrationPlan, MigrationWave.plan_id == MigrationPlan.id)
+            .join(Project, MigrationPlan.project_id == Project.id)
+            .where(
+                MigrationWave.id == wave_id,
+                Project.tenant_id == tenant_id,
+            )
         )
         wave = result.scalar_one_or_none()
         if wave is None:

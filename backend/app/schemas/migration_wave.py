@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -52,7 +53,6 @@ class WaveUpdateRequest(BaseModel):
     name: str | None = None
     status: str | None = None
     notes: str | None = None
-    workload_ids: list[str] | None = None
 
 
 class MoveWorkloadRequest(BaseModel):
@@ -92,4 +92,10 @@ class WaveExportRequest(BaseModel):
     """Request to export wave plan."""
 
     project_id: str
-    format: str = "markdown"
+    format: Literal["csv", "markdown"] = "markdown"
+
+
+class WaveValidateRequest(BaseModel):
+    """Request to validate a wave plan."""
+
+    project_id: str

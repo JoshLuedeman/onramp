@@ -312,7 +312,7 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ project_id: projectId }),
       }),
-    exportPlan: (projectId: string, format: string) =>
+    exportPlan: (projectId: string, format: 'csv' | 'markdown') =>
       fetchBlob("/api/migration/waves/export", {
         method: "POST",
         body: JSON.stringify({ project_id: projectId, format }),

@@ -22,7 +22,6 @@ import {
 } from "@fluentui/react-icons";
 import { api } from "../services/api";
 import type {
-  WavePlanResponse,
   WaveResponse,
   ValidationWarning,
 } from "../services/api";
@@ -71,7 +70,6 @@ const STRATEGY_OPTIONS = [
 export default function MigrationPage() {
   const styles = useStyles();
   const { projectId } = useParams<{ projectId: string }>();
-  const [, setPlan] = useState<WavePlanResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +84,6 @@ export default function MigrationPage() {
     setError(null);
     try {
       const data = await api.migration.getWaves(projectId);
-      setPlan(data);
       setWaves(data.waves);
       setWarnings(data.warnings);
     } catch (err) {
@@ -112,7 +109,6 @@ export default function MigrationPage() {
         max_wave_size: size && !isNaN(size) ? size : null,
         plan_name: "Migration Plan",
       });
-      setPlan(data);
       setWaves(data.waves);
       setWarnings(data.warnings);
     } catch (err) {
@@ -130,7 +126,6 @@ export default function MigrationPage() {
           target_wave_id: targetWaveId,
           position,
         });
-        setPlan(data);
         setWaves(data.waves);
         setWarnings(data.warnings);
       } catch (err) {
@@ -145,7 +140,7 @@ export default function MigrationPage() {
   const handleReorder = useCallback(
     (waveId: string, workloadId: string, direction: "up" | "down") => {
       setWaves((prev) => {
-        return prev.map((wave) => {
+        const updated = prev.map((wave) => {
           if (wave.id !== waveId) return wave;
           const wls = [...wave.workloads];
           const idx = wls.findIndex((wl) => wl.workload_id === workloadId);
@@ -155,6 +150,31 @@ export default function MigrationPage() {
           [wls[idx], wls[newIdx]] = [wls[newIdx], wls[idx]];
           return { ...wave, workloads: wls };
         });
+
+        // Persist the new position via API
+        const wave = updated.find((w) => w.id === waveId);
+        if (wave) {
+          const targetIdx = wave.workloads.findIndex(
+            (w) => w.workload_id === workloadId,
+          );
+          if (targetIdx >= 0) {
+            api.migration
+              .moveWorkload({
+                workload_id: workloadId,
+                target_wave_id: waveId,
+                position: targetIdx,
+              })
+              .catch((err: unknown) => {
+                setError(
+                  err instanceof Error
+                    ? err.message
+                    : "Failed to reorder workload",
+                );
+              });
+          }
+        }
+
+        return updated;
       });
     },
     [],
