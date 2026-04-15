@@ -38,6 +38,7 @@ import {
   DocumentRegular,
   EditRegular,
   LinkRegular,
+  ShareRegular,
   WarningRegular,
 } from "@fluentui/react-icons";
 import type {
@@ -47,6 +48,7 @@ import type {
 } from "../services/api";
 import { api } from "../services/api";
 import WorkloadMapper from "../components/migration/WorkloadMapper";
+import DependencyGraph from "../components/migration/DependencyGraph";
 
 const useStyles = makeStyles({
   root: {
@@ -118,7 +120,7 @@ const useStyles = makeStyles({
   },
 });
 
-type TabValue = "import" | "inventory" | "mapping";
+type TabValue = "import" | "inventory" | "mapping" | "dependencies";
 
 const WORKLOAD_TYPES = ["vm", "database", "web-app", "container", "other"];
 const SOURCE_PLATFORMS = ["vmware", "hyperv", "physical", "aws", "gcp", "other"];
@@ -313,6 +315,7 @@ export default function WorkloadsPage({ projectId: propProjectId }: WorkloadsPag
         <Tab value="import" icon={<ArrowUploadRegular />}>Import</Tab>
         <Tab value="inventory" icon={<DocumentRegular />}>Inventory</Tab>
         <Tab value="mapping" icon={<LinkRegular />}>Mapping</Tab>
+        <Tab value="dependencies" icon={<ShareRegular />}>Dependencies</Tab>
       </TabList>
 
       {/* ---- Import Tab ---- */}
@@ -556,6 +559,13 @@ export default function WorkloadsPage({ projectId: propProjectId }: WorkloadsPag
               </Table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ---- Dependencies Tab ---- */}
+      {activeTab === "dependencies" && (
+        <div className={styles.tabContent}>
+          <DependencyGraph projectId={projectId} />
         </div>
       )}
 
