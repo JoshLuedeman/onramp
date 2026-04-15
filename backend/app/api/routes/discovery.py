@@ -12,7 +12,12 @@ from app.schemas.discovery import (
     DiscoveryScanCreate,
     DiscoveryScanResponse,
 )
+from app.schemas.gap_analysis import (
+    BrownfieldContext,
+    GapAnalysisResponse,
+)
 from app.services.discovery_service import discovery_service
+from app.services.gap_analyzer import gap_analyzer
 
 router = APIRouter(prefix="/api/discovery", tags=["discovery"])
 
@@ -124,3 +129,91 @@ async def get_scan_resources(
         total=len(resources),
         scan_id=scan_id,
     )
+
+
+@router.post(
+    "/scan/{scan_id}/analyze", response_model=GapAnalysisResponse,
+)
+async def analyze_scan_gaps(
+    scan_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Run gap analysis on discovery scan results.
+
+    Compares discovered Azure environment against CAF best practices.
+    Returns categorized findings with severity and remediation guidance.
+    """
+    # Load scan with tenant isolation
+    scan = await discovery_service.get_scan(scan_id, db)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    user_tenant = user.get("tenant_id", "dev-tenant")
+    if scan.get("tenant_id") and scan["tenant_id"] != user_tenant:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    if scan.get("status") != "completed":
+        raise HTTPException(
+            status_code=400,
+            detail="Scan must be completed before analysis",
+        )
+
+    # Load both summary and resources
+    summary = scan.get("results") or {}
+    resources_data = await discovery_service.get_scan_resources(
+        scan_id, db,
+    )
+
+    result = gap_analyzer.analyze(summary, resources_data)
+
+    return GapAnalysisResponse(
+        scan_id=scan_id,
+        total_findings=result["total_findings"],
+        critical_count=result["critical_count"],
+        high_count=result["high_count"],
+        medium_count=result["medium_count"],
+        low_count=result["low_count"],
+        findings=result["findings"],
+        areas_checked=result["areas_checked"],
+        areas_skipped=result["areas_skipped"],
+    )
+
+
+@router.get(
+    "/scan/{scan_id}/brownfield-context",
+    response_model=BrownfieldContext,
+)
+async def get_brownfield_context(
+    scan_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get brownfield questionnaire context from discovery scan.
+
+    Returns discovered answer suggestions and gap summary to drive
+    the adaptive brownfield questionnaire flow.
+    """
+    scan = await discovery_service.get_scan(scan_id, db)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    user_tenant = user.get("tenant_id", "dev-tenant")
+    if scan.get("tenant_id") and scan["tenant_id"] != user_tenant:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    if scan.get("status") != "completed":
+        raise HTTPException(
+            status_code=400,
+            detail="Scan must be completed before context generation",
+        )
+
+    summary = scan.get("results") or {}
+    resources_data = await discovery_service.get_scan_resources(
+        scan_id, db,
+    )
+
+    context = gap_analyzer.get_brownfield_context(summary, resources_data)
+    context["scan_id"] = scan_id
+
+    return context

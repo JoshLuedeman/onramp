@@ -14,7 +14,7 @@ import {
   Divider,
 } from "@fluentui/react-components";
 import { ArrowRightRegular } from "@fluentui/react-icons";
-import type { Question } from "../../services/api";
+import type { DiscoveredAnswer, Question } from "../../services/api";
 
 const useStyles = makeStyles({
   card: {
@@ -59,20 +59,46 @@ const useStyles = makeStyles({
     fontStyle: "italic",
     color: tokens.colorNeutralForeground3,
   },
+  discoveredBanner: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "8px 12px",
+    backgroundColor: tokens.colorNeutralBackground3,
+    borderRadius: "6px",
+    marginBottom: "12px",
+  },
+  discoveredText: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+  },
 });
 
 interface QuestionCardProps {
   question: Question;
   onAnswer: (questionId: string, answer: string | string[]) => void;
   existingAnswer?: string | string[];
+  discoveredAnswer?: DiscoveredAnswer;
 }
 
-export default function QuestionCard({ question, onAnswer, existingAnswer }: QuestionCardProps) {
+export default function QuestionCard({ question, onAnswer, existingAnswer, discoveredAnswer }: QuestionCardProps) {
   const styles = useStyles();
-  const [textValue, setTextValue] = useState<string>((existingAnswer as string) || "");
-  const [selectedValue, setSelectedValue] = useState<string>((existingAnswer as string) || "");
+  const discovered = discoveredAnswer || question.discovered_answer;
+  const initialValue = (existingAnswer as string) || (
+    discovered ? String(discovered.value) : ""
+  );
+  const [textValue, setTextValue] = useState<string>(
+    question.type === "text" ? initialValue : ""
+  );
+  const [selectedValue, setSelectedValue] = useState<string>(
+    question.type === "single_choice" ? initialValue : ""
+  );
   const [checkedValues, setCheckedValues] = useState<string[]>(
-    (existingAnswer as string[]) || []
+    (existingAnswer as string[]) || (
+      discovered && Array.isArray(discovered.value)
+        ? discovered.value as string[]
+        : []
+    )
   );
 
   const handleSubmit = () => {
@@ -116,6 +142,18 @@ export default function QuestionCard({ question, onAnswer, existingAnswer }: Que
         }
       />
       <Text className={styles.questionText}>{question.text}</Text>
+
+      {discovered && !existingAnswer && (
+        <div className={styles.discoveredBanner}>
+          <Badge appearance="filled" color="informative" size="small">
+            Auto-discovered
+          </Badge>
+          <Text className={styles.discoveredText}>
+            {discovered.evidence || "Pre-filled from environment scan"}
+            {" — you can override this selection"}
+          </Text>
+        </div>
+      )}
 
       {question.type === "text" && (
         <Input

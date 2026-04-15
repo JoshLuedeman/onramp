@@ -205,6 +205,14 @@ export const api = {
       fetchApi<DiscoveredResourceList>(
         `/api/discovery/scan/${scanId}/resources${category ? `?category=${encodeURIComponent(category)}` : ""}`,
       ),
+    analyzeScanGaps: (scanId: string) =>
+      fetchApi<GapAnalysisResponse>(`/api/discovery/scan/${scanId}/analyze`, {
+        method: "POST",
+      }),
+    getBrownfieldContext: (scanId: string) =>
+      fetchApi<BrownfieldContextResponse>(
+        `/api/discovery/scan/${scanId}/brownfield-context`,
+      ),
   },
 };
 
@@ -224,6 +232,7 @@ export interface Question {
   options?: { value: string; label: string; recommended?: boolean }[];
   required: boolean;
   order: number;
+  discovered_answer?: DiscoveredAnswer;
 }
 
 export interface Progress {
@@ -341,4 +350,40 @@ export interface DiscoveredResourceList {
   resources: DiscoveredResource[];
   total: number;
   scan_id: string;
+}
+
+export interface GapFinding {
+  id: string;
+  category: string;
+  severity: "critical" | "high" | "medium" | "low";
+  title: string;
+  description: string;
+  remediation: string;
+  caf_reference?: string;
+  can_auto_remediate: boolean;
+}
+
+export interface GapAnalysisResponse {
+  scan_id: string;
+  total_findings: number;
+  critical_count: number;
+  high_count: number;
+  medium_count: number;
+  low_count: number;
+  findings: GapFinding[];
+  areas_checked: string[];
+  areas_skipped: string[];
+}
+
+export interface DiscoveredAnswer {
+  value: string | string[];
+  confidence: "high" | "medium" | "low";
+  evidence: string;
+  source: string;
+}
+
+export interface BrownfieldContextResponse {
+  scan_id: string;
+  discovered_answers: Record<string, DiscoveredAnswer>;
+  gap_summary: Record<string, number>;
 }

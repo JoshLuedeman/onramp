@@ -34,6 +34,26 @@ CAF_QUESTIONS: list[dict[str, Any]] = [
         "order": 2,
     },
     {
+        "id": "existing_environment",
+        "category": "organization",
+        "caf_area": "billing_tenant",
+        "text": "Do you have an existing Azure environment?",
+        "type": "single_choice",
+        "options": [
+            {"value": "no", "label": "No, this is a new Azure deployment"},
+            {"value": "yes", "label": "Yes, I have existing Azure subscriptions"},
+            {
+                "value": "_unsure",
+                "label": (
+                    "I'm not sure — check the Azure portal or run a "
+                    "discovery scan"
+                ),
+            },
+        ],
+        "required": True,
+        "order": 3,
+    },
+    {
         "id": "azure_experience",
         "category": "organization",
         "caf_area": "billing_tenant",
@@ -47,7 +67,7 @@ CAF_QUESTIONS: list[dict[str, Any]] = [
             {"value": "_unsure", "label": "I'm not sure. Make a recommendation based on my requirements."},
         ],
         "required": True,
-        "order": 3,
+        "order": 4,
     },
     {
         "id": "subscription_count",
@@ -63,7 +83,7 @@ CAF_QUESTIONS: list[dict[str, Any]] = [
             {"value": "_unsure", "label": "I'm not sure. Make a recommendation based on my requirements."},
         ],
         "required": True,
-        "order": 4,
+        "order": 5,
     },
     # --- 2. Identity & Access ---
     {
@@ -410,7 +430,7 @@ CAF_QUESTIONS: list[dict[str, Any]] = [
             {"value": "_unsure", "label": "I'm not sure. Make a recommendation based on my requirements."},
         ],
         "required": True,
-        "order": 5,
+        "order": 6,
     },
 ]
 
@@ -444,44 +464,120 @@ class QuestionnaireService:
             key=lambda q: q["order"],
         )
 
-    def get_next_question(
-        self, answered_questions: dict[str, str], org_size: str | None = None
-    ) -> dict | None:
-        """Get the next unanswered question based on current answers and branching logic."""
+    def get_active_questions(
+        self,
+        answered_questions: dict[str, str | list[str]],
+        org_size: str | None = None,
+        brownfield_context: dict | None = None,
+    ) -> list[dict]:
+        """Get the active question set based on branch and context.
+
+        In brownfield mode, questions with discovered high-confidence
+        answers are still included but can be auto-filled by the frontend.
+
+        Args:
+            answered_questions: Map of question_id to answer value(s).
+            org_size: Organization size for adaptive filtering.
+            brownfield_context: Discovery-derived context if brownfield.
+
+        Returns:
+            List of active questions for this session.
+        """
         all_questions = self.get_all_questions()
+        active = []
+
+        is_brownfield = answered_questions.get("existing_environment") == "yes"
 
         for question in all_questions:
-            if question["id"] in answered_questions:
-                continue
-
             # Check org size filtering
             if question.get("min_org_size"):
-                size_order = {"small": 0, "medium": 1, "large": 2, "enterprise": 3}
+                size_order = {
+                    "small": 0, "medium": 1, "large": 2, "enterprise": 3,
+                }
                 if org_size and size_order.get(org_size, 0) < size_order.get(
                     question["min_org_size"], 0
                 ):
                     continue
 
-            return question
+            # Always include the branching question for environment type
+            if question["id"] == "existing_environment":
+                active.append(question)
+                continue
+
+            # In brownfield, mark questions that have discovered answers
+            if is_brownfield and brownfield_context:
+                discovered = brownfield_context.get(
+                    "discovered_answers", {}
+                )
+                if question["id"] in discovered:
+                    enriched = dict(question)
+                    enriched["discovered_answer"] = discovered[question["id"]]
+                    active.append(enriched)
+                    continue
+
+            active.append(question)
+
+        return active
+
+    def get_next_question(
+        self,
+        answered_questions: dict[str, str | list[str]],
+        org_size: str | None = None,
+        brownfield_context: dict | None = None,
+    ) -> dict | None:
+        """Get the next unanswered question based on current answers.
+
+        Args:
+            answered_questions: Map of question_id to answer value(s).
+            org_size: Organization size for adaptive filtering.
+            brownfield_context: Discovery-derived context if brownfield.
+
+        Returns:
+            The next question dict, or None if all questions answered.
+        """
+        active = self.get_active_questions(
+            answered_questions, org_size, brownfield_context,
+        )
+
+        for question in active:
+            if question["id"] not in answered_questions:
+                return question
 
         return None  # All questions answered
 
-    def get_progress(self, answered_questions: dict[str, str]) -> dict:
-        """Calculate questionnaire completion progress."""
-        total = len(CAF_QUESTIONS)
+    def get_progress(
+        self,
+        answered_questions: dict[str, str | list[str]],
+        org_size: str | None = None,
+        brownfield_context: dict | None = None,
+    ) -> dict:
+        """Calculate questionnaire completion progress.
+
+        Uses the active question set (branch-aware) for accurate totals.
+        """
+        active = self.get_active_questions(
+            answered_questions, org_size, brownfield_context,
+        )
+        total = len(active)
         answered = len(
-            [q for q in CAF_QUESTIONS if q["id"] in answered_questions]
+            [q for q in active if q["id"] in answered_questions]
         )
         return {
             "total": total,
             "answered": answered,
             "remaining": total - answered,
-            "percent_complete": round((answered / total) * 100) if total > 0 else 0,
+            "percent_complete": (
+                round((answered / total) * 100) if total > 0 else 0
+            ),
         }
 
-    def validate_answer(self, question_id: str, answer: str | list[str]) -> bool:
+    def validate_answer(
+        self, question_id: str, answer: str | list[str]
+    ) -> bool:
         """Validate an answer against a question's constraints."""
-        question = next((q for q in CAF_QUESTIONS if q["id"] == question_id), None)
+        question = next(
+            (q for q in CAF_QUESTIONS if q["id"] == question_id), None,
+        )
         if question is None:
             return False
 
@@ -489,13 +585,17 @@ class QuestionnaireService:
             return isinstance(answer, str) and len(answer.strip()) > 0
 
         if question["type"] == "single_choice":
-            valid_values = [opt["value"] for opt in question.get("options", [])]
+            valid_values = [
+                opt["value"] for opt in question.get("options", [])
+            ]
             return answer in valid_values
 
         if question["type"] == "multi_choice":
             if not isinstance(answer, list):
                 return False
-            valid_values = [opt["value"] for opt in question.get("options", [])]
+            valid_values = [
+                opt["value"] for opt in question.get("options", [])
+            ]
             return all(a in valid_values for a in answer)
 
         return True
