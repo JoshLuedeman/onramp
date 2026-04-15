@@ -638,6 +638,63 @@ async def add_dependency(
 
 
 # ---------------------------------------------------------------------------
+# PATCH /api/workloads/{workload_id}/mapping — persist manual override
+# ---------------------------------------------------------------------------
+
+
+@router.patch("/{workload_id}/mapping", response_model=WorkloadResponse)
+async def override_workload_mapping(
+    workload_id: str,
+    override: MappingOverride,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> WorkloadResponse:
+    """Manually override the AI-recommended subscription for a workload."""
+    if db is None:
+        raise HTTPException(status_code=404, detail="Database not configured")
+
+    try:
+        result = await db.execute(
+            select(Workload).where(Workload.id == workload_id)
+        )
+        workload = result.scalar_one_or_none()
+        if not workload:
+            raise HTTPException(status_code=404, detail="Workload not found")
+
+        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
+        proj_result = await db.execute(
+            select(Project).where(
+                Project.id == workload.project_id,
+                Project.tenant_id == tenant_id,
+            )
+        )
+        if proj_result.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=403, detail="Project not found or access denied"
+            )
+
+        workload.target_subscription_id = override.target_subscription_id
+        workload.mapping_reasoning = override.reasoning
+        workload.updated_at = datetime.now(timezone.utc)
+
+        await db.flush()
+        logger.info(
+            "Overrode mapping for workload %s → %s",
+            workload_id,
+            override.target_subscription_id,
+        )
+        return _to_response(workload)
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "Failed to override mapping for workload %s", workload_id
+        )
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
 # DELETE /api/workloads/{id}/dependencies/{target_id}
 # ---------------------------------------------------------------------------
 
