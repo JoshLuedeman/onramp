@@ -8,6 +8,7 @@ from app.api.routes.bicep import router as bicep_router
 from app.api.routes.compliance import router as compliance_router
 from app.api.routes.deployment import router as deployment_router
 from app.api.routes.discovery import router as discovery_router
+from app.api.routes.migration import router as migration_router
 from app.api.routes.projects import router as projects_router
 from app.api.routes.questionnaire import router as questionnaire_router
 from app.api.routes.questionnaire_state import router as questionnaire_state_router
@@ -76,6 +77,7 @@ app.include_router(scoring_router)
 app.include_router(questionnaire_state_router)
 app.include_router(discovery_router)
 app.include_router(workloads_router)
+app.include_router(migration_router)
 
 
 @app.get("/health")

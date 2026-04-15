@@ -284,6 +284,42 @@ export const api = {
         method: "DELETE",
       }),
   },
+
+  migration: {
+    generateWaves: (body: WaveGenerateRequest) =>
+      fetchApi<WavePlanResponse>("/api/migration/waves/generate", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    getWaves: (projectId: string) =>
+      fetchApi<WavePlanResponse>(
+        `/api/migration/waves?project_id=${encodeURIComponent(projectId)}`,
+      ),
+    getWave: (waveId: string) =>
+      fetchApi<WaveResponse>(`/api/migration/waves/${waveId}`),
+    updateWave: (waveId: string, body: WaveUpdateRequest) =>
+      fetchApi<WaveResponse>(`/api/migration/waves/${waveId}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    moveWorkload: (body: MoveWorkloadRequest) =>
+      fetchApi<WavePlanResponse>("/api/migration/waves/move", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    validatePlan: (projectId: string) =>
+      fetchApi<WavePlanResponse>("/api/migration/waves/validate", {
+        method: "POST",
+        body: JSON.stringify({ project_id: projectId }),
+      }),
+    exportPlan: (projectId: string, format: string) =>
+      fetchBlob("/api/migration/waves/export", {
+        method: "POST",
+        body: JSON.stringify({ project_id: projectId, format }),
+      }),
+    deleteWave: (waveId: string) =>
+      fetchApi<void>(`/api/migration/waves/${waveId}`, { method: "DELETE" }),
+  },
 };
 
 export interface Category {
@@ -551,4 +587,67 @@ export interface MigrationOrderResponse {
   circular_dependencies: string[][];
   has_circular: boolean;
   workload_names: Record<string, string>;
+}
+
+// --- Migration Wave Planning ---
+
+export interface WaveGenerateRequest {
+  project_id: string;
+  strategy?: string;
+  max_wave_size?: number | null;
+  plan_name?: string;
+}
+
+export interface WaveWorkloadItem {
+  id: string;
+  workload_id: string;
+  name: string;
+  type: string;
+  criticality: string;
+  migration_strategy: string;
+  position: number;
+  dependencies: string[];
+}
+
+export interface WaveResponse {
+  id: string;
+  name: string;
+  order: number;
+  status: string;
+  notes: string | null;
+  workloads: WaveWorkloadItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ValidationWarning {
+  type: string;
+  message: string;
+  wave_id: string | null;
+  workload_id: string | null;
+}
+
+export interface WavePlanResponse {
+  id: string;
+  project_id: string;
+  name: string;
+  strategy: string;
+  is_active: boolean;
+  waves: WaveResponse[];
+  warnings: ValidationWarning[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WaveUpdateRequest {
+  name?: string;
+  status?: string;
+  notes?: string;
+  workload_ids?: string[];
+}
+
+export interface MoveWorkloadRequest {
+  workload_id: string;
+  target_wave_id: string;
+  position?: number;
 }
