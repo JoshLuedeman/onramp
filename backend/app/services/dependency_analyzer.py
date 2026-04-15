@@ -135,6 +135,9 @@ class DependencyAnalyzer:
     def suggest_migration_order(self, graph: DependencyGraph) -> list[str]:
         """Return a topological ordering (Kahn's algorithm).
 
+        Edge convention: ``source → target`` means *source is a prerequisite
+        for target* — source appears before target in the returned order.
+
         Raises ``ValueError`` if the graph contains circular dependencies.
         """
         cycles = self.find_circular_dependencies(graph)

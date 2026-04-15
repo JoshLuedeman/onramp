@@ -304,8 +304,9 @@ async def test_dependency_graph_db_path(db_session):
     assert len(graph.nodes) == 2
     assert len(graph.edges) == 1
     edge = graph.edges[0]
-    assert edge.source == "dep-wl-a"
-    assert edge.target == "dep-wl-b"
+    # wl_a depends on wl_b → edge is dep-wl-b → dep-wl-a (prerequisite first)
+    assert edge.source == "dep-wl-b"
+    assert edge.target == "dep-wl-a"
 
 
 @pytest.mark.asyncio
@@ -571,8 +572,9 @@ def test_workloads_to_graph_with_dependencies():
     graph = _workloads_to_graph([wl_a, wl_b])
     assert len(graph.nodes) == 2
     assert len(graph.edges) == 1
-    assert graph.edges[0].source == "helper-wl-a"
-    assert graph.edges[0].target == "helper-wl-b"
+    # wl_a depends on wl_b → edge is wl_b → wl_a (prerequisite first)
+    assert graph.edges[0].source == "helper-wl-b"
+    assert graph.edges[0].target == "helper-wl-a"
 
 
 def test_workloads_to_graph_ignores_external_dependencies():

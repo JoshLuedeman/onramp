@@ -476,7 +476,13 @@ async def _get_project_workloads(
 
 
 def _workloads_to_graph(workloads: list[Workload]) -> DependencyGraph:
-    """Build a DependencyGraph from a list of ORM Workload objects."""
+    """Build a DependencyGraph from a list of ORM Workload objects.
+
+    Edge convention: ``source → target`` means *source is a prerequisite
+    for target* (source must be migrated before target).  If workload X has
+    ``dependencies=["Y"]`` the edge is ``Y → X`` because Y must be ready
+    before X can be migrated.
+    """
     summaries = [
         WorkloadSummary(
             id=w.id,
@@ -492,7 +498,10 @@ def _workloads_to_graph(workloads: list[Workload]) -> DependencyGraph:
     for w in workloads:
         for dep_id in w.dependencies or []:
             if dep_id in node_ids:
-                edges.append(DependencyEdge(source=w.id, target=dep_id))
+                # Edge: dep_id → w.id means "dep_id must be migrated before w.id"
+                # (consistent with the "source precedes target" convention used
+                #  throughout DependencyAnalyzer — source is the prerequisite).
+                edges.append(DependencyEdge(source=dep_id, target=w.id))
     return _analyzer.get_dependency_graph(summaries, edges)
 
 
