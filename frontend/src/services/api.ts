@@ -340,6 +340,12 @@ export const api = {
     deleteWave: (waveId: string) =>
       fetchApi<void>(`/api/migration/waves/${waveId}`, { method: "DELETE" }),
   },
+
+  plugins: {
+    list: () => fetchApi<PluginListResponse>("/api/plugins/"),
+    get: (name: string) =>
+      fetchApi<PluginResponse>(`/api/plugins/${encodeURIComponent(name)}`),
+  },
 };
 
 export interface Category {
@@ -686,4 +692,17 @@ export interface ADRRecord {
 export interface ADRGenerateResponse {
   adrs: ADRRecord[];
   project_id: string | null;
+}
+
+export interface PluginResponse {
+  name: string;
+  version: string;
+  plugin_type: string;
+  description: string;
+  enabled: boolean;
+}
+
+export interface PluginListResponse {
+  plugins: PluginResponse[];
+  total: number;
 }

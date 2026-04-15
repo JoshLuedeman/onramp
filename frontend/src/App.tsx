@@ -17,6 +17,7 @@ const ProjectDetailPage = lazy(() => import("./pages/ProjectDetailPage"));
 const GapAnalysisPage = lazy(() => import("./pages/GapAnalysisPage"));
 const WorkloadsPage = lazy(() => import("./pages/WorkloadsPage"));
 const MigrationPage = lazy(() => import("./pages/MigrationPage"));
+const AdminPage = lazy(() => import("./pages/AdminPage"));
 
 function App() {
   return (
@@ -67,6 +68,9 @@ function App() {
                   <Route path="/projects/:projectId/migration" element={
                     <ProjectProvider><MigrationPage /></ProjectProvider>
                   } />
+
+                  {/* Admin */}
+                  <Route path="/admin/plugins" element={<AdminPage />} />
                 </Routes>
               </Suspense>
             </ErrorBoundary>
