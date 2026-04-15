@@ -227,10 +227,11 @@ function groupByType(workloads: WorkloadRecord[]): Record<string, WorkloadRecord
 // WorkloadMapper
 // ---------------------------------------------------------------------------
 
-export default function WorkloadMapper({ projectId, subscriptions = [] }: WorkloadMapperProps) {
+export default function WorkloadMapper({ projectId, subscriptions: propSubscriptions }: WorkloadMapperProps) {
   const styles = useStyles();
 
   const [workloads, setWorkloads] = useState<WorkloadRecord[]>([]);
+  const [subscriptions, setSubscriptions] = useState<SubscriptionDef[]>(propSubscriptions ?? []);
   const [mappings, setMappings] = useState<WorkloadMappingRecord[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [overrides, setOverrides] = useState<Record<string, string>>({});
@@ -245,6 +246,28 @@ export default function WorkloadMapper({ projectId, subscriptions = [] }: Worklo
       .then((res) => setWorkloads(res.workloads))
       .catch(() => setWorkloads([]));
   }, [projectId]);
+
+  // Load subscriptions from project architecture when not provided via props
+  useEffect(() => {
+    if (propSubscriptions && propSubscriptions.length > 0) {
+      setSubscriptions(propSubscriptions);
+      return;
+    }
+    api.architecture.getByProject(projectId)
+      .then((res) => {
+        const subs = res.architecture?.subscriptions;
+        if (Array.isArray(subs) && subs.length > 0) {
+          setSubscriptions(
+            subs.map((s, i) => ({
+              id: (s as { id?: string; name?: string }).id ?? (s as { name?: string }).name ?? `sub-${i}`,
+              name: (s as { name?: string }).name ?? `sub-${i}`,
+              purpose: (s as { purpose?: string }).purpose ?? "",
+            }))
+          );
+        }
+      })
+      .catch(() => {/* silently skip if no architecture */});
+  }, [projectId, propSubscriptions]);
 
   // ---------------------------------------------------------------------------
   // Generate Mapping
@@ -285,6 +308,10 @@ export default function WorkloadMapper({ projectId, subscriptions = [] }: Worklo
       const sub = subscriptions.find((s) => s.id === subscriptionId);
       const subName = sub?.name ?? subscriptionId;
 
+      // Capture previous state for revert on failure
+      const prevOverrides = overrides;
+      const prevMappings = mappings;
+
       // Optimistic update
       setOverrides((prev) => ({ ...prev, [draggingId]: subscriptionId }));
 
@@ -318,12 +345,10 @@ export default function WorkloadMapper({ projectId, subscriptions = [] }: Worklo
       try {
         await api.workloads.overrideMapping(draggingId, subscriptionId, "Manual drag-and-drop assignment");
       } catch {
-        // Revert on failure — best-effort
-        setOverrides((prev) => {
-          const next = { ...prev };
-          delete next[draggingId];
-          return next;
-        });
+        // Revert both overrides and mappings state on failure
+        setOverrides(prevOverrides);
+        setMappings(prevMappings);
+        setError("Failed to save mapping override — please try again.");
       }
       setDraggingId(null);
     },

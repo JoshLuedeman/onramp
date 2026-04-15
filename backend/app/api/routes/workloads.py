@@ -373,19 +373,29 @@ async def map_workloads(
         architecture: dict = {}
         if payload.architecture_id:
             from app.models import Architecture as ArchModel
+            # Scope the architecture lookup to the tenant via the project relationship
             arch_result = await db.execute(
-                select(ArchModel).where(
+                select(ArchModel)
+                .join(Project, ArchModel.project_id == Project.id)
+                .where(
                     ArchModel.id == payload.architecture_id,
+                    ArchModel.project_id == payload.project_id,
+                    Project.tenant_id == tenant_id,
                 )
             )
             arch_record = arch_result.scalar_one_or_none()
             if arch_record:
                 architecture = arch_record.architecture_data or {}
         else:
-            # Try to load the project's architecture
+            # Try to load the project's architecture — already scoped to the tenant's project
             from app.models import Architecture as ArchModel
             arch_result = await db.execute(
-                select(ArchModel).where(ArchModel.project_id == payload.project_id)
+                select(ArchModel)
+                .join(Project, ArchModel.project_id == Project.id)
+                .where(
+                    ArchModel.project_id == payload.project_id,
+                    Project.tenant_id == tenant_id,
+                )
             )
             arch_record = arch_result.scalar_one_or_none()
             if arch_record:
@@ -410,6 +420,14 @@ async def map_workloads(
 
         mappings = await generate_mapping(workloads_dicts, architecture, ai_client)
         global_warnings = validate_mappings(mappings, workloads_dicts)
+
+        # Surface a user-visible warning when no subscriptions are in the architecture
+        if not mappings and not (architecture.get("subscriptions") or []):
+            global_warnings.insert(
+                0,
+                "No subscriptions found in the project architecture. "
+                "Generate an architecture first, then retry mapping.",
+            )
 
         logger.info(
             "Generated %d mappings for project %s (%d warnings)",

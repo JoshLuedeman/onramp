@@ -331,6 +331,17 @@ async def test_generate_mapping_ai_fallback_on_bad_json():
     assert len(result) == len(SAMPLE_WORKLOADS)
 
 
+@pytest.mark.asyncio
+async def test_generate_mapping_ai_fills_missing_workloads():
+    """When AI omits workloads, rule-based mappings fill the gaps."""
+    # AI only maps wl-1; wl-2 and wl-3 are omitted
+    result = await generate_mapping(SAMPLE_WORKLOADS, SAMPLE_ARCHITECTURE, ai_client=_MockAIClient())  # type: ignore[arg-type]
+    # Should have all 3 workloads mapped (1 from AI + 2 from rule-based fill)
+    assert len(result) == len(SAMPLE_WORKLOADS)
+    ids = {m.workload_id for m in result}
+    assert ids == {"wl-1", "wl-2", "wl-3"}
+
+
 # ---------------------------------------------------------------------------
 # API routes — POST /api/workloads/map
 # ---------------------------------------------------------------------------
@@ -344,6 +355,8 @@ def test_map_workloads_no_db():
     assert "mappings" in data
     assert "warnings" in data
     assert isinstance(data["mappings"], list)
+    # No workloads in DB → warning expected
+    assert len(data["warnings"]) > 0
 
 
 def test_map_workloads_missing_project_id():

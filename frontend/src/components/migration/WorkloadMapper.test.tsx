@@ -109,6 +109,15 @@ describe("WorkloadMapper", () => {
       warnings: [],
     });
     vi.spyOn(apiModule.api.workloads, "overrideMapping").mockResolvedValue(MOCK_WORKLOADS[0]);
+    vi.spyOn(apiModule.api.architecture, "getByProject").mockResolvedValue({
+      architecture: {
+        organization_size: "small",
+        management_groups: {},
+        subscriptions: MOCK_SUBSCRIPTIONS,
+        network_topology: {},
+      },
+      project_id: "proj-1",
+    });
   });
 
   it("renders the component title", async () => {
@@ -235,9 +244,47 @@ describe("WorkloadMapper", () => {
   });
 
   it("shows empty subscriptions hint when none provided", async () => {
+    vi.spyOn(apiModule.api.architecture, "getByProject").mockResolvedValue({
+      architecture: null,
+      project_id: "proj-1",
+    });
     renderMapper("proj-1", []);
     await waitFor(() => {
       expect(screen.getByText(/no subscriptions available/i)).toBeInTheDocument();
+    });
+  });
+
+  it("loads subscriptions from architecture when not provided via props", async () => {
+    renderMapper("proj-1", []); // No props subscriptions, should load from architecture
+    await waitFor(() => {
+      // Subscriptions loaded from architecture mock
+      expect(screen.getByText("sub-workload-prod")).toBeInTheDocument();
+    });
+  });
+
+  it("shows override failure error and reverts mapping", async () => {
+    vi.spyOn(apiModule.api.workloads, "overrideMapping").mockRejectedValue(
+      new Error("Save failed")
+    );
+
+    renderMapper();
+    await waitFor(() => screen.getByText("ProdWebApp"));
+
+    // Generate mappings first
+    fireEvent.click(screen.getByRole("button", { name: /generate mapping/i }));
+    await waitFor(() => screen.getAllByText("Suggested"));
+
+    // Drag the workload card (simulate dragstart then drop)
+    const card = screen.getByTestId("workload-card-wl-1");
+    fireEvent.dragStart(card);
+
+    const target = screen.getByTestId("subscription-target-sub-dev");
+    fireEvent.dragOver(target);
+    fireEvent.drop(target);
+
+    // Error message should appear after failed PATCH
+    await waitFor(() => {
+      expect(screen.getByText(/failed to save mapping override/i)).toBeInTheDocument();
     });
   });
 

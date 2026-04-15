@@ -72,10 +72,6 @@ def _rule_based_mapping(
             # Penalise sandbox/dev for compliance workloads
             if any(kw in sub_text for kw in ("dev", "test", "sandbox")):
                 score -= 0.3
-                warnings.append(
-                    f"Workload '{workload.get('name')}' has compliance requirements "
-                    f"({', '.join(compliance_reqs)}) but may be mapped to a non-production subscription."
-                )
 
         # Network requirements — penalise sandbox for mission-critical
         if criticality == "mission-critical" and any(kw in sub_text for kw in ("dev", "sandbox")):
@@ -91,6 +87,14 @@ def _rule_based_mapping(
     best_id = max(scores, key=lambda k: scores[k])
     best_sub = next(s for s in subscriptions if _subscription_id(s) == best_id)
     best_score = scores[best_id]
+
+    # Generate warnings based on the selected subscription only
+    best_sub_text = f"{best_sub.get('name', '').lower()} {best_sub.get('purpose', '').lower()}"
+    if compliance_reqs and any(kw in best_sub_text for kw in ("dev", "test", "sandbox")):
+        warnings.append(
+            f"Workload '{workload.get('name')}' has compliance requirements "
+            f"({', '.join(compliance_reqs)}) but may be mapped to a non-production subscription."
+        )
 
     # Normalise score to 0–1
     confidence = min(max(0.4 + best_score, 0.1), 0.95)
@@ -218,12 +222,24 @@ async def _ai_generate_mapping(
         parsed = json.loads(raw)
         if isinstance(parsed, list):
             mappings: list[WorkloadMapping] = []
+            mapped_ids: set[str] = set()
             for item in parsed:
                 try:
-                    mappings.append(WorkloadMapping(**item))
+                    m = WorkloadMapping(**item)
+                    mappings.append(m)
+                    mapped_ids.add(m.workload_id)
                 except Exception as exc:
                     logger.warning("Skipping invalid mapping item from AI: %s — %s", item, exc)
-            logger.info("AI returned %d mappings", len(mappings))
+
+            # Fill in any workloads the AI omitted with rule-based fallbacks
+            unmapped = [w for w in workloads if w.get("id", "") not in mapped_ids]
+            if unmapped:
+                logger.info(
+                    "AI omitted %d workload(s) — filling with rule-based mappings", len(unmapped)
+                )
+                mappings.extend(_rule_based_generate_mapping(unmapped, subscriptions))
+
+            logger.info("AI returned %d mappings (after fill)", len(mappings))
             return mappings
     except (json.JSONDecodeError, TypeError, ValueError) as exc:
         logger.warning("AI mapping parse failed (%s) — falling back to rule-based", exc)
