@@ -9,6 +9,7 @@ import {
   Button,
   Combobox,
   Field,
+  Input,
   MessageBar,
   MessageBarBody,
   Option,
@@ -17,6 +18,7 @@ import {
   PopoverTrigger,
   Spinner,
   Text,
+  Tooltip,
   makeStyles,
   tokens,
 } from "@fluentui/react-components";
@@ -25,6 +27,10 @@ import {
   ArrowSortRegular,
   DismissRegular,
   LinkRegular,
+  SearchRegular,
+  ZoomInRegular,
+  ZoomOutRegular,
+  ZoomFitRegular,
 } from "@fluentui/react-icons";
 import type {
   DependencyEdge,
@@ -112,6 +118,37 @@ const useStyles = makeStyles({
     textAlign: "center",
     color: tokens.colorNeutralForeground3,
   },
+  detailPanel: {
+    padding: tokens.spacingVerticalM,
+    backgroundColor: tokens.colorNeutralBackground1,
+    border: `1px solid ${tokens.colorNeutralStroke1}`,
+    borderRadius: tokens.borderRadiusMedium,
+  },
+  detailContent: {
+    marginTop: tokens.spacingVerticalS,
+    display: "flex",
+    flexDirection: "column",
+    gap: tokens.spacingVerticalXS,
+  },
+  detailLabel: {
+    color: tokens.colorNeutralForeground3,
+  },
+  migrationOrderSection: {
+    display: "flex",
+    flexDirection: "column",
+    gap: tokens.spacingVerticalS,
+  },
+  mutedText: {
+    color: tokens.colorNeutralForeground3,
+  },
+  migrationGroupsTitle: {
+    marginTop: tokens.spacingVerticalS,
+  },
+  zoomControls: {
+    display: "flex",
+    gap: tokens.spacingHorizontalXS,
+    alignItems: "center",
+  },
 });
 
 // ---------------------------------------------------------------------------
@@ -143,6 +180,25 @@ const GROUP_PALETTE = [
   tokens.colorPaletteTealBackground2,
 ];
 
+// Criticality → node size multiplier so more critical workloads stand out.
+const CRITICALITY_SIZE_SCALE: Record<string, number> = {
+  "mission-critical": 1.15,
+  "business-critical": 1.07,
+  standard: 1.0,
+  "dev-test": 0.92,
+};
+
+// Migration strategy → colour indicator (small dot on each node).
+const MIGRATION_STRATEGY_COLOR: Record<string, string> = {
+  rehost: tokens.colorPaletteGreenForeground1,
+  replatform: tokens.colorPaletteBlueForeground2,
+  refactor: tokens.colorPaletteMarigoldForeground1,
+  rearchitect: tokens.colorPaletteGrapeForeground2,
+  rebuild: tokens.colorStatusDangerForeground1,
+  retire: tokens.colorNeutralForeground4,
+  retain: tokens.colorNeutralForeground3,
+};
+
 // ---------------------------------------------------------------------------
 // Layout helpers
 // ---------------------------------------------------------------------------
@@ -152,6 +208,8 @@ interface NodeLayout {
   x: number;
   y: number;
   summary: WorkloadSummary;
+  /** Size multiplier derived from criticality. */
+  scale: number;
 }
 
 function layoutNodes(nodes: WorkloadSummary[]): NodeLayout[] {
@@ -163,6 +221,7 @@ function layoutNodes(nodes: WorkloadSummary[]): NodeLayout[] {
       x: NODE_PADDING_X + col * (NODE_W + NODE_PADDING_X),
       y: NODE_PADDING_Y + row * (NODE_H + NODE_PADDING_Y),
       summary: node,
+      scale: CRITICALITY_SIZE_SCALE[node.criticality] ?? 1.0,
     };
   });
 }
@@ -187,9 +246,10 @@ interface EdgeProps {
   from: NodeLayout;
   to: NodeLayout;
   inCycle: boolean;
+  edge: DependencyEdge;
 }
 
-function GraphEdge({ from, to, inCycle }: EdgeProps) {
+function GraphEdge({ from, to, inCycle, edge }: EdgeProps) {
   const fc = nodeCentre(from);
   const tc = nodeCentre(to);
 
@@ -199,21 +259,33 @@ function GraphEdge({ from, to, inCycle }: EdgeProps) {
   const len = Math.sqrt(dx * dx + dy * dy) || 1;
   const ux = dx / len;
   const uy = dy / len;
-  const halfW = NODE_W / 2 + 4;
-  const halfH = NODE_H / 2 + 4;
+
+  // Scale-aware half-dimensions for edge attachment
+  const halfWSource = (NODE_W * from.scale) / 2 + 4;
+  const halfHSource = (NODE_H * from.scale) / 2 + 4;
+  const halfWDest = (NODE_W * to.scale) / 2 + 4;
+  const halfHDest = (NODE_H * to.scale) / 2 + 4;
 
   // Find exit point on source box border
-  const scaleSource = Math.min(halfW / Math.abs(ux || 0.001), halfH / Math.abs(uy || 0.001));
+  const scaleSource = Math.min(
+    halfWSource / Math.abs(ux || 0.001),
+    halfHSource / Math.abs(uy || 0.001),
+  );
   const x1 = fc.x + ux * scaleSource;
   const y1 = fc.y + uy * scaleSource;
 
   // Find entry point on target box border
-  const scaleDest = Math.min(halfW / Math.abs(ux || 0.001), halfH / Math.abs(uy || 0.001));
+  const scaleDest = Math.min(
+    halfWDest / Math.abs(ux || 0.001),
+    halfHDest / Math.abs(uy || 0.001),
+  );
   const x2 = tc.x - ux * scaleDest;
   const y2 = tc.y - uy * scaleDest;
 
   const color = inCycle ? tokens.colorStatusDangerForeground1 : tokens.colorNeutralForeground3;
   const strokeWidth = inCycle ? 2 : 1.5;
+
+  const tooltipText = `${from.summary.name} → ${to.summary.name} (${edge.dependency_type})`;
 
   return (
     <line
@@ -225,7 +297,9 @@ function GraphEdge({ from, to, inCycle }: EdgeProps) {
       strokeWidth={strokeWidth}
       markerEnd={inCycle ? "url(#arrowCycle)" : "url(#arrow)"}
       opacity={0.85}
-    />
+    >
+      <title>{tooltipText}</title>
+    </line>
   );
 }
 
@@ -249,6 +323,15 @@ function NodeBox({ layout, isSelected, groupColor, inCycle, onClick }: NodeBoxPr
       ? tokens.colorBrandStroke1
       : tokens.colorNeutralStroke1;
   const critColor = CRITICALITY_COLOR[layout.summary.criticality] ?? tokens.colorBrandForeground1;
+  const strategyColor =
+    MIGRATION_STRATEGY_COLOR[layout.summary.migration_strategy] ?? tokens.colorNeutralForeground3;
+
+  const scale = layout.scale;
+  const nodeW = NODE_W * scale;
+  const nodeH = NODE_H * scale;
+  // Centre the scaled node within the grid cell
+  const offsetX = (NODE_W - nodeW) / 2;
+  const offsetY = (NODE_H - nodeH) / 2;
 
   const shortName =
     layout.summary.name.length > 16
@@ -257,29 +340,36 @@ function NodeBox({ layout, isSelected, groupColor, inCycle, onClick }: NodeBoxPr
 
   return (
     <g
-      transform={`translate(${layout.x},${layout.y})`}
+      transform={`translate(${layout.x + offsetX},${layout.y + offsetY})`}
       onClick={() => onClick(layout.id)}
       style={{ cursor: "pointer" }}
       role="button"
       aria-label={`Workload node: ${layout.summary.name}`}
       tabIndex={0}
-      onKeyDown={(e) => e.key === "Enter" && onClick(layout.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          onClick(layout.id);
+        } else if (e.key === " ") {
+          e.preventDefault();
+          onClick(layout.id);
+        }
+      }}
     >
       {/* Group background — drawn before rect */}
       {groupColor && (
         <rect
           x={-6}
           y={-6}
-          width={NODE_W + 12}
-          height={NODE_H + 12}
+          width={nodeW + 12}
+          height={nodeH + 12}
           fill={fill}
           rx={6}
           ry={6}
         />
       )}
       <rect
-        width={NODE_W}
-        height={NODE_H}
+        width={nodeW}
+        height={nodeH}
         fill={tokens.colorNeutralBackground1}
         stroke={borderColor}
         strokeWidth={isSelected ? 2 : 1}
@@ -287,7 +377,11 @@ function NodeBox({ layout, isSelected, groupColor, inCycle, onClick }: NodeBoxPr
         ry={4}
       />
       {/* Criticality colour strip */}
-      <rect width={6} height={NODE_H} fill={critColor} rx={3} ry={3} />
+      <rect width={6} height={nodeH} fill={critColor} rx={3} ry={3} />
+      {/* Migration strategy indicator */}
+      <circle cx={nodeW - 10} cy={10} r={4} fill={strategyColor}>
+        <title>{layout.summary.migration_strategy}</title>
+      </circle>
       <text
         x={14}
         y={20}
@@ -415,7 +509,21 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
   const [addDepLoading, setAddDepLoading] = useState(false);
   const [addDepError, setAddDepError] = useState<string | null>(null);
 
-  // Ref for selected node (could be used for future popover positioning)
+  // Search/filter
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Zoom/pan via SVG viewBox
+  const [viewBox, setViewBox] = useState<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  } | null>(null);
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState<{ x: number; y: number } | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+
+  // Ref for selected node — scrolls the node into view on selection
   const detailAnchorRef = useRef<SVGGElement | null>(null);
 
   const fetchGraph = useCallback(async () => {
@@ -462,11 +570,13 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
     }
   };
 
-  // Build a cycle-node lookup set
+  // Build a cycle-node lookup set — merge both graph and migrationOrder sources
   const cycleNodes = new Set<string>();
-  (graph?.circular_dependencies ?? []).forEach((cycle) =>
-    cycle.forEach((id) => cycleNodes.add(id)),
-  );
+  const allCircularDeps = [
+    ...(graph?.circular_dependencies ?? []),
+    ...(migrationOrder?.circular_dependencies ?? []),
+  ];
+  allCircularDeps.forEach((cycle) => cycle.forEach((id) => cycleNodes.add(id)));
 
   // Build group-colour map (node → colour)
   const groupColorMap = new Map<string, string>();
@@ -488,7 +598,18 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
   const isEdgeInCycle = (edge: DependencyEdge) =>
     cycleEdgeSet.has(`${edge.source}->${edge.target}`);
 
-  const layouts = layoutNodes(graph?.nodes ?? []);
+  // Search filtering — nodes whose name matches the query
+  const filteredNodes = searchQuery
+    ? (graph?.nodes ?? []).filter((n) =>
+        n.name.toLowerCase().includes(searchQuery.toLowerCase()),
+      )
+    : (graph?.nodes ?? []);
+  const filteredNodeIds = new Set(filteredNodes.map((n) => n.id));
+  const filteredEdges = (graph?.edges ?? []).filter(
+    (e) => filteredNodeIds.has(e.source) && filteredNodeIds.has(e.target),
+  );
+
+  const layouts = layoutNodes(filteredNodes);
   const layoutMap = new Map<string, NodeLayout>(layouts.map((l) => [l.id, l]));
   const { w: svgW, h: svgH } = svgDimensions(layouts);
 
@@ -497,6 +618,92 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
   const handleNodeClick = (id: string) => {
     setSelectedNodeId((prev) => (prev === id ? null : id));
   };
+
+  // Scroll the selected node into view when it changes
+  useEffect(() => {
+    if (selectedNodeId && detailAnchorRef.current?.scrollIntoView) {
+      detailAnchorRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [selectedNodeId]);
+
+  // Zoom/pan handlers
+  const handleWheel = useCallback(
+    (e: React.WheelEvent<SVGSVGElement>) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+      setViewBox((prev) => {
+        const vb = prev ?? { x: 0, y: 0, w: svgW, h: svgH };
+        const newW = vb.w * zoomFactor;
+        const newH = vb.h * zoomFactor;
+        const dxShift = (vb.w - newW) / 2;
+        const dyShift = (vb.h - newH) / 2;
+        return { x: vb.x + dxShift, y: vb.y + dyShift, w: newW, h: newH };
+      });
+    },
+    [svgW, svgH],
+  );
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (e.button === 1 || (e.button === 0 && e.altKey)) {
+      setIsPanning(true);
+      setPanStart({ x: e.clientX, y: e.clientY });
+      e.preventDefault();
+    }
+  }, []);
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      if (!isPanning || !panStart) return;
+      const vb = viewBox ?? { x: 0, y: 0, w: svgW, h: svgH };
+      const svgEl = svgRef.current;
+      if (!svgEl) return;
+      const rect = svgEl.getBoundingClientRect();
+      const scaleX = vb.w / rect.width;
+      const scaleY = vb.h / rect.height;
+      const panDx = (e.clientX - panStart.x) * scaleX;
+      const panDy = (e.clientY - panStart.y) * scaleY;
+      setViewBox({ x: vb.x - panDx, y: vb.y - panDy, w: vb.w, h: vb.h });
+      setPanStart({ x: e.clientX, y: e.clientY });
+    },
+    [isPanning, panStart, viewBox, svgW, svgH],
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setIsPanning(false);
+    setPanStart(null);
+  }, []);
+
+  const handleZoomIn = useCallback(() => {
+    setViewBox((prev) => {
+      const vb = prev ?? { x: 0, y: 0, w: svgW, h: svgH };
+      const newW = vb.w * 0.8;
+      const newH = vb.h * 0.8;
+      return {
+        x: vb.x + (vb.w - newW) / 2,
+        y: vb.y + (vb.h - newH) / 2,
+        w: newW,
+        h: newH,
+      };
+    });
+  }, [svgW, svgH]);
+
+  const handleZoomOut = useCallback(() => {
+    setViewBox((prev) => {
+      const vb = prev ?? { x: 0, y: 0, w: svgW, h: svgH };
+      const newW = vb.w * 1.25;
+      const newH = vb.h * 1.25;
+      return {
+        x: vb.x + (vb.w - newW) / 2,
+        y: vb.y + (vb.h - newH) / 2,
+        w: newW,
+        h: newH,
+      };
+    });
+  }, [svgW, svgH]);
+
+  const handleResetZoom = useCallback(() => {
+    setViewBox(null);
+  }, []);
 
   return (
     <div className={styles.root}>
@@ -563,6 +770,46 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
             Clear selection
           </Button>
         )}
+
+        {/* Search/filter */}
+        <Input
+          contentBefore={<SearchRegular />}
+          placeholder="Filter workloads…"
+          value={searchQuery}
+          onChange={(_, d) => setSearchQuery(d.value)}
+          aria-label="Filter workloads by name"
+        />
+
+        {/* Zoom controls */}
+        <div className={styles.zoomControls}>
+          <Tooltip content="Zoom in" relationship="label">
+            <Button
+              appearance="subtle"
+              icon={<ZoomInRegular />}
+              size="small"
+              onClick={handleZoomIn}
+              aria-label="Zoom in"
+            />
+          </Tooltip>
+          <Tooltip content="Zoom out" relationship="label">
+            <Button
+              appearance="subtle"
+              icon={<ZoomOutRegular />}
+              size="small"
+              onClick={handleZoomOut}
+              aria-label="Zoom out"
+            />
+          </Tooltip>
+          <Tooltip content="Reset zoom" relationship="label">
+            <Button
+              appearance="subtle"
+              icon={<ZoomFitRegular />}
+              size="small"
+              onClick={handleResetZoom}
+              aria-label="Reset zoom"
+            />
+          </Tooltip>
+        </div>
       </div>
 
       {/* Errors */}
@@ -600,7 +847,7 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
         <div className={styles.legendItem}>
           <div
             className={styles.legendSwatch}
-            style={{ backgroundColor: "#C50F1F", border: "2px solid #C50F1F" }}
+            style={{ backgroundColor: tokens.colorStatusDangerForeground1, border: `2px solid ${tokens.colorStatusDangerForeground1}` }}
             aria-hidden="true"
           />
           <Text size={200}>circular dependency</Text>
@@ -629,10 +876,21 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
         )}
         {graph !== null && graph.nodes.length > 0 && (
           <svg
+            ref={svgRef}
             width={svgW}
             height={svgH}
+            viewBox={
+              viewBox
+                ? `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`
+                : `0 0 ${svgW} ${svgH}`
+            }
             style={{ display: "block" }}
             aria-label="Workload dependency graph SVG"
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
           >
             <defs>
               <marker
@@ -655,12 +913,12 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
                 markerHeight="6"
                 orient="auto-start-reverse"
               >
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="#C50F1F" />
+                <path d="M 0 0 L 10 5 L 0 10 z" fill={tokens.colorStatusDangerForeground1} />
               </marker>
             </defs>
 
             {/* Edges */}
-            {graph.edges.map((edge) => {
+            {filteredEdges.map((edge) => {
               const from = layoutMap.get(edge.source);
               const to = layoutMap.get(edge.target);
               if (!from || !to) return null;
@@ -670,6 +928,7 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
                   from={from}
                   to={to}
                   inCycle={isEdgeInCycle(edge)}
+                  edge={edge}
                 />
               );
             })}
@@ -693,20 +952,15 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
       {/* Node detail panel */}
       {selectedNode && (
         <div
-          style={{
-            padding: tokens.spacingVerticalM,
-            backgroundColor: tokens.colorNeutralBackground1,
-            border: `1px solid ${tokens.colorNeutralStroke1}`,
-            borderRadius: tokens.borderRadiusMedium,
-          }}
+          className={styles.detailPanel}
           aria-label={`Details for ${selectedNode.name}`}
         >
           <Text weight="semibold" size={400}>
             {selectedNode.name}
           </Text>
-          <div style={{ marginTop: tokens.spacingVerticalS, display: "flex", flexDirection: "column", gap: tokens.spacingVerticalXS }}>
+          <div className={styles.detailContent}>
             <div className={styles.detailRow}>
-              <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>Criticality:</Text>
+              <Text size={200} className={styles.detailLabel}>Criticality:</Text>
               <Badge
                 appearance="tint"
                 color={
@@ -722,15 +976,15 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
               </Badge>
             </div>
             <div className={styles.detailRow}>
-              <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>Migration strategy:</Text>
+              <Text size={200} className={styles.detailLabel}>Migration strategy:</Text>
               <Text size={200}>{selectedNode.migration_strategy}</Text>
             </div>
             <div className={styles.detailRow}>
-              <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>In cycle:</Text>
+              <Text size={200} className={styles.detailLabel}>In cycle:</Text>
               <Text size={200}>{cycleNodes.has(selectedNode.id) ? "⚠ Yes" : "No"}</Text>
             </div>
             <div className={styles.detailRow}>
-              <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>Depends on:</Text>
+              <Text size={200} className={styles.detailLabel}>Depends on:</Text>
               <Text size={200}>
                 {(graph?.edges ?? [])
                   .filter((e) => e.source === selectedNode.id)
@@ -739,7 +993,7 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
               </Text>
             </div>
             <div className={styles.detailRow}>
-              <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>Required by:</Text>
+              <Text size={200} className={styles.detailLabel}>Required by:</Text>
               <Text size={200}>
                 {(graph?.edges ?? [])
                   .filter((e) => e.target === selectedNode.id)
@@ -753,7 +1007,7 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
 
       {/* Migration order */}
       {migrationOrder && (
-        <div style={{ display: "flex", flexDirection: "column", gap: tokens.spacingVerticalS }}>
+        <div className={styles.migrationOrderSection}>
           <Text weight="semibold" size={400}>
             Suggested Migration Order
           </Text>
@@ -765,7 +1019,7 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
             </MessageBar>
           )}
           {migrationOrder.order.length === 0 && (
-            <Text style={{ color: tokens.colorNeutralForeground3 }}>
+            <Text className={styles.mutedText}>
               Cannot determine order due to circular dependencies.
             </Text>
           )}
@@ -786,7 +1040,7 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
           </div>
           {migrationOrder.migration_groups.length > 0 && (
             <>
-              <Text weight="semibold" size={300} style={{ marginTop: tokens.spacingVerticalS }}>
+              <Text weight="semibold" size={300} className={styles.migrationGroupsTitle}>
                 Migration Groups
               </Text>
               {migrationOrder.migration_groups.map((group, idx) => (
