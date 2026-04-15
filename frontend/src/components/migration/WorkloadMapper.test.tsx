@@ -76,8 +76,8 @@ const MOCK_MAPPINGS = [
 ];
 
 const MOCK_SUBSCRIPTIONS = [
-  { id: "sub-prod", name: "sub-workload-prod", purpose: "Production workloads" },
-  { id: "sub-dev", name: "sub-workload-dev", purpose: "Development and testing" },
+  { id: "sub-prod", name: "sub-workload-prod", purpose: "Production workloads", management_group: "mg-corp" },
+  { id: "sub-dev", name: "sub-workload-dev", purpose: "Development and testing", management_group: "mg-corp" },
 ];
 
 // ---------------------------------------------------------------------------
