@@ -10,6 +10,7 @@ from app.models.project import Project
 from app.models.questionnaire import Question, QuestionCategory, QuestionnaireResponse
 from app.models.tenant import Tenant
 from app.models.user import User
+from app.models.workload import Workload
 
 __all__ = [
     "Base",
@@ -28,4 +29,5 @@ __all__ = [
     "AuditEntry",
     "DiscoveryScan",
     "DiscoveredResource",
+    "Workload",
 ]

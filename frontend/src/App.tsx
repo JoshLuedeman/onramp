@@ -1,6 +1,6 @@
 import { Suspense, lazy } from "react";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./auth";
 import Layout from "./components/shared/Layout";
 import ErrorBoundary from "./components/shared/ErrorBoundary";
@@ -15,6 +15,7 @@ const BicepPage = lazy(() => import("./pages/BicepPage"));
 const DeployPage = lazy(() => import("./pages/DeployPage"));
 const ProjectDetailPage = lazy(() => import("./pages/ProjectDetailPage"));
 const GapAnalysisPage = lazy(() => import("./pages/GapAnalysisPage"));
+const WorkloadsPage = lazy(() => import("./pages/WorkloadsPage"));
 
 function App() {
   return (
@@ -56,6 +57,12 @@ function App() {
 
                   {/* Gap analysis */}
                   <Route path="/gap-analysis/:scanId" element={<GapAnalysisPage />} />
+
+                  {/* Workloads */}
+                  <Route path="/workloads" element={<Navigate to="/projects" replace />} />
+                  <Route path="/projects/:projectId/workloads" element={
+                    <ProjectProvider><WorkloadsPage /></ProjectProvider>
+                  } />
                 </Routes>
               </Suspense>
             </ErrorBoundary>

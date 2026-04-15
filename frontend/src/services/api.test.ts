@@ -379,3 +379,90 @@ describe("api.deployment list with projectId", () => {
     expect(call[0]).toContain(encodeURIComponent("my project/id"));
   });
 });
+
+describe("api.workloads", () => {
+  it("list calls correct endpoint with project_id", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ workloads: [], total: 0 }),
+    }));
+    await api.workloads.list("proj-1");
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toContain("/api/workloads");
+    expect(call[0]).toContain("project_id=proj-1");
+  });
+
+  it("list with projectId includes project_id query param", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ workloads: [], total: 0 }),
+    }));
+    await api.workloads.list("proj-2");
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("project_id=proj-2"),
+      expect.any(Object)
+    );
+  });
+
+  it("create sends POST with workload body", async () => {
+    const body = { project_id: "proj-1", name: "MyVM", type: "vm", source_platform: "other" };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ id: "w1", ...body }),
+    }));
+    await api.workloads.create(body);
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/workloads");
+    expect(call[1].method).toBe("POST");
+    const parsed = JSON.parse(call[1].body);
+    expect(parsed.name).toBe("MyVM");
+    expect(parsed.project_id).toBe("proj-1");
+  });
+
+  it("update sends PATCH to correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ id: "w1", name: "Updated" }),
+    }));
+    await api.workloads.update("w1", { name: "Updated" });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/workloads/w1");
+    expect(call[1].method).toBe("PATCH");
+    const parsed = JSON.parse(call[1].body);
+    expect(parsed.name).toBe("Updated");
+  });
+
+  it("delete sends DELETE to correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ deleted: true }),
+    }));
+    await api.workloads.delete("w1");
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/workloads/w1");
+    expect(call[1].method).toBe("DELETE");
+  });
+
+  it("importFile sends POST with file as form data and project_id as query param", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ imported_count: 1, failed_count: 0, errors: [], workloads: [] }),
+    }));
+    const fakeFile = new File(["name\nweb01"], "workloads.csv", { type: "text/csv" });
+    await api.workloads.importFile(fakeFile, "proj-1");
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toContain("/api/workloads/import");
+    expect(call[0]).toContain("project_id=proj-1");
+    expect(call[1].method).toBe("POST");
+    expect(call[1].body).toBeInstanceOf(FormData);
+  });
+
+  it("importFile throws on non-ok response", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false,
+      text: () => Promise.resolve("Import failed"),
+    }));
+    const fakeFile = new File(["name\nweb01"], "workloads.csv", { type: "text/csv" });
+    await expect(api.workloads.importFile(fakeFile, "proj-1")).rejects.toThrow("Import failed");
+  });
+});

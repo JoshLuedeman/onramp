@@ -13,6 +13,7 @@ from app.api.routes.questionnaire import router as questionnaire_router
 from app.api.routes.questionnaire_state import router as questionnaire_state_router
 from app.api.routes.scoring import router as scoring_router
 from app.api.routes.users import router as users_router
+from app.api.routes.workloads import router as workloads_router
 from app.config import settings
 from app.db.seed import seed_database
 from app.db.session import close_db, init_db
@@ -74,6 +75,7 @@ app.include_router(bicep_router)
 app.include_router(scoring_router)
 app.include_router(questionnaire_state_router)
 app.include_router(discovery_router)
+app.include_router(workloads_router)
 
 
 @app.get("/health")
