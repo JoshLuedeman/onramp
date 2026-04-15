@@ -58,8 +58,7 @@ vi.mock("../../services/api", () => ({
 
 import { api } from "../../services/api";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockedApi = api as any as {
+const mockedApi = api as unknown as {
   workloads: {
     getDependencyGraph: ReturnType<typeof vi.fn>;
     getMigrationOrder: ReturnType<typeof vi.fn>;

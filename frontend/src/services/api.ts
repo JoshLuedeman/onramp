@@ -268,6 +268,12 @@ export const api = {
       fetchApi<MigrationOrderResponse>(
         `/api/workloads/migration-order?project_id=${encodeURIComponent(projectId)}`,
       ),
+    /** Add a dependency between two workloads.
+     *
+     * @param dependencyType - Accepted by the API for future extensibility.
+     *   Currently only "depends_on" is supported; the backend records the
+     *   dependency as a plain ID reference and does not yet persist the type.
+     */
     addDependency: (workloadId: string, targetId: string, dependencyType = "depends_on") =>
       fetchApi<WorkloadRecord>(`/api/workloads/${workloadId}/dependencies`, {
         method: "POST",

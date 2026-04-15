@@ -94,6 +94,10 @@ const useStyles = makeStyles({
     minWidth: "280px",
     padding: tokens.spacingVerticalM,
   },
+  addDepFormButtons: {
+    display: "flex",
+    gap: tokens.spacingHorizontalS,
+  },
   detailPopover: {
     padding: tokens.spacingVerticalM,
     minWidth: "200px",
@@ -120,19 +124,23 @@ const NODE_PADDING_X = 30;
 const NODE_PADDING_Y = 40;
 const COLS = 4;
 
+// Criticality colour strip — mapped to Fluent UI semantic colour tokens.
+// Used as SVG `fill` values so the token CSS-var string is passed directly.
 const CRITICALITY_COLOR: Record<string, string> = {
-  "mission-critical": "#C50F1F",   // danger red
-  "business-critical": "#BC5700",  // warning amber
-  "standard": "#0F6CBD",           // brand blue
-  "dev-test": "#616161",           // neutral grey
+  "mission-critical": tokens.colorStatusDangerForeground1,
+  "business-critical": tokens.colorStatusWarningForeground1,
+  "standard": tokens.colorBrandForeground1,
+  "dev-test": tokens.colorNeutralForeground3,
 };
 
+// Group background palette — Fluent UI palette background tokens keep
+// compatibility with light/dark themes.
 const GROUP_PALETTE = [
-  "rgba(0,120,212,0.08)",
-  "rgba(0,164,120,0.08)",
-  "rgba(177,70,194,0.08)",
-  "rgba(255,140,0,0.08)",
-  "rgba(0,83,128,0.08)",
+  tokens.colorPaletteBlueBackground2,
+  tokens.colorPaletteGreenBackground2,
+  tokens.colorPaletteGrapeBackground2,
+  tokens.colorPaletteMarigoldBackground2,
+  tokens.colorPaletteTealBackground2,
 ];
 
 // ---------------------------------------------------------------------------
@@ -204,7 +212,7 @@ function GraphEdge({ from, to, inCycle }: EdgeProps) {
   const x2 = tc.x - ux * scaleDest;
   const y2 = tc.y - uy * scaleDest;
 
-  const color = inCycle ? "#C50F1F" : tokens.colorNeutralForeground3;
+  const color = inCycle ? tokens.colorStatusDangerForeground1 : tokens.colorNeutralForeground3;
   const strokeWidth = inCycle ? 2 : 1.5;
 
   return (
@@ -236,11 +244,11 @@ interface NodeBoxProps {
 function NodeBox({ layout, isSelected, groupColor, inCycle, onClick }: NodeBoxProps) {
   const fill = groupColor ?? tokens.colorNeutralBackground1;
   const borderColor = inCycle
-    ? "#C50F1F"
+    ? tokens.colorStatusDangerForeground1
     : isSelected
       ? tokens.colorBrandStroke1
       : tokens.colorNeutralStroke1;
-  const critColor = CRITICALITY_COLOR[layout.summary.criticality] ?? "#0F6CBD";
+  const critColor = CRITICALITY_COLOR[layout.summary.criticality] ?? tokens.colorBrandForeground1;
 
   const shortName =
     layout.summary.name.length > 16
@@ -318,15 +326,22 @@ interface AddDepFormProps {
 function AddDepForm({ nodes, onAdd, onClose, loading, error }: AddDepFormProps) {
   const styles = useStyles();
   const [source, setSource] = useState("");
+  const [sourceInput, setSourceInput] = useState("");
   const [target, setTarget] = useState("");
+  const [targetInput, setTargetInput] = useState("");
 
   return (
     <div className={styles.addDepForm}>
       <Text weight="semibold">Add Dependency</Text>
       <Field label="From workload">
         <Combobox
-          value={nodes.find((n) => n.id === source)?.name ?? ""}
-          onOptionSelect={(_, d) => setSource(d.optionValue ?? "")}
+          value={sourceInput}
+          selectedOptions={source ? [source] : []}
+          onOptionSelect={(_, d) => {
+            setSource(d.optionValue ?? "");
+            setSourceInput(d.optionText ?? "");
+          }}
+          onChange={(e) => setSourceInput(e.target.value)}
           placeholder="Select source workload"
         >
           {nodes.map((n) => (
@@ -338,8 +353,13 @@ function AddDepForm({ nodes, onAdd, onClose, loading, error }: AddDepFormProps) 
       </Field>
       <Field label="Depends on">
         <Combobox
-          value={nodes.find((n) => n.id === target)?.name ?? ""}
-          onOptionSelect={(_, d) => setTarget(d.optionValue ?? "")}
+          value={targetInput}
+          selectedOptions={target ? [target] : []}
+          onOptionSelect={(_, d) => {
+            setTarget(d.optionValue ?? "");
+            setTargetInput(d.optionText ?? "");
+          }}
+          onChange={(e) => setTargetInput(e.target.value)}
           placeholder="Select target workload"
         >
           {nodes.filter((n) => n.id !== source).map((n) => (
@@ -354,7 +374,7 @@ function AddDepForm({ nodes, onAdd, onClose, loading, error }: AddDepFormProps) 
           <MessageBarBody>{error}</MessageBarBody>
         </MessageBar>
       )}
-      <div style={{ display: "flex", gap: "8px" }}>
+      <div className={styles.addDepFormButtons}>
         <Button
           appearance="primary"
           icon={loading ? <Spinner size="tiny" /> : <LinkRegular />}

@@ -18,12 +18,19 @@ class DependencyAnalyzer:
     def get_dependency_graph(
         self, workloads: list[WorkloadSummary], edges: list[DependencyEdge] | None = None
     ) -> DependencyGraph:
-        """Build a dependency graph from workloads.
+        """Build and analyse a dependency graph.
 
-        Edges are derived from each workload's ``dependencies`` field
-        (list of workload IDs) if *edges* is not provided explicitly.
-        When *edges* is provided it is used as-is and no additional edges
-        are inferred from workload objects.
+        Args:
+            workloads: Flat list of workload summaries to use as graph nodes.
+            edges: Explicit list of directed edges.  When *None* (or an empty
+                list) the graph contains nodes only and no edges — callers are
+                responsible for building edges from workload data before
+                calling this method (see ``_workloads_to_graph`` in
+                ``app.api.routes.workloads``).
+
+        Returns:
+            A :class:`DependencyGraph` with nodes, edges, detected circular
+            dependencies, and migration groups already populated.
         """
         if edges is None:
             edges = []

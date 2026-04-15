@@ -616,6 +616,9 @@ async def add_dependency(
             workload.dependencies = deps
             workload.updated_at = datetime.now(timezone.utc)
             await db.flush()
+        # NOTE: body.dependency_type is accepted for future extensibility but is
+        # not yet persisted — dependencies are currently stored as a plain list
+        # of workload IDs.  Persisting dependency types is tracked as a follow-up.
 
         return _to_response(workload)
     except HTTPException:
