@@ -1,3 +1,12 @@
+import type { GapAnalysisResponse } from "../services/api";
+
+// Export gap analysis report as HTML
+export function exportGapAnalysis(result: GapAnalysisResponse): void {
+  const html = buildGapAnalysisHtml(result);
+  const blob = new Blob([html], { type: "text/html" });
+  downloadBlob(blob, "onramp-gap-analysis.html");
+}
+
 // Export architecture as JSON
 export function exportArchitectureJson(architecture: Record<string, unknown>): void {
   const blob = new Blob([JSON.stringify(architecture, null, 2)], { type: "application/json" });
@@ -252,6 +261,71 @@ ${subs.length > 0 ? `<table>
 
 ${complianceSection}
 
+</body>
+</html>`;
+}
+
+function buildGapAnalysisHtml(result: GapAnalysisResponse): string {
+  const date = new Date().toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const severityColor = (s: string) => {
+    switch (s) {
+      case "critical": return "#d13438";
+      case "high": return "#ca5010";
+      case "medium": return "#0078d4";
+      default: return "#616161";
+    }
+  };
+
+  const rows = result.findings
+    .map(
+      (f) => `<tr>
+        <td><span style="color:${severityColor(f.severity)};font-weight:700">${escapeHtml(f.severity.toUpperCase())}</span></td>
+        <td>${escapeHtml(f.title)}</td>
+        <td>${escapeHtml(f.category)}</td>
+        <td>${escapeHtml(f.description)}</td>
+        <td>${escapeHtml(f.remediation)}</td>
+        <td>${escapeHtml(f.caf_reference ?? "—")}</td>
+      </tr>`
+    )
+    .join("");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>OnRamp Gap Analysis Report</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:0;padding:40px;color:#242424;background:#fff}
+  h1{color:#0078d4;margin-bottom:4px}
+  .date{color:#616161;margin-bottom:32px}
+  .summary{display:flex;gap:24px;margin:24px 0;padding:20px;background:#f5f5f5;border-radius:8px;flex-wrap:wrap}
+  .stat{text-align:center}
+  .stat-value{font-size:32px;font-weight:700}
+  .stat-label{font-size:14px;color:#616161}
+  table{width:100%;border-collapse:collapse;margin-top:16px}
+  th,td{text-align:left;padding:8px 12px;border-bottom:1px solid #e0e0e0;font-size:13px}
+  th{background:#f5f5f5;font-weight:600}
+  h2{margin-top:40px;color:#242424;border-bottom:2px solid #0078d4;padding-bottom:8px}
+  @media print{body{padding:20px}}
+</style>
+</head>
+<body>
+<h1>OnRamp Gap Analysis Report</h1>
+<p class="date">Generated on ${escapeHtml(date)}</p>
+<div class="summary">
+  <div class="stat"><div class="stat-value">${result.total_findings}</div><div class="stat-label">Total Findings</div></div>
+  <div class="stat"><div class="stat-value" style="color:#d13438">${result.critical_count}</div><div class="stat-label">Critical</div></div>
+  <div class="stat"><div class="stat-value" style="color:#ca5010">${result.high_count}</div><div class="stat-label">High</div></div>
+  <div class="stat"><div class="stat-value" style="color:#0078d4">${result.medium_count}</div><div class="stat-label">Medium</div></div>
+  <div class="stat"><div class="stat-value" style="color:#616161">${result.low_count}</div><div class="stat-label">Low</div></div>
+</div>
+<h2>Findings</h2>
+${rows ? `<table><thead><tr><th>Severity</th><th>Title</th><th>Category</th><th>Description</th><th>Remediation</th><th>CAF Ref</th></tr></thead><tbody>${rows}</tbody></table>` : "<p>No findings.</p>"}
 </body>
 </html>`;
 }
