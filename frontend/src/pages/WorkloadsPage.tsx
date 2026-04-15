@@ -175,6 +175,7 @@ export default function WorkloadsPage({ projectId: propProjectId }: WorkloadsPag
   // Delete dialog
   const [deleteTarget, setDeleteTarget] = useState<WorkloadRecord | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -289,12 +290,14 @@ export default function WorkloadsPage({ projectId: propProjectId }: WorkloadsPag
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleteLoading(true);
+    setDeleteError(null);
     try {
       await api.workloads.delete(deleteTarget.id);
       setWorkloads((prev) => prev.filter((w) => w.id !== deleteTarget.id));
       setDeleteTarget(null);
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Delete failed";
+      setDeleteError(message);
     } finally {
       setDeleteLoading(false);
     }
@@ -694,7 +697,7 @@ export default function WorkloadsPage({ projectId: propProjectId }: WorkloadsPag
       </Dialog>
 
       {/* ---- Delete Confirm Dialog ---- */}
-      <Dialog open={!!deleteTarget} onOpenChange={(_, d) => !d.open && setDeleteTarget(null)}>
+      <Dialog open={!!deleteTarget} onOpenChange={(_, d) => { if (!d.open) { setDeleteTarget(null); setDeleteError(null); } }}>
         <DialogSurface>
           <DialogBody>
             <DialogTitle>Delete Workload</DialogTitle>
@@ -703,6 +706,11 @@ export default function WorkloadsPage({ projectId: propProjectId }: WorkloadsPag
                 Are you sure you want to delete{" "}
                 <strong>{deleteTarget?.name}</strong>? This action cannot be undone.
               </Text>
+              {deleteError && (
+                <MessageBar intent="error">
+                  <MessageBarBody>{deleteError}</MessageBarBody>
+                </MessageBar>
+              )}
             </DialogContent>
             <DialogActions>
               <DialogTrigger disableButtonEnhancement>

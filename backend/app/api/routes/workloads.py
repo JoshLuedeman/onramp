@@ -249,6 +249,8 @@ async def create_workload(
         db.add(workload)
         await db.flush()
         return _to_response(workload)
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("Failed to create workload")
         raise HTTPException(status_code=500, detail=str(exc)) from exc

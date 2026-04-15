@@ -216,9 +216,9 @@ export const api = {
   },
 
   workloads: {
-    list: (projectId?: string) =>
+    list: (projectId: string) =>
       fetchApi<WorkloadListResponse>(
-        `/api/workloads${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ""}`,
+        `/api/workloads?project_id=${encodeURIComponent(projectId)}`,
       ),
     create: (body: WorkloadCreateRequest) =>
       fetchApi<WorkloadRecord>("/api/workloads", {
@@ -239,7 +239,13 @@ export const api = {
       form.append("file", file);
       const res = await fetch(`${API_BASE}/api/workloads/import?project_id=${encodeURIComponent(projectId)}`, { method: "POST", body: form });
       if (!res.ok) {
-        const detail = await res.text();
+        let detail: string;
+        try {
+          const json = await res.json() as { detail?: string };
+          detail = json.detail || JSON.stringify(json);
+        } catch {
+          detail = await res.text();
+        }
         throw new Error(detail || "Import failed");
       }
       return res.json() as Promise<WorkloadImportResult>;

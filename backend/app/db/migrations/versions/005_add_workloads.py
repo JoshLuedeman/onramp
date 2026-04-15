@@ -24,7 +24,6 @@ def upgrade() -> None:
             sa.String(36),
             sa.ForeignKey("projects.id"),
             nullable=False,
-            index=True,
         ),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("type", sa.String(50), nullable=False, server_default="other"),
@@ -53,7 +52,9 @@ def upgrade() -> None:
             nullable=False,
         ),
     )
+    op.create_index("ix_workloads_project_id", "workloads", ["project_id"])
 
 
 def downgrade() -> None:
+    op.drop_index("ix_workloads_project_id", table_name="workloads")
     op.drop_table("workloads")

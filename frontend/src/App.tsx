@@ -1,6 +1,6 @@
 import { Suspense, lazy } from "react";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./auth";
 import Layout from "./components/shared/Layout";
 import ErrorBoundary from "./components/shared/ErrorBoundary";
@@ -59,6 +59,7 @@ function App() {
                   <Route path="/gap-analysis/:scanId" element={<GapAnalysisPage />} />
 
                   {/* Workloads */}
+                  <Route path="/workloads" element={<Navigate to="/projects" replace />} />
                   <Route path="/projects/:projectId/workloads" element={
                     <ProjectProvider><WorkloadsPage /></ProjectProvider>
                   } />

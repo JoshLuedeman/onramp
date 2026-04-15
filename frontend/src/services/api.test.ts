@@ -392,14 +392,14 @@ describe("api.workloads", () => {
     expect(call[0]).toContain("project_id=proj-1");
   });
 
-  it("list without projectId calls /api/workloads", async () => {
+  it("list with projectId includes project_id query param", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ workloads: [], total: 0 }),
     }));
-    await api.workloads.list();
+    await api.workloads.list("proj-2");
     expect(fetch).toHaveBeenCalledWith(
-      "/api/workloads",
+      expect.stringContaining("project_id=proj-2"),
       expect.any(Object)
     );
   });
