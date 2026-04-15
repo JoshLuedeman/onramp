@@ -204,7 +204,8 @@ describe("Create workload dialog", () => {
     await userEvent.click(screen.getByRole("tab", { name: /Inventory/i }));
     await waitFor(() => screen.getByRole("button", { name: /Add Workload/i }));
     await userEvent.click(screen.getByRole("button", { name: /Add Workload/i }));
-    expect(screen.getByRole("heading", { name: /Add Workload/i })).toBeInTheDocument();
+    // findByPlaceholderText confirms the dialog form is open and the name input is rendered
+    expect(await screen.findByPlaceholderText(/e.g. web-server-01/i)).toBeInTheDocument();
   });
 
   it("creates a workload and closes dialog on success", async () => {
@@ -213,9 +214,9 @@ describe("Create workload dialog", () => {
     await userEvent.click(screen.getByRole("tab", { name: /Inventory/i }));
     await waitFor(() => screen.getByRole("button", { name: /Add Workload/i }));
     await userEvent.click(screen.getByRole("button", { name: /Add Workload/i }));
-    const nameInput = screen.getByPlaceholderText(/e.g. web-server-01/i);
+    const nameInput = await screen.findByPlaceholderText(/e.g. web-server-01/i);
     await userEvent.type(nameInput, "New VM");
-    await userEvent.click(screen.getByRole("button", { name: /Create Workload/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /Create Workload/i }));
     await waitFor(() => {
       expect(mockedApi.workloads.create).toHaveBeenCalledWith(
         expect.objectContaining({ name: "New VM" }),
@@ -227,9 +228,19 @@ describe("Create workload dialog", () => {
     renderPage();
     await userEvent.click(screen.getByRole("tab", { name: /Inventory/i }));
     await waitFor(() => screen.getByRole("button", { name: /Add Workload/i }));
-    await userEvent.click(screen.getByRole("button", { name: /Add Workload/i }));
+    // Use fireEvent to avoid pointer event sequences that may close the dialog
+    fireEvent.click(screen.getByRole("button", { name: /Add Workload/i }));
+    // Wait for the entire dialog to render (form + action buttons)
+    await waitFor(() => {
+      screen.getByPlaceholderText(/e.g. web-server-01/i);
+      screen.getByRole("button", { name: /Create Workload/i });
+    });
+    // Focus inside the dialog first to prevent pointer events from dismissing it
+    await userEvent.click(screen.getByPlaceholderText(/e.g. web-server-01/i));
     await userEvent.click(screen.getByRole("button", { name: /Create Workload/i }));
-    expect(screen.getByText("Name is required")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Name is required")).toBeInTheDocument();
+    });
   });
 });
 
@@ -241,8 +252,10 @@ describe("Delete workload", () => {
     await userEvent.click(screen.getByRole("tab", { name: /Inventory/i }));
     await waitFor(() => screen.getByText("Web Server 01"));
     await userEvent.click(screen.getByLabelText("Delete Web Server 01"));
-    expect(screen.getByText(/Are you sure you want to delete/i)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /^Delete$/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/Are you sure you want to delete/i)).toBeInTheDocument();
+    });
+    await userEvent.click(await screen.findByRole("button", { name: /^Delete$/i }));
     await waitFor(() => {
       expect(mockedApi.workloads.delete).toHaveBeenCalledWith("wl-001");
     });
@@ -256,8 +269,13 @@ describe("Edit workload dialog", () => {
     renderPage();
     await userEvent.click(screen.getByRole("tab", { name: /Inventory/i }));
     await waitFor(() => screen.getByText("Web Server 01"));
-    await userEvent.click(screen.getByLabelText("Edit Web Server 01"));
-    expect(screen.getByRole("heading", { name: /Edit Workload/i })).toBeInTheDocument();
+    // Use fireEvent to avoid pointer event sequences that may close the dialog
+    fireEvent.click(screen.getByLabelText("Edit Web Server 01"));
+    // Wait for the entire dialog to render (form + action buttons)
+    await waitFor(() => {
+      screen.getByDisplayValue("Web Server 01");
+      screen.getByRole("button", { name: /Save Changes/i });
+    });
     const nameInput = screen.getByDisplayValue("Web Server 01");
     await userEvent.clear(nameInput);
     await userEvent.type(nameInput, "Renamed");
@@ -276,7 +294,15 @@ describe("Edit workload dialog", () => {
     renderPage();
     await userEvent.click(screen.getByRole("tab", { name: /Inventory/i }));
     await waitFor(() => screen.getByText("Web Server 01"));
-    await userEvent.click(screen.getByLabelText("Edit Web Server 01"));
+    // Use fireEvent to avoid pointer event sequences that may close the dialog
+    fireEvent.click(screen.getByLabelText("Edit Web Server 01"));
+    // Wait for the entire dialog to render (form + action buttons)
+    await waitFor(() => {
+      screen.getByDisplayValue("Web Server 01");
+      screen.getByRole("button", { name: /Save Changes/i });
+    });
+    // Focus inside the dialog first to prevent pointer events from dismissing it
+    await userEvent.click(screen.getByDisplayValue("Web Server 01"));
     await userEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
     await waitFor(() => {
       expect(screen.getByText("Update failed")).toBeInTheDocument();
