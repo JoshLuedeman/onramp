@@ -84,6 +84,26 @@ export const api = {
         "/api/architecture/estimate-costs",
         { method: "POST", body: JSON.stringify({ architecture }) }
       ),
+    generateAdrs: (
+      architecture: Record<string, unknown>,
+      answers: Record<string, string | string[]>,
+      useAi = false,
+      projectId?: string,
+    ) =>
+      fetchApi<ADRGenerateResponse>("/api/architecture/adrs/generate", {
+        method: "POST",
+        body: JSON.stringify({
+          architecture,
+          answers,
+          use_ai: useAi,
+          project_id: projectId,
+        }),
+      }),
+    exportAdrs: (adrs: ADRRecord[], format: "individual" | "combined" = "combined") =>
+      fetchApi<{ content: string }>("/api/architecture/adrs/export", {
+        method: "POST",
+        body: JSON.stringify({ adrs, format }),
+      }),
   },
   compliance: {
     getFrameworks: () => fetchApi<{ frameworks: Framework[] }>("/api/compliance/frameworks"),
@@ -650,4 +670,20 @@ export interface MoveWorkloadRequest {
   workload_id: string;
   target_wave_id: string;
   position?: number;
+}
+
+export interface ADRRecord {
+  id: string;
+  title: string;
+  status: string;
+  context: string;
+  decision: string;
+  consequences: string;
+  category: string;
+  created_at: string;
+}
+
+export interface ADRGenerateResponse {
+  adrs: ADRRecord[];
+  project_id: string | null;
 }

@@ -21,6 +21,7 @@ import type { Architecture, CostEstimation } from "../services/api";
 import { api } from "../services/api";
 import ArchitectureDiagram from "../components/visualizer/ArchitectureDiagram";
 import ArchitectureChat from "../components/visualizer/ArchitectureChat";
+import ADRPanel from "../components/visualizer/ADRPanel";
 import { exportArchitectureJson, exportDesignDocument } from "../utils/exportUtils";
 
 const useStyles = makeStyles({
@@ -308,6 +309,12 @@ export default function ArchitecturePage() {
           setArchitecture(updated);
           sessionStorage.setItem("onramp_architecture", JSON.stringify(updated));
         }}
+      />
+
+      <ADRPanel
+        architecture={architecture as Record<string, unknown>}
+        answers={{}}
+        projectId={projectId}
       />
     </div>
   );

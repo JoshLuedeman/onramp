@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes.adr import router as adr_router
 from app.api.routes.architecture import router as architecture_router
 from app.api.routes.bicep import router as bicep_router
 from app.api.routes.compliance import router as compliance_router
@@ -71,6 +72,7 @@ app.include_router(questionnaire_router)
 app.include_router(compliance_router)
 app.include_router(projects_router)
 app.include_router(architecture_router)
+app.include_router(adr_router)
 app.include_router(deployment_router)
 app.include_router(bicep_router)
 app.include_router(scoring_router)
