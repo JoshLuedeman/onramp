@@ -250,6 +250,16 @@ export const api = {
       }
       return res.json() as Promise<WorkloadImportResult>;
     },
+    generateMapping: (projectId: string, architectureId: string = "", useAi: boolean = true) =>
+      fetchApi<WorkloadMappingResponse>("/api/workloads/map", {
+        method: "POST",
+        body: JSON.stringify({ project_id: projectId, architecture_id: architectureId, use_ai: useAi }),
+      }),
+    overrideMapping: (workloadId: string, subscriptionId: string, reasoning: string = "Manual override") =>
+      fetchApi<WorkloadRecord>(`/api/workloads/${workloadId}/mapping`, {
+        method: "PATCH",
+        body: JSON.stringify({ target_subscription_id: subscriptionId, reasoning }),
+      }),
   },
 };
 
@@ -441,6 +451,8 @@ export interface WorkloadRecord {
   dependencies: string[];
   migration_strategy: string;
   notes: string | null;
+  target_subscription_id: string | null;
+  mapping_reasoning: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -472,4 +484,19 @@ export interface WorkloadImportResult {
   failed_count: number;
   errors: string[];
   workloads: WorkloadRecord[];
+}
+
+export interface WorkloadMappingRecord {
+  workload_id: string;
+  workload_name: string;
+  recommended_subscription_id: string;
+  recommended_subscription_name: string;
+  reasoning: string;
+  confidence_score: number;
+  warnings: string[];
+}
+
+export interface WorkloadMappingResponse {
+  mappings: WorkloadMappingRecord[];
+  warnings: string[];
 }

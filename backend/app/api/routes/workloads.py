@@ -1,4 +1,4 @@
-"""Workload API routes — import, list, create, update, delete."""
+"""Workload API routes — import, list, create, update, delete, map."""
 
 import logging
 import uuid
@@ -18,6 +18,7 @@ from app.schemas.workload import (
     WorkloadResponse,
     WorkloadUpdate,
 )
+from app.schemas.workload_mapping import MappingOverride, MappingRequest, MappingResponse
 from app.services.workload_importer import detect_format, parse_file
 
 logger = logging.getLogger(__name__)
@@ -44,6 +45,8 @@ def _to_response(workload: Workload) -> WorkloadResponse:
         dependencies=workload.dependencies or [],
         migration_strategy=workload.migration_strategy,
         notes=workload.notes,
+        target_subscription_id=workload.target_subscription_id,
+        mapping_reasoning=workload.mapping_reasoning,
         created_at=workload.created_at,
         updated_at=workload.updated_at,
     )
@@ -329,4 +332,142 @@ async def delete_workload(
         raise
     except Exception as exc:
         logger.exception("Failed to delete workload %s", workload_id)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /api/workloads/map — generate workload-to-subscription mappings
+# ---------------------------------------------------------------------------
+
+@router.post("/map", response_model=MappingResponse)
+async def map_workloads(
+    payload: MappingRequest,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> MappingResponse:
+    """Generate AI-powered workload-to-subscription mappings for a project."""
+    from app.services.workload_mapper import generate_mapping, validate_mappings
+
+    tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
+
+    # Fetch workloads for project
+    if db is None:
+        return MappingResponse(mappings=[], warnings=["Database not configured"])
+
+    try:
+        proj_result = await db.execute(
+            select(Project).where(Project.id == payload.project_id, Project.tenant_id == tenant_id)
+        )
+        if proj_result.scalar_one_or_none() is None:
+            raise HTTPException(status_code=403, detail="Project not found or access denied")
+
+        wl_result = await db.execute(
+            select(Workload).where(Workload.project_id == payload.project_id)
+        )
+        workloads = wl_result.scalars().all()
+
+        if not workloads:
+            return MappingResponse(mappings=[], warnings=["No workloads found for this project"])
+
+        # Fetch architecture for subscription list
+        architecture: dict = {}
+        if payload.architecture_id:
+            from app.models import Architecture as ArchModel
+            arch_result = await db.execute(
+                select(ArchModel).where(
+                    ArchModel.id == payload.architecture_id,
+                )
+            )
+            arch_record = arch_result.scalar_one_or_none()
+            if arch_record:
+                architecture = arch_record.architecture_data or {}
+        else:
+            # Try to load the project's architecture
+            from app.models import Architecture as ArchModel
+            arch_result = await db.execute(
+                select(ArchModel).where(ArchModel.project_id == payload.project_id)
+            )
+            arch_record = arch_result.scalar_one_or_none()
+            if arch_record:
+                architecture = arch_record.architecture_data or {}
+
+        workloads_dicts = [
+            {
+                "id": w.id,
+                "name": w.name,
+                "type": w.type,
+                "criticality": w.criticality,
+                "compliance_requirements": w.compliance_requirements or [],
+                "dependencies": w.dependencies or [],
+            }
+            for w in workloads
+        ]
+
+        ai_client = None
+        if payload.use_ai:
+            from app.services.ai_foundry import ai_client as _ai_client
+            ai_client = _ai_client
+
+        mappings = await generate_mapping(workloads_dicts, architecture, ai_client)
+        global_warnings = validate_mappings(mappings, workloads_dicts)
+
+        logger.info(
+            "Generated %d mappings for project %s (%d warnings)",
+            len(mappings),
+            payload.project_id,
+            len(global_warnings),
+        )
+        return MappingResponse(mappings=mappings, warnings=global_warnings)
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to generate mappings for project %s", payload.project_id)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# PATCH /api/workloads/{workload_id}/mapping — persist manual override
+# ---------------------------------------------------------------------------
+
+@router.patch("/{workload_id}/mapping", response_model=WorkloadResponse)
+async def override_workload_mapping(
+    workload_id: str,
+    override: MappingOverride,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> WorkloadResponse:
+    """Manually override the AI-recommended subscription for a workload."""
+    if db is None:
+        raise HTTPException(status_code=404, detail="Database not configured")
+
+    try:
+        result = await db.execute(
+            select(Workload).where(Workload.id == workload_id)
+        )
+        workload = result.scalar_one_or_none()
+        if not workload:
+            raise HTTPException(status_code=404, detail="Workload not found")
+
+        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
+        proj_result = await db.execute(
+            select(Project).where(
+                Project.id == workload.project_id, Project.tenant_id == tenant_id
+            )
+        )
+        if proj_result.scalar_one_or_none() is None:
+            raise HTTPException(status_code=403, detail="Project not found or access denied")
+
+        workload.target_subscription_id = override.target_subscription_id
+        workload.mapping_reasoning = override.reasoning
+        workload.updated_at = datetime.now(timezone.utc)
+
+        await db.flush()
+        logger.info("Overrode mapping for workload %s → %s", workload_id, override.target_subscription_id)
+        return _to_response(workload)
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to override mapping for workload %s", workload_id)
         raise HTTPException(status_code=500, detail=str(exc)) from exc

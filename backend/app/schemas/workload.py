@@ -60,6 +60,8 @@ class WorkloadResponse(BaseModel):
     dependencies: list[str] = Field(default_factory=list)
     migration_strategy: str
     notes: str | None = None
+    target_subscription_id: str | None = None
+    mapping_reasoning: str | None = None
     created_at: datetime
     updated_at: datetime
 
