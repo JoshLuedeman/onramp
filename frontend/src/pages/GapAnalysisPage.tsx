@@ -7,11 +7,16 @@ import {
   Button,
   makeStyles,
   tokens,
+  Toaster,
+  Toast,
+  ToastTitle,
+  useToastController,
+  useId,
 } from "@fluentui/react-components";
 import { ArrowDownloadRegular } from "@fluentui/react-icons";
 import { useParams } from "react-router-dom";
 import { api } from "../services/api";
-import type { GapAnalysisResponse, BrownfieldContextResponse } from "../services/api";
+import type { GapAnalysisResponse, BrownfieldContextResponse, GapFinding } from "../services/api";
 import GapSummaryBar from "../components/gap/GapSummaryBar";
 import GapFindingCard from "../components/gap/GapFindingCard";
 import GapComparison from "../components/gap/GapComparison";
@@ -60,6 +65,9 @@ export default function GapAnalysisPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const toasterId = useId("toaster");
+  const { dispatchToast } = useToastController(toasterId);
+
   useEffect(() => {
     if (!scanId) return;
 
@@ -82,6 +90,26 @@ export default function GapAnalysisPage() {
 
     void load();
   }, [scanId]);
+
+  const handleAddToArchitecture = (finding: GapFinding) => {
+    dispatchToast(
+      <Toast>
+        <ToastTitle>
+          &quot;{finding.title}&quot; added to architecture queue (placeholder)
+        </ToastTitle>
+      </Toast>,
+      { intent: "success" }
+    );
+  };
+
+  const handleFixAll = () => {
+    dispatchToast(
+      <Toast>
+        <ToastTitle>Scheduled remediation for all findings (placeholder)</ToastTitle>
+      </Toast>,
+      { intent: "success" }
+    );
+  };
 
   if (!scanId) {
     return (
@@ -116,38 +144,45 @@ export default function GapAnalysisPage() {
   }
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <Text className={styles.title}>Gap Analysis</Text>
-        <Button
-          appearance="secondary"
-          icon={<ArrowDownloadRegular />}
-          onClick={() => exportGapAnalysis(gapResult)}
-        >
-          Export Report
-        </Button>
-      </div>
+    <>
+      <Toaster toasterId={toasterId} />
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <Text className={styles.title}>Gap Analysis</Text>
+          <Button
+            appearance="secondary"
+            icon={<ArrowDownloadRegular />}
+            onClick={() => exportGapAnalysis(gapResult)}
+          >
+            Export Report
+          </Button>
+        </div>
 
-      <GapSummaryBar result={gapResult} />
+        <GapSummaryBar result={gapResult} onFixAll={handleFixAll} />
 
-      <GapComparison gapResult={gapResult} brownfieldContext={brownfieldContext} />
+        <GapComparison gapResult={gapResult} brownfieldContext={brownfieldContext} />
 
-      <div>
-        <Text className={styles.sectionTitle}>
-          Findings ({gapResult.total_findings})
-        </Text>
-        {gapResult.findings.length === 0 ? (
-          <Text className={styles.emptyState}>
-            No findings. Your environment looks good!
+        <div>
+          <Text className={styles.sectionTitle}>
+            Findings ({gapResult.total_findings})
           </Text>
-        ) : (
-          <div className={styles.findings}>
-            {gapResult.findings.map((finding) => (
-              <GapFindingCard key={finding.id} finding={finding} />
-            ))}
-          </div>
-        )}
+          {gapResult.findings.length === 0 ? (
+            <Text className={styles.emptyState}>
+              No findings. Your environment looks good!
+            </Text>
+          ) : (
+            <div className={styles.findings}>
+              {gapResult.findings.map((finding) => (
+                <GapFindingCard
+                  key={finding.id}
+                  finding={finding}
+                  onAddToArchitecture={handleAddToArchitecture}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

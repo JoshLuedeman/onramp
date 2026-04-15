@@ -78,7 +78,14 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground2,
   },
   confidenceBadge: {
+    marginLeft: tokens.spacingHorizontalXS,
     fontSize: tokens.fontSizeBase100,
+  },
+  mutedText: {
+    color: tokens.colorNeutralForeground3,
+  },
+  divider: {
+    margin: `${tokens.spacingVerticalS} 0`,
   },
 });
 
@@ -132,13 +139,9 @@ export default function GapComparison({ gapResult, brownfieldContext }: GapCompa
     const existing = areaMap.get(finding.category);
     const count = (existing?.findingCount ?? 0) + 1;
     const severity: AreaComplianceStatus["severity"] =
-      finding.severity === "critical"
-        ? "critical"
-        : finding.severity === "high"
-        ? "critical"
-        : "warning";
+      finding.severity === "critical" || finding.severity === "high" ? "critical" : "warning";
     const prevSeverity = existing?.severity ?? "good";
-    const worstSeverity =
+    const worstSeverity: AreaComplianceStatus["severity"] =
       prevSeverity === "critical" || severity === "critical"
         ? "critical"
         : prevSeverity === "warning" || severity === "warning"
@@ -154,8 +157,6 @@ export default function GapComparison({ gapResult, brownfieldContext }: GapCompa
   }
 
   const areas = Array.from(areaMap.values());
-
-  // Discovered answers for current state
   const discoveredEntries = Object.entries(brownfieldContext.discovered_answers);
 
   return (
@@ -166,9 +167,9 @@ export default function GapComparison({ gapResult, brownfieldContext }: GapCompa
         {/* Current State */}
         <Card className={styles.column}>
           <Text className={styles.columnTitle}>Current State</Text>
-          <Divider />
+          <Divider className={styles.divider} />
           {discoveredEntries.length === 0 ? (
-            <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+            <Text size={200} className={styles.mutedText}>
               No discovered context available.
             </Text>
           ) : (
@@ -194,7 +195,6 @@ export default function GapComparison({ gapResult, brownfieldContext }: GapCompa
                     }
                     size="small"
                     appearance="tint"
-                    style={{ marginLeft: "6px" }}
                   >
                     {answer.confidence}
                   </Badge>
@@ -207,9 +207,9 @@ export default function GapComparison({ gapResult, brownfieldContext }: GapCompa
         {/* Recommended State */}
         <Card className={styles.column}>
           <Text className={styles.columnTitle}>Recommended State</Text>
-          <Divider />
+          <Divider className={styles.divider} />
           {areas.length === 0 ? (
-            <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+            <Text size={200} className={styles.mutedText}>
               No areas analyzed.
             </Text>
           ) : (
@@ -232,7 +232,9 @@ export default function GapComparison({ gapResult, brownfieldContext }: GapCompa
                     size="small"
                     appearance="tint"
                   >
-                    {item.findingCount > 0 ? `${item.findingCount} finding${item.findingCount > 1 ? "s" : ""}` : "Compliant"}
+                    {item.findingCount > 0
+                      ? `${item.findingCount} finding${item.findingCount > 1 ? "s" : ""}`
+                      : "Compliant"}
                   </Badge>
                 </div>
                 {item.findingCount > 0 && (

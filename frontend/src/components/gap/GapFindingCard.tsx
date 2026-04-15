@@ -7,11 +7,6 @@ import {
   makeStyles,
   tokens,
   Divider,
-  Toast,
-  ToastTitle,
-  useToastController,
-  useId,
-  Toaster,
 } from "@fluentui/react-components";
 import {
   ChevronDownRegular,
@@ -45,6 +40,9 @@ const useStyles = makeStyles({
   title: {
     fontWeight: tokens.fontWeightSemibold,
     fontSize: tokens.fontSizeBase400,
+  },
+  category: {
+    color: tokens.colorNeutralForeground3,
   },
   body: {
     marginTop: "12px",
@@ -114,81 +112,74 @@ function severityBadge(severity: Severity) {
 
 interface GapFindingCardProps {
   finding: GapFinding;
+  onAddToArchitecture?: (finding: GapFinding) => void;
 }
 
-export default function GapFindingCard({ finding }: GapFindingCardProps) {
+export default function GapFindingCard({ finding, onAddToArchitecture }: GapFindingCardProps) {
   const styles = useStyles();
   const [expanded, setExpanded] = useState(false);
-  const toasterId = useId("toaster");
-  const { dispatchToast } = useToastController(toasterId);
-
-  const handleAddToArchitecture = () => {
-    dispatchToast(
-      <Toast>
-        <ToastTitle>Finding added to architecture queue (placeholder)</ToastTitle>
-      </Toast>,
-      { intent: "success" }
-    );
-  };
 
   return (
-    <>
-      <Toaster toasterId={toasterId} />
-      <Card className={styles.card}>
-        <div
-          className={styles.header}
-          onClick={() => setExpanded((e) => !e)}
-          role="button"
-          tabIndex={0}
-          aria-expanded={expanded}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") setExpanded((v) => !v);
-          }}
-        >
-          <div className={styles.headerLeft}>
-            {severityBadge(finding.severity)}
-            <Text className={styles.title}>{finding.title}</Text>
-            <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
-              {finding.category}
-            </Text>
-          </div>
-          {expanded ? <ChevronUpRegular /> : <ChevronDownRegular />}
+    <Card className={styles.card}>
+      <div
+        className={styles.header}
+        onClick={() => setExpanded((e) => !e)}
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            setExpanded((v) => !v);
+          }
+          if (e.key === " ") {
+            e.preventDefault();
+            setExpanded((v) => !v);
+          }
+        }}
+      >
+        <div className={styles.headerLeft}>
+          {severityBadge(finding.severity)}
+          <Text className={styles.title}>{finding.title}</Text>
+          <Text size={200} className={styles.category}>
+            {finding.category}
+          </Text>
         </div>
+        {expanded ? <ChevronUpRegular /> : <ChevronDownRegular />}
+      </div>
 
-        {expanded && (
-          <>
-            <Divider style={{ margin: "12px 0" }} />
-            <div className={styles.body}>
-              <div className={styles.section}>
-                <Text className={styles.label}>Description</Text>
-                <Text size={300}>{finding.description}</Text>
-              </div>
-
-              {finding.caf_reference && (
-                <div className={styles.section}>
-                  <Text className={styles.label}>CAF Reference</Text>
-                  <Text className={styles.cafRef}>{finding.caf_reference}</Text>
-                </div>
-              )}
-
-              <div className={styles.section}>
-                <Text className={styles.label}>Remediation</Text>
-                <Text className={styles.remediationItem}>{finding.remediation}</Text>
-              </div>
-
-              <div className={styles.actions}>
-                <Button
-                  appearance="secondary"
-                  icon={<AddRegular />}
-                  onClick={handleAddToArchitecture}
-                >
-                  Add to Architecture
-                </Button>
-              </div>
+      {expanded && (
+        <>
+          <Divider style={{ margin: "12px 0" }} />
+          <div className={styles.body}>
+            <div className={styles.section}>
+              <Text className={styles.label}>Description</Text>
+              <Text size={300}>{finding.description}</Text>
             </div>
-          </>
-        )}
-      </Card>
-    </>
+
+            {finding.caf_reference && (
+              <div className={styles.section}>
+                <Text className={styles.label}>CAF Reference</Text>
+                <Text className={styles.cafRef}>{finding.caf_reference}</Text>
+              </div>
+            )}
+
+            <div className={styles.section}>
+              <Text className={styles.label}>Remediation</Text>
+              <Text className={styles.remediationItem}>{finding.remediation}</Text>
+            </div>
+
+            <div className={styles.actions}>
+              <Button
+                appearance="secondary"
+                icon={<AddRegular />}
+                onClick={() => onAddToArchitecture?.(finding)}
+              >
+                Add to Architecture
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+    </Card>
   );
 }

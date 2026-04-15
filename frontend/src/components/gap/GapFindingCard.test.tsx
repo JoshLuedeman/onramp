@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FluentProvider, teamsLightTheme } from "@fluentui/react-components";
@@ -39,11 +39,11 @@ const lowFinding: GapFinding = {
   caf_reference: undefined,
 };
 
-function renderCard(finding = mockFinding) {
+function renderCard(finding = mockFinding, onAddToArchitecture?: (f: GapFinding) => void) {
   return render(
     <FluentProvider theme={teamsLightTheme}>
       <MemoryRouter>
-        <GapFindingCard finding={finding} />
+        <GapFindingCard finding={finding} onAddToArchitecture={onAddToArchitecture} />
       </MemoryRouter>
     </FluentProvider>
   );
@@ -62,7 +62,6 @@ describe("GapFindingCard", () => {
 
   it("shows the severity badge for critical", () => {
     renderCard();
-    // Badge renders as a span - verify exactly "Critical" badge text is present
     expect(screen.getByText("Critical")).toBeInTheDocument();
   });
 
@@ -113,6 +112,15 @@ describe("GapFindingCard", () => {
     renderCard();
     await user.click(screen.getAllByRole("button")[0]);
     expect(screen.getByRole("button", { name: /add to architecture/i })).toBeInTheDocument();
+  });
+
+  it("calls onAddToArchitecture when Add to Architecture is clicked", async () => {
+    const onAdd = vi.fn();
+    const user = userEvent.setup();
+    renderCard(mockFinding, onAdd);
+    await user.click(screen.getAllByRole("button")[0]);
+    await user.click(screen.getByRole("button", { name: /add to architecture/i }));
+    expect(onAdd).toHaveBeenCalledWith(mockFinding);
   });
 
   it("collapses again when clicked twice", async () => {

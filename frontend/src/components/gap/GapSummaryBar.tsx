@@ -159,12 +159,14 @@ export default function GapSummaryBar({ result, onFixAll }: GapSummaryBarProps) 
                 <DialogTrigger disableButtonEnhancement>
                   <Button appearance="secondary">Cancel</Button>
                 </DialogTrigger>
-                <Button
-                  appearance="primary"
-                  onClick={onFixAll}
-                >
-                  Confirm
-                </Button>
+                <DialogTrigger disableButtonEnhancement>
+                  <Button
+                    appearance="primary"
+                    onClick={onFixAll}
+                  >
+                    Confirm
+                  </Button>
+                </DialogTrigger>
               </DialogActions>
             </DialogBody>
           </DialogSurface>
