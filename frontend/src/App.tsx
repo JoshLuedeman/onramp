@@ -14,6 +14,7 @@ const CompliancePage = lazy(() => import("./pages/CompliancePage"));
 const BicepPage = lazy(() => import("./pages/BicepPage"));
 const DeployPage = lazy(() => import("./pages/DeployPage"));
 const ProjectDetailPage = lazy(() => import("./pages/ProjectDetailPage"));
+const GapAnalysisPage = lazy(() => import("./pages/GapAnalysisPage"));
 
 function App() {
   return (
@@ -52,6 +53,9 @@ function App() {
                   <Route path="/compliance" element={<CompliancePage />} />
                   <Route path="/bicep" element={<BicepPage />} />
                   <Route path="/deploy" element={<DeployPage />} />
+
+                  {/* Gap analysis */}
+                  <Route path="/gap-analysis/:scanId" element={<GapAnalysisPage />} />
                 </Routes>
               </Suspense>
             </ErrorBoundary>
