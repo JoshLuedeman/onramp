@@ -37,6 +37,7 @@ import {
   DeleteRegular,
   DocumentRegular,
   EditRegular,
+  LinkRegular,
   WarningRegular,
 } from "@fluentui/react-icons";
 import type {
@@ -45,6 +46,7 @@ import type {
   WorkloadRecord,
 } from "../services/api";
 import { api } from "../services/api";
+import WorkloadMapper from "../components/migration/WorkloadMapper";
 
 const useStyles = makeStyles({
   root: {
@@ -116,7 +118,7 @@ const useStyles = makeStyles({
   },
 });
 
-type TabValue = "import" | "inventory";
+type TabValue = "import" | "inventory" | "mapping";
 
 const WORKLOAD_TYPES = ["vm", "database", "web-app", "container", "other"];
 const SOURCE_PLATFORMS = ["vmware", "hyperv", "physical", "aws", "gcp", "other"];
@@ -310,6 +312,7 @@ export default function WorkloadsPage({ projectId: propProjectId }: WorkloadsPag
       <TabList selectedValue={activeTab} onTabSelect={handleTabChange}>
         <Tab value="import" icon={<ArrowUploadRegular />}>Import</Tab>
         <Tab value="inventory" icon={<DocumentRegular />}>Inventory</Tab>
+        <Tab value="mapping" icon={<LinkRegular />}>Mapping</Tab>
       </TabList>
 
       {/* ---- Import Tab ---- */}
@@ -731,6 +734,11 @@ export default function WorkloadsPage({ projectId: propProjectId }: WorkloadsPag
       </Dialog>
 
       <Label style={{ display: "none" }}>Workload import file picker</Label>
+
+      {/* ---- Mapping Tab ---- */}
+      {activeTab === "mapping" && (
+        <WorkloadMapper projectId={projectId} />
+      )}
     </div>
   );
 }

@@ -53,3 +53,7 @@ class Workload(Base, TimestampMixin):
 
     migration_strategy: Mapped[str] = mapped_column(String(50), default="unknown")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Mapping fields — populated by workload mapper service
+    target_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    mapping_reasoning: Mapped[str | None] = mapped_column(Text, nullable=True)
