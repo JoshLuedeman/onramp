@@ -220,23 +220,58 @@ async def db_session():
     await engine.dispose()
 
 
+async def _seed_tenant_user_project(
+    db_session: AsyncSession,
+    project_id: str,
+    project_name: str,
+) -> None:
+    """Create a Tenant, User, and Project row to satisfy FK constraints."""
+    from app.models.project import Project
+    from app.models.tenant import Tenant
+    from app.models.user import User
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    tenant = Tenant(
+        id="dep-tenant",
+        name="Dep Tenant",
+        created_at=now,
+        updated_at=now,
+    )
+    user = User(
+        id="dep-user",
+        entra_object_id="dep-oid",
+        email="dep@test.com",
+        display_name="Dep User",
+        tenant_id="dep-tenant",
+        created_at=now,
+        updated_at=now,
+    )
+    project = Project(
+        id=project_id,
+        name=project_name,
+        tenant_id="dep-tenant",
+        created_by="dep-user",
+        created_at=now,
+        updated_at=now,
+    )
+    # Use merge to avoid duplicate PK errors across tests sharing the same engine
+    await db_session.merge(tenant)
+    await db_session.merge(user)
+    await db_session.merge(project)
+    await db_session.flush()
+
+
 @pytest.mark.asyncio
 async def test_dependency_graph_db_path(db_session):
     """Test GET /dependency-graph with a real DB session."""
     from app.api.routes.workloads import get_dependency_graph
-    from app.models.project import Project
     from app.models.workload import Workload
     from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc)
-    proj = Project(
-        id="dep-proj-1",
-        name="Dep Test Project",
-        tenant_id="dev-tenant",
-        created_at=now,
-        updated_at=now,
-    )
-    db_session.add(proj)
+    await _seed_tenant_user_project(db_session, "dep-proj-1", "Dep Test Project")
+
     wl_a = Workload(
         id="dep-wl-a",
         project_id="dep-proj-1",
@@ -263,7 +298,7 @@ async def test_dependency_graph_db_path(db_session):
 
     graph = await get_dependency_graph(
         project_id="dep-proj-1",
-        user={"sub": "dev", "tid": "dev-tenant"},
+        user={"sub": "dep-user", "tid": "dep-tenant"},
         db=db_session,
     )
     assert len(graph.nodes) == 2
@@ -277,20 +312,13 @@ async def test_dependency_graph_db_path(db_session):
 async def test_add_and_remove_dependency_db(db_session):
     """Test POST and DELETE /dependencies with a real DB session."""
     from app.api.routes.workloads import add_dependency, remove_dependency
-    from app.models.project import Project
     from app.models.workload import Workload
     from app.schemas.dependency import AddDependencyRequest
     from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc)
-    proj = Project(
-        id="dep-proj-2",
-        name="Dep Test 2",
-        tenant_id="dev-tenant",
-        created_at=now,
-        updated_at=now,
-    )
-    db_session.add(proj)
+    await _seed_tenant_user_project(db_session, "dep-proj-2", "Dep Test 2")
+
     wl1 = Workload(
         id="dep-wl-1",
         project_id="dep-proj-2",
@@ -315,7 +343,7 @@ async def test_add_and_remove_dependency_db(db_session):
     db_session.add(wl2)
     await db_session.flush()
 
-    user = {"sub": "dev", "tid": "dev-tenant"}
+    user = {"sub": "dep-user", "tid": "dep-tenant"}
 
     # Add dependency
     resp = await add_dependency(
@@ -358,19 +386,12 @@ async def test_add_and_remove_dependency_db(db_session):
 async def test_migration_order_db_path(db_session):
     """Test GET /migration-order with a real DB session."""
     from app.api.routes.workloads import get_migration_order
-    from app.models.project import Project
     from app.models.workload import Workload
     from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc)
-    proj = Project(
-        id="dep-proj-3",
-        name="Migration Order Test",
-        tenant_id="dev-tenant",
-        created_at=now,
-        updated_at=now,
-    )
-    db_session.add(proj)
+    await _seed_tenant_user_project(db_session, "dep-proj-3", "Migration Order Test")
+
     wl_x = Workload(
         id="dep-wl-x",
         project_id="dep-proj-3",
@@ -397,7 +418,7 @@ async def test_migration_order_db_path(db_session):
 
     result = await get_migration_order(
         project_id="dep-proj-3",
-        user={"sub": "dev", "tid": "dev-tenant"},
+        user={"sub": "dep-user", "tid": "dep-tenant"},
         db=db_session,
     )
     assert result.has_circular is False
@@ -410,19 +431,12 @@ async def test_migration_order_db_path(db_session):
 async def test_migration_order_with_cycle(db_session):
     """Test migration-order returns has_circular when cycles exist."""
     from app.api.routes.workloads import get_migration_order
-    from app.models.project import Project
     from app.models.workload import Workload
     from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc)
-    proj = Project(
-        id="dep-proj-4",
-        name="Circular Test",
-        tenant_id="dev-tenant",
-        created_at=now,
-        updated_at=now,
-    )
-    db_session.add(proj)
+    await _seed_tenant_user_project(db_session, "dep-proj-4", "Circular Test")
+
     wl_p = Workload(
         id="dep-wl-p",
         project_id="dep-proj-4",
@@ -449,7 +463,7 @@ async def test_migration_order_with_cycle(db_session):
 
     result = await get_migration_order(
         project_id="dep-proj-4",
-        user={"sub": "dev", "tid": "dev-tenant"},
+        user={"sub": "dep-user", "tid": "dep-tenant"},
         db=db_session,
     )
     assert result.has_circular is True
@@ -461,20 +475,13 @@ async def test_add_dependency_404_target(db_session):
     """Test adding a dependency to a non-existent target raises 404."""
     from fastapi import HTTPException
     from app.api.routes.workloads import add_dependency
-    from app.models.project import Project
     from app.models.workload import Workload
     from app.schemas.dependency import AddDependencyRequest
     from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc)
-    proj = Project(
-        id="dep-proj-5",
-        name="404 Test",
-        tenant_id="dev-tenant",
-        created_at=now,
-        updated_at=now,
-    )
-    db_session.add(proj)
+    await _seed_tenant_user_project(db_session, "dep-proj-5", "404 Test")
+
     wl = Workload(
         id="dep-wl-only",
         project_id="dep-proj-5",
@@ -492,7 +499,7 @@ async def test_add_dependency_404_target(db_session):
         await add_dependency(
             workload_id="dep-wl-only",
             body=AddDependencyRequest(target_workload_id="nonexistent"),
-            user={"sub": "dev", "tid": "dev-tenant"},
+            user={"sub": "dep-user", "tid": "dep-tenant"},
             db=db_session,
         )
     assert exc_info.value.status_code == 404
