@@ -14,15 +14,39 @@
 - **🚀 One-Click Deploy** — Deploy your entire landing zone to Azure subscriptions
 - **📊 Deployment Tracking** — Real-time progress, audit logging, and rollback support
 
-## 🏛️ Architecture
+## 📸 Screenshots
 
-```
-React + Fluent UI v9  →  FastAPI (Python)  →  Azure SQL
-                                           →  Azure AI Foundry
-                                           →  Customer Subscriptions (Bicep)
+> **Screenshots coming soon.** Want to help? See [`docs/screenshots/README.md`](docs/screenshots/README.md) for capture instructions.
+
+## 🏗️ System Architecture
+
+```mermaid
+flowchart LR
+    subgraph Frontend
+        React[React + Fluent UI v9]
+    end
+
+    subgraph Backend
+        FastAPI[FastAPI — Python]
+    end
+
+    subgraph Services
+        DB[(Azure SQL)]
+        AI[Azure AI Foundry]
+        ARM[Azure Resource Manager]
+    end
+
+    React -- REST API --> FastAPI
+    React -- MSAL --> EntraID[Entra ID]
+    EntraID -- Token --> FastAPI
+    FastAPI --> DB
+    FastAPI --> AI
+    FastAPI -- Bicep --> ARM
 ```
 
 Hosted on **Azure Container Apps** with **Entra ID** authentication.
+
+> For the full architecture breakdown, see [`docs/architecture.md`](docs/architecture.md).
 
 ## 🚀 Quick Start
 

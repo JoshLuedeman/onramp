@@ -6,6 +6,57 @@ OnRamp is an AI-powered Azure Landing Zone Architect & Deployer. It guides custo
 
 ## System Architecture
 
+```mermaid
+flowchart TB
+    subgraph Frontend["Frontend (React + Fluent UI v9)"]
+        UI[Web App — Vite + React 19 + TypeScript]
+        MSAL_JS[MSAL.js]
+    end
+
+    subgraph Auth["Authentication"]
+        EntraID[Microsoft Entra ID]
+    end
+
+    subgraph Backend["Backend (Python FastAPI)"]
+        API[FastAPI — REST API]
+        TokenVal[Token Validation — MSAL Python]
+        Questionnaire[Questionnaire Service]
+        ArchGen[Architecture Generator]
+        CompScorer[Compliance Scorer]
+        BicepGen[Bicep Generator]
+        DeployOrch[Deployment Orchestrator]
+    end
+
+    subgraph Data["Data & AI"]
+        DB[(Azure SQL / SQLite)]
+        AIFoundry[Azure AI Foundry]
+        KeyVault[Azure Key Vault]
+    end
+
+    subgraph Azure["Customer Azure Environment"]
+        ARM[Azure Resource Manager]
+        Subscriptions[Customer Subscriptions]
+    end
+
+    UI -- REST API --> API
+    MSAL_JS -- OAuth 2.0 --> EntraID
+    EntraID -- Access Token --> TokenVal
+    API --> Questionnaire
+    API --> ArchGen
+    API --> CompScorer
+    API --> BicepGen
+    API --> DeployOrch
+    Questionnaire --> DB
+    ArchGen --> AIFoundry
+    ArchGen --> DB
+    CompScorer --> AIFoundry
+    BicepGen --> AIFoundry
+    BicepGen --> DB
+    DeployOrch -- Bicep Templates --> ARM
+    ARM --> Subscriptions
+    API --> KeyVault
+```
+
 ```
 Frontend (React + Fluent UI v9)
   ↓ REST API
