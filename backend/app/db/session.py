@@ -126,7 +126,7 @@ def _do_upgrade(alembic_cfg, connection):
     from alembic import command
 
     alembic_cfg.attributes["connection"] = connection
-    command.upgrade(alembic_cfg, "head")
+    command.upgrade(alembic_cfg, "heads")
 
 
 async def _ensure_mssql_database(db_url: str):
