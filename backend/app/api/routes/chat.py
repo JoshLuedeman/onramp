@@ -1,6 +1,7 @@
 """Chat API routes for multi-turn AI conversations."""
 
 import asyncio
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -14,6 +15,8 @@ from app.schemas.conversation import (
     ConversationCreate,
     SendMessageRequest,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -84,8 +87,9 @@ async def create_conversation(
             title=body.title,
         )
         return _serialize_conversation(conv, message_count=1)  # system prompt
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Unexpected error in chat route")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/conversations")
@@ -114,8 +118,9 @@ async def list_conversations(
                 for row in rows
             ]
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Unexpected error in chat route")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/{conversation_id}")
@@ -144,8 +149,9 @@ async def get_conversation(
         return result
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Unexpected error in chat route")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/{conversation_id}/message")
@@ -195,8 +201,9 @@ async def send_message(
         raise HTTPException(status_code=404, detail=str(e))
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Unexpected error in chat route")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/{conversation_id}/archive")
@@ -216,8 +223,9 @@ async def archive_conversation(
         return _serialize_conversation(conv)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Unexpected error in chat route")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.delete("/{conversation_id}")
@@ -237,8 +245,9 @@ async def delete_conversation(
         return {"id": conv.id, "deleted": True}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Unexpected error in chat route")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 async def _mock_stream_tokens(content: str):
@@ -381,5 +390,6 @@ async def stream_message(
         )
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Unexpected error in chat route")
+        raise HTTPException(status_code=500, detail="Internal server error")
