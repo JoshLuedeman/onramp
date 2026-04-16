@@ -255,8 +255,10 @@ describe("Delete workload", () => {
     await waitFor(() => {
       expect(screen.getByText(/Are you sure you want to delete/i)).toBeInTheDocument();
     });
-    await userEvent.click(await screen.findByRole("button", { name: /^Delete$/i }));
-    await waitFor(() => {
+    // Use waitFor to ensure the confirmation Delete button is fully rendered before clicking
+    const deleteBtn = await screen.findByRole("button", { name: /^Delete$/i });
+    await waitFor(async () => {
+      await userEvent.click(deleteBtn);
       expect(mockedApi.workloads.delete).toHaveBeenCalledWith("wl-001");
     });
   });
