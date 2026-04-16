@@ -83,6 +83,18 @@ def validate_environment() -> dict:
 _startup_status = None
 
 
+def log_plugin_status() -> None:
+    """Log the number of loaded plugins.
+
+    Must be called *after* plugin discovery completes in the application
+    lifespan — calling it earlier will always report zero plugins.
+    """
+    from app.plugins.loader import plugin_registry
+
+    plugin_count = len(plugin_registry.get_all_plugins())
+    logger.info("🔌 %d plugin(s) loaded", plugin_count)
+
+
 def get_startup_status() -> dict:
     """Get cached startup validation status."""
     global _startup_status

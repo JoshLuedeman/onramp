@@ -10,6 +10,7 @@ from app.api.routes.compliance import router as compliance_router
 from app.api.routes.deployment import router as deployment_router
 from app.api.routes.discovery import router as discovery_router
 from app.api.routes.migration import router as migration_router
+from app.api.routes.plugins import router as plugins_router
 from app.api.routes.projects import router as projects_router
 from app.api.routes.questionnaire import router as questionnaire_router
 from app.api.routes.questionnaire_state import router as questionnaire_state_router
@@ -24,7 +25,7 @@ from app.security import (
     RequestValidationMiddleware,
     SecurityHeadersMiddleware,
 )
-from app.startup import get_startup_status, validate_environment
+from app.startup import get_startup_status, log_plugin_status, validate_environment
 
 
 @asynccontextmanager
@@ -32,6 +33,12 @@ async def lifespan(app):
     validate_environment()
     await init_db()
     await seed_database()
+
+    from app.plugins.loader import plugin_registry
+
+    plugin_registry.discover_plugins("plugins")
+    plugin_registry.load_entry_points()
+    log_plugin_status()
     yield
     await close_db()
 
@@ -80,6 +87,7 @@ app.include_router(questionnaire_state_router)
 app.include_router(discovery_router)
 app.include_router(workloads_router)
 app.include_router(migration_router)
+app.include_router(plugins_router)
 
 
 @app.get("/health")
