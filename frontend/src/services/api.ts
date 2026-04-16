@@ -232,6 +232,50 @@ export const api = {
         body: JSON.stringify({ architecture }),
       }),
   },
+  pipelines: {
+    templates: () =>
+      fetchApi<{ templates: PipelineTemplate[] }>("/api/pipelines/templates"),
+    generate: (
+      architecture: Record<string, unknown>,
+      iacFormat: string,
+      options?: {
+        pipeline_format?: string;
+        environments?: string[];
+        include_approval_gates?: boolean;
+        project_name?: string;
+        service_connection?: string;
+        variable_group?: string;
+      },
+    ) =>
+      fetchApi<PipelineGenerateResponse>("/api/pipelines/generate", {
+        method: "POST",
+        body: JSON.stringify({
+          architecture,
+          iac_format: iacFormat,
+          ...options,
+        }),
+      }),
+    download: (
+      architecture: Record<string, unknown>,
+      iacFormat: string,
+      options?: {
+        pipeline_format?: string;
+        environments?: string[];
+        include_approval_gates?: boolean;
+        project_name?: string;
+        service_connection?: string;
+        variable_group?: string;
+      },
+    ) =>
+      fetchBlob("/api/pipelines/download", {
+        method: "POST",
+        body: JSON.stringify({
+          architecture,
+          iac_format: iacFormat,
+          ...options,
+        }),
+      }),
+  },
   deployment: {
     validate: (subscriptionId: string, region: string = "eastus2") =>
       fetchApi<DeploymentValidation>("/api/deployment/validate", {
@@ -545,6 +589,44 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ files, format }),
       }),
+  },
+
+  versions: {
+    terraform: () =>
+      fetchApi<{
+        terraform_version: string;
+        providers: { name: string; source: string; version_constraint: string; release_date: string; notes: string }[];
+      }>("/api/versions/terraform"),
+    pulumi: (language: "typescript" | "python") =>
+      fetchApi<{
+        language: string;
+        packages: { name: string; source: string; version_constraint: string; release_date: string; notes: string }[];
+      }>(`/api/versions/pulumi/${language}`),
+    arm: () =>
+      fetchApi<{
+        schema_version: string;
+        content_version: string;
+        api_versions: { resource_type: string; api_version: string; release_date: string; notes: string }[];
+      }>("/api/versions/arm"),
+    bicep: () =>
+      fetchApi<{
+        api_versions: { resource_type: string; api_version: string; release_date: string; notes: string }[];
+      }>("/api/versions/bicep"),
+    report: (thresholdDays?: number) =>
+      fetchApi<{
+        staleness_threshold_days: number;
+        terraform: { name: string; version: string; release_date: string; age_days: number; is_stale: boolean }[];
+        pulumi_typescript: { name: string; version: string; release_date: string; age_days: number; is_stale: boolean }[];
+        pulumi_python: { name: string; version: string; release_date: string; age_days: number; is_stale: boolean }[];
+        arm: { name: string; version: string; release_date: string; age_days: number; is_stale: boolean }[];
+        bicep: { name: string; version: string; release_date: string; age_days: number; is_stale: boolean }[];
+        total_entries: number;
+        stale_count: number;
+      }>(
+        thresholdDays
+          ? `/api/versions/report?threshold_days=${thresholdDays}`
+          : "/api/versions/report",
+      ),
   },
 };
 
@@ -1116,4 +1198,28 @@ export interface ConversationWithMessages extends ConversationResponse {
 export interface SendMessageApiResponse {
   assistant_message: ConversationMessageItem;
   conversation: ConversationResponse;
+}
+
+// ── Pipeline types ──────────────────────────────────────────────────────
+
+export interface PipelineTemplate {
+  name: string;
+  description: string;
+  iac_format: string;
+  pipeline_format: string;
+}
+
+export interface PipelineFileItem {
+  name: string;
+  content: string;
+  size_bytes: number;
+  environment: string;
+}
+
+export interface PipelineGenerateResponse {
+  files: PipelineFileItem[];
+  total_files: number;
+  iac_format: string;
+  pipeline_format: string;
+  environments: string[];
 }

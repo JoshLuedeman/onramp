@@ -26,6 +26,7 @@ from app.api.routes.governance_tasks import router as governance_tasks_router
 from app.api.routes.iac_validation import router as iac_validation_router
 from app.api.routes.migration import router as migration_router
 from app.api.routes.notifications import router as notifications_router
+from app.api.routes.pipelines import router as pipelines_router
 from app.api.routes.plugins import router as plugins_router
 from app.api.routes.policies import router as policies_router
 from app.api.routes.policy_compliance import router as policy_compliance_router
@@ -42,6 +43,7 @@ from app.api.routes.sizing import router as sizing_router
 from app.api.routes.tagging import router as tagging_router
 from app.api.routes.terraform import router as terraform_router
 from app.api.routes.users import router as users_router
+from app.api.routes.version_pinning import router as version_pinning_router
 from app.api.routes.workloads import router as workloads_router
 from app.config import settings
 from app.db.seed import seed_database
@@ -151,6 +153,8 @@ app.include_router(sizing_router)
 app.include_router(content_safety_router)
 app.include_router(iac_validation_router)
 app.include_router(terraform_router)
+app.include_router(version_pinning_router)
+app.include_router(pipelines_router)
 
 
 @app.get("/health")
