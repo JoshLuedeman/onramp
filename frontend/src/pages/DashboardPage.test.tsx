@@ -168,30 +168,33 @@ describe("DashboardPage", () => {
     const newProjectBtn = screen.getByRole("button", { name: /new project/i });
     await user.click(newProjectBtn);
 
-    // Dialog may render in a portal — search across the entire document
+    // Dialog renders in a Fluent portal — wait for the name input
+    const doc = baseElement.ownerDocument;
+    let input: HTMLInputElement | null = null;
     await waitFor(() => {
-      const input = baseElement.ownerDocument.querySelector(
+      input = doc.querySelector(
         'input[placeholder="My Landing Zone"]'
-      );
+      ) as HTMLInputElement;
       expect(input).toBeTruthy();
     });
 
-    const input = baseElement.ownerDocument.querySelector(
-      'input[placeholder="My Landing Zone"]'
-    ) as HTMLInputElement;
-    await user.clear(input);
-    await user.click(input);
-    await user.keyboard("New LZ");
+    // Type into the controlled input and wait for React state to propagate
+    await user.type(input!, "New LZ");
 
-    // Find the Create button across the whole document
-    const allButtons = Array.from(
-      baseElement.ownerDocument.querySelectorAll("button")
-    );
+    // Wait for the Create button to become enabled (disabled while name is empty)
+    await waitFor(() => {
+      const allButtons = Array.from(doc.querySelectorAll("button"));
+      const createBtn = allButtons.find(
+        (b) => b.textContent === "Create" && !b.hasAttribute("disabled")
+      );
+      expect(createBtn).toBeTruthy();
+    });
+
+    const allButtons = Array.from(doc.querySelectorAll("button"));
     const createBtn = allButtons.find(
-      (b) => b.textContent === "Create"
-    );
-    expect(createBtn).toBeTruthy();
-    await user.click(createBtn!);
+      (b) => b.textContent === "Create" && !b.hasAttribute("disabled")
+    )!;
+    await user.click(createBtn);
 
     await waitFor(() => {
       expect(mockedApi.projects.create).toHaveBeenCalled();

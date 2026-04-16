@@ -19,6 +19,7 @@ const WorkloadsPage = lazy(() => import("./pages/WorkloadsPage"));
 const MigrationPage = lazy(() => import("./pages/MigrationPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const GovernancePage = lazy(() => import("./pages/GovernancePage"));
+const ChatPage = lazy(() => import("./pages/ChatPage"));
 
 function App() {
   return (
@@ -77,6 +78,12 @@ function App() {
                   <Route path="/governance" element={<GovernancePage />} />
                   <Route path="/projects/:projectId/governance" element={
                     <ProjectProvider><GovernancePage /></ProjectProvider>
+                  } />
+
+                  {/* Chat */}
+                  <Route path="/chat" element={<ChatPage />} />
+                  <Route path="/projects/:projectId/chat" element={
+                    <ProjectProvider><ChatPage /></ProjectProvider>
                   } />
                 </Routes>
               </Suspense>

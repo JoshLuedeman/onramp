@@ -24,7 +24,7 @@ async def test_migrations_run_cleanly():
         result = await conn.execute(text("SELECT version_num FROM alembic_version"))
         versions = [row[0] for row in result]
         assert len(versions) >= 1, "Expected at least one alembic version"
-        assert "14ff8537f1ee" in versions, f"Expected merge head in {versions}"
+        assert "aa1cfc956e67" in versions, f"Expected merge head in {versions}"
 
     await engine.dispose()
 

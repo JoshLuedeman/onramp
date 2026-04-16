@@ -17,10 +17,11 @@ import {
   TableCell,
 } from "@fluentui/react-components";
 import { ArrowDownloadRegular, DocumentRegular, CalculatorRegular } from "@fluentui/react-icons";
-import type { Architecture, CostEstimation } from "../services/api";
+import type { Architecture, ComparisonResult, CostEstimation } from "../services/api";
 import { api } from "../services/api";
 import ArchitectureDiagram from "../components/visualizer/ArchitectureDiagram";
 import ArchitectureChat from "../components/visualizer/ArchitectureChat";
+import ArchitectureCompare from "../components/visualizer/ArchitectureCompare";
 import ADRPanel from "../components/visualizer/ADRPanel";
 import { exportArchitectureJson, exportDesignDocument } from "../utils/exportUtils";
 
@@ -79,6 +80,8 @@ export default function ArchitecturePage() {
   const [costEstimation, setCostEstimation] = useState<CostEstimation | null>(null);
   const [costLoading, setCostLoading] = useState(false);
   const [costError, setCostError] = useState<string | null>(null);
+  const [comparison, setComparison] = useState<ComparisonResult | null>(null);
+  const [compareLoading, setCompareLoading] = useState(false);
 
   useEffect(() => {
     // Load architecture: from API for project-scoped, from sessionStorage for legacy
@@ -127,6 +130,20 @@ export default function ArchitecturePage() {
       setCostError(e instanceof Error ? e.message : "Failed to estimate costs");
     } finally {
       setCostLoading(false);
+    }
+  };
+
+  const handleCompare = async () => {
+    setCompareLoading(true);
+    try {
+      const result = await api.architecture.compare(
+        answers as Record<string, string>,
+      );
+      setComparison(result);
+    } catch {
+      // Silently handle — comparison is optional
+    } finally {
+      setCompareLoading(false);
     }
   };
 
@@ -299,6 +316,14 @@ export default function ArchitecturePage() {
         </Button>
         <Button
           appearance="secondary"
+          size="large"
+          onClick={handleCompare}
+          disabled={compareLoading}
+        >
+          {compareLoading ? "Comparing…" : "Compare Architectures"}
+        </Button>
+        <Button
+          appearance="secondary"
           icon={<ArrowDownloadRegular />}
           size="large"
           onClick={() => exportArchitectureJson(architecture as Record<string, unknown>)}
@@ -314,6 +339,21 @@ export default function ArchitecturePage() {
           Export Design Document
         </Button>
       </div>
+
+      {(comparison || compareLoading) && (
+        <ArchitectureCompare
+          comparison={comparison}
+          loading={compareLoading}
+          onSelectVariant={(variant) => {
+            setArchitecture(variant.architecture as Architecture);
+            sessionStorage.setItem(
+              "onramp_architecture",
+              JSON.stringify(variant.architecture),
+            );
+            setComparison(null);
+          }}
+        />
+      )}
 
       <ArchitectureChat
         architecture={architecture}

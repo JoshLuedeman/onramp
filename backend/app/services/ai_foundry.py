@@ -161,11 +161,32 @@ class AIFoundryClient:
         )
 
         try:
-            return json.loads(response)
+            data = json.loads(response)
         except json.JSONDecodeError:
             logger.warning("AI response was not valid JSON, using archetype fallback")
             from app.services.archetypes import get_archetype_for_answers
             return get_archetype_for_answers(answers)
+
+        # Validate parsed output — warn but never block
+        try:
+            from app.services.ai_validator import ai_validator
+
+            result = ai_validator.validate_architecture(data)
+            if not result.success:
+                logger.warning(
+                    "AI architecture output failed validation: %s",
+                    [e.message for e in result.errors],
+                )
+                data["validation_warnings"] = [e.message for e in result.errors]
+            elif result.warnings:
+                logger.info(
+                    "AI architecture output has warnings: %s", result.warnings,
+                )
+                data["validation_warnings"] = result.warnings
+        except Exception as exc:  # pragma: no cover — defensive
+            logger.warning("AI validation could not run: %s", exc)
+
+        return data
 
     async def evaluate_compliance(self, architecture: dict, frameworks: list[str]) -> dict:
         """Evaluate architecture compliance using AI."""

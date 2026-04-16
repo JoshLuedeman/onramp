@@ -4,10 +4,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.adr import router as adr_router
+from app.api.routes.ai_eval import router as ai_eval_router
+from app.api.routes.ai_quality import router as ai_quality_router
+from app.api.routes.ai_validation import router as ai_validation_router
 from app.api.routes.approvals import router as approvals_router
 from app.api.routes.architecture import router as architecture_router
 from app.api.routes.bicep import router as bicep_router
+from app.api.routes.chat import router as chat_router
 from app.api.routes.compliance import router as compliance_router
+from app.api.routes.content_safety import router as content_safety_router
 from app.api.routes.cost import router as cost_router
 from app.api.routes.deployment import router as deployment_router
 from app.api.routes.discovery import router as discovery_router
@@ -20,13 +25,17 @@ from app.api.routes.governance_tasks import router as governance_tasks_router
 from app.api.routes.migration import router as migration_router
 from app.api.routes.notifications import router as notifications_router
 from app.api.routes.plugins import router as plugins_router
+from app.api.routes.policies import router as policies_router
 from app.api.routes.policy_compliance import router as policy_compliance_router
 from app.api.routes.projects import router as projects_router
 from app.api.routes.questionnaire import router as questionnaire_router
 from app.api.routes.questionnaire_state import router as questionnaire_state_router
 from app.api.routes.rbac_health import router as rbac_health_router
+from app.api.routes.regulatory import router as regulatory_router
 from app.api.routes.scan_operations import router as scan_operations_router
 from app.api.routes.scoring import router as scoring_router
+from app.api.routes.security import router as security_router
+from app.api.routes.sizing import router as sizing_router
 from app.api.routes.tagging import router as tagging_router
 from app.api.routes.users import router as users_router
 from app.api.routes.workloads import router as workloads_router
@@ -119,12 +128,21 @@ app.include_router(drift_router)
 app.include_router(drift_notifications_router)
 app.include_router(rbac_health_router)
 app.include_router(cost_router)
+app.include_router(policies_router)
 app.include_router(policy_compliance_router)
 app.include_router(tagging_router)
 app.include_router(governance_scorecard_router)
 app.include_router(approvals_router)
 app.include_router(governance_audit_router)
 app.include_router(scan_operations_router)
+app.include_router(ai_quality_router)
+app.include_router(ai_eval_router)
+app.include_router(ai_validation_router)
+app.include_router(chat_router)
+app.include_router(regulatory_router)
+app.include_router(security_router)
+app.include_router(sizing_router)
+app.include_router(content_safety_router)
 
 
 @app.get("/health")
