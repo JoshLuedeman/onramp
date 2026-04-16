@@ -346,6 +346,35 @@ export const api = {
     get: (name: string) =>
       fetchApi<PluginResponse>(`/api/plugins/${encodeURIComponent(name)}`),
   },
+
+  governance: {
+    drift: {
+      remediate: (data: RemediationRequest) =>
+        fetchApi<RemediationResponseType>("/api/governance/drift/remediate", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      remediateBatch: (data: BatchRemediationRequest) =>
+        fetchApi<BatchRemediationResponseType>("/api/governance/drift/remediate/batch", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      getRemediation: (id: string) =>
+        fetchApi<RemediationResponseType>(`/api/governance/drift/remediation/${id}`),
+      getRemediationHistory: () =>
+        fetchApi<RemediationAuditLogType>("/api/governance/drift/remediation/history"),
+    },
+    scorecard: {
+      getScorecard: (projectId: string) =>
+        fetchApi<GovernanceScoreResponse>(`/api/governance/scorecard/${projectId}`),
+      getScoreTrend: (projectId: string, days?: number) =>
+        fetchApi<ScoreTrendResponse>(`/api/governance/scorecard/${projectId}/trend${days ? `?days=${days}` : ""}`),
+      refreshScore: (projectId: string) =>
+        fetchApi<GovernanceScoreResponse>(`/api/governance/scorecard/${projectId}/refresh`, { method: "POST" }),
+      getSummary: (projectId: string) =>
+        fetchApi<ExecutiveSummaryResponse>(`/api/governance/scorecard/${projectId}/summary`),
+    },
+  },
 };
 
 export interface Category {
@@ -705,4 +734,94 @@ export interface PluginResponse {
 export interface PluginListResponse {
   plugins: PluginResponse[];
   total: number;
+}
+
+// ── Drift remediation types ───────────────────────────────────────────────
+
+export interface RemediationRequest {
+  finding_id: string;
+  action: "accept" | "revert" | "suppress";
+  justification?: string;
+  expiration_days?: number;
+}
+
+export interface BatchRemediationRequest {
+  finding_ids: string[];
+  action: "accept" | "revert" | "suppress";
+  justification?: string;
+  expiration_days?: number;
+}
+
+export interface RemediationResponseType {
+  id: string;
+  finding_id: string;
+  action: string;
+  status: string;
+  result_details: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface BatchRemediationResponseType {
+  results: RemediationResponseType[];
+  total: number;
+  succeeded: number;
+  failed: number;
+}
+
+export interface RemediationAuditEntry {
+  id: string;
+  actor: string;
+  action: string;
+  finding_id: string;
+  justification: string | null;
+  timestamp: string;
+}
+
+export interface RemediationAuditLogType {
+  entries: RemediationAuditEntry[];
+  total: number;
+}
+
+export interface DriftFinding {
+  id: string;
+  resource_type: string;
+  resource_id: string;
+  drift_type: string;
+  expected_value: Record<string, unknown> | null;
+  actual_value: Record<string, unknown> | null;
+  severity: "critical" | "high" | "medium" | "low";
+  detected_at: string;
+  resolved_at: string | null;
+  resolution_type: string | null;
+}
+
+// ── Governance scorecard types ────────────────────────────────────────────
+
+export interface CategoryScore {
+  name: string;
+  score: number;
+  status: "healthy" | "warning" | "critical";
+  finding_count: number;
+}
+
+export interface GovernanceScoreResponse {
+  overall_score: number;
+  categories: CategoryScore[];
+  executive_summary: string;
+  last_updated: string | null;
+}
+
+export interface ScoreTrendPoint {
+  timestamp: string;
+  overall_score: number;
+  category_scores: Record<string, number>;
+}
+
+export interface ScoreTrendResponse {
+  project_id: string;
+  data_points: ScoreTrendPoint[];
+}
+
+export interface ExecutiveSummaryResponse {
+  executive_summary: string;
 }
