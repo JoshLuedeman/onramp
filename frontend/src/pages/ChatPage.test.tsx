@@ -21,7 +21,7 @@ vi.mock("../services/api", () => ({
 
 import { api } from "../services/api";
 
-const mockApi = api as {
+const mockApi = api as unknown as {
   chat: {
     createConversation: ReturnType<typeof vi.fn>;
     getConversations: ReturnType<typeof vi.fn>;

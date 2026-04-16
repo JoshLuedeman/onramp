@@ -115,7 +115,8 @@ const useStyles = makeStyles({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     clip: "rect(0, 0, 0, 0)" as any,
     whiteSpace: "nowrap",
-    borderWidth: "0",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    borderWidth: "0" as any,
   },
 });
 

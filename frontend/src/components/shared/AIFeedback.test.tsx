@@ -167,7 +167,7 @@ describe("AIFeedback", () => {
 
     await user.click(screen.getByRole("button", { name: /thumbs up/i }));
 
-    const payload = onFeedback.mock.calls[0][0] as FeedbackPayload;
+    const payload = (onFeedback as ReturnType<typeof vi.fn>).mock.calls[0][0] as FeedbackPayload;
     expect(payload.feature).toBe("bicep_generation");
     expect(payload.outputId).toBe("bicep-456");
   });

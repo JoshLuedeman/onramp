@@ -143,8 +143,8 @@ export default function PolicyCreator() {
   );
 
   const handleTabSelect = useCallback(
-    (_: unknown, data: { value: string }) => {
-      setActiveTab(data.value);
+    (_: unknown, data: { value: unknown }) => {
+      setActiveTab(data.value as string);
       if (data.value === "library") {
         handleLoadLibrary();
       }
