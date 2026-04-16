@@ -1,0 +1,59 @@
+name: Architecture Pattern
+description: Propose a new architecture pattern or landing zone template
+title: "[PATTERN] "
+labels: ["architecture", "enhancement"]
+body:
+  - type: input
+    id: pattern-name
+    attributes:
+      label: Pattern Name
+      description: A short, descriptive name for this architecture pattern
+      placeholder: "Hub-Spoke with Shared Services"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the architecture pattern and its use cases
+    validations:
+      required: true
+
+  - type: dropdown
+    id: organization-size
+    attributes:
+      label: Target Organization Size
+      description: What size organization is this pattern designed for?
+      options:
+        - Small (1-50 employees)
+        - Medium (51-500 employees)
+        - Large (501-5000 employees)
+        - Enterprise (5000+ employees)
+    validations:
+      required: true
+
+  - type: textarea
+    id: azure-services
+    attributes:
+      label: Azure Services Used
+      description: List the Azure services this pattern requires
+      placeholder: |
+        - Azure Virtual Network
+        - Azure Firewall
+        - Azure Key Vault
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: compliance-frameworks
+    attributes:
+      label: Compliance Frameworks
+      description: Which compliance frameworks does this pattern support?
+      options:
+        - label: SOC 2
+        - label: HIPAA
+        - label: PCI-DSS
+        - label: FedRAMP
+        - label: NIST 800-53
+        - label: ISO 27001
