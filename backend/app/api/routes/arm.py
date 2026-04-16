@@ -4,7 +4,7 @@ import io
 import logging
 import zipfile
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
 from app.auth import get_current_user
@@ -80,5 +80,9 @@ async def validate_arm(
     user: dict = Depends(get_current_user),
 ):
     """Validate an ARM template structure."""
-    result = arm_generator.validate_template(request.template)
-    return result
+    try:
+        result = arm_generator.validate_template(request.template)
+        return result
+    except Exception:
+        logger.exception("ARM template validation failed")
+        raise HTTPException(status_code=500, detail="Internal server error")
