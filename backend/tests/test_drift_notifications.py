@@ -656,7 +656,9 @@ class TestGetRuleRoute:
 
     def test_get_rule_error_message(self):
         resp = client.get("/api/governance/drift/notification-rules/fake-id")
-        assert "not configured" in resp.json()["detail"].lower() or "not found" in resp.json()["detail"].lower()
+        data = resp.json()
+        msg = data.get("error", {}).get("message", "") or data.get("detail", "")
+        assert "not configured" in msg.lower() or "not found" in msg.lower()
 
 
 class TestUpdateRuleRoute:

@@ -590,3 +590,289 @@ describe("api.versions", () => {
     );
   });
 });
+
+describe("api.architectureVersions", () => {
+  it("list calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ versions: [], total: 0 }),
+    }));
+    await api.architectureVersions.list("arch-1");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/architectures/arch-1/versions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("get calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ version_number: 1 }),
+    }));
+    await api.architectureVersions.get("arch-1", 1);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/architectures/arch-1/versions/1",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("restore sends POST", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ version_number: 2 }),
+    }));
+    await api.architectureVersions.restore("arch-1", 1);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/architectures/arch-1/versions/1/restore",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("diff calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ changes: [] }),
+    }));
+    await api.architectureVersions.diff("arch-1", 1, 2);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/architectures/arch-1/versions/diff?from=1&to=2",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});
+
+describe("api.collaboration", () => {
+  it("listMembers calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ members: [], total: 0 }),
+    }));
+    await api.collaboration.listMembers("proj-1");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/projects/proj-1/members",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("addMember sends POST", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ id: "m-1" }),
+    }));
+    await api.collaboration.addMember("proj-1", { email: "a@b.com", role: "editor" });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/projects/proj-1/members",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("removeMember sends DELETE", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({}),
+    }));
+    await api.collaboration.removeMember("proj-1", "user-1");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/projects/proj-1/members/user-1",
+      expect.objectContaining({ method: "DELETE" })
+    );
+  });
+
+  it("listComments calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [], total: 0 }),
+    }));
+    await api.collaboration.listComments("proj-1");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/projects/proj-1/comments",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("addComment sends POST", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ id: "c-1" }),
+    }));
+    await api.collaboration.addComment("proj-1", { content: "Nice!" });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/projects/proj-1/comments",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("getActivity calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ activities: [] }),
+    }));
+    await api.collaboration.getActivity("proj-1");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/projects/proj-1/activity",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});
+
+describe("api.reviews", () => {
+  it("submit sends POST", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ status: "in_review" }),
+    }));
+    await api.reviews.submit("arch-1");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/architectures/arch-1/reviews/submit",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("getHistory calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ reviews: [] }),
+    }));
+    await api.reviews.getHistory("arch-1");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/architectures/arch-1/reviews",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getStatus calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ status: "draft" }),
+    }));
+    await api.reviews.getStatus("arch-1");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/architectures/arch-1/reviews/status",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("perform sends POST with action", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ id: "r-1" }),
+    }));
+    await api.reviews.perform("arch-1", { action: "approved" });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/architectures/arch-1/reviews",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("withdraw sends POST", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ status: "draft" }),
+    }));
+    await api.reviews.withdraw("arch-1");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/architectures/arch-1/reviews/withdraw",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+});
+
+describe("api.msp", () => {
+  it("getOverview calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ tenants: [], total_tenants: 0 }),
+    }));
+    await api.msp.getOverview();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/msp/overview",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getTenantHealth calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ tenant_id: "t-1" }),
+    }));
+    await api.msp.getTenantHealth("t-1");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/msp/tenants/t-1/health",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getComplianceSummary calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ total_tenants: 0 }),
+    }));
+    await api.msp.getComplianceSummary();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/msp/compliance-summary",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});
+
+describe("api.templates", () => {
+  it("list calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ templates: [], total: 0 }),
+    }));
+    await api.templates.list();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/templates",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("get calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ id: "t-1", name: "Test" }),
+    }));
+    await api.templates.get("t-1");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/templates/t-1",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("create sends POST", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ id: "t-1" }),
+    }));
+    await api.templates.create({ name: "Test", industry: "general", architecture_json: "{}" });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/templates",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("use sends POST", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ success: true }),
+    }));
+    await api.templates.use("t-1", "proj-1");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/templates/t-1/use",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("rate sends POST", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ rating_up: 1 }),
+    }));
+    await api.templates.rate("t-1", "up");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/templates/t-1/rate",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+});

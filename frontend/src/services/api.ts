@@ -2,6 +2,91 @@ import type { Project, ProjectCreate, ProjectUpdate, ProjectStats } from "../typ
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "";
 
+// ── Structured Error Handling ───────────────────────────────────────────
+
+/** Matches the backend's ErrorDetail schema. */
+export interface ApiErrorDetail {
+  code: string;
+  message: string;
+  type: string;
+  details?: Record<string, unknown>[];
+  request_id?: string;
+}
+
+/** Matches the backend's ErrorResponse schema. */
+export interface ApiErrorResponse {
+  error: ApiErrorDetail;
+}
+
+/**
+ * Custom error class thrown by API helpers.
+ *
+ * Attempts to parse the backend's structured error format first.  Falls
+ * back to the legacy `{ detail: ... }` shape and finally to raw status
+ * text so callers always get a usable `.message`.
+ */
+export class ApiError extends Error {
+  status: number;
+  statusText: string;
+  code: string;
+  errorType: string;
+  details?: Record<string, unknown>[];
+  requestId?: string;
+
+  constructor(
+    status: number,
+    statusText: string,
+    body?: ApiErrorResponse | { detail?: string } | string,
+  ) {
+    // Derive a human-readable message from whatever the server returned.
+    let message = `API error: ${status} ${statusText}`;
+    let code = "UNKNOWN";
+    let errorType = "unknown";
+    let details: Record<string, unknown>[] | undefined;
+    let requestId: string | undefined;
+
+    if (body && typeof body === "object" && "error" in body) {
+      // New structured format
+      const structured = body as ApiErrorResponse;
+      message = structured.error.message;
+      code = structured.error.code;
+      errorType = structured.error.type;
+      details = structured.error.details;
+      requestId = structured.error.request_id;
+    } else if (body && typeof body === "object" && "detail" in body) {
+      // Legacy FastAPI format
+      const legacy = body as { detail?: string };
+      message = legacy.detail ?? message;
+    } else if (typeof body === "string" && body.length > 0) {
+      message = body;
+    }
+
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.statusText = statusText;
+    this.code = code;
+    this.errorType = errorType;
+    this.details = details;
+    this.requestId = requestId;
+  }
+}
+
+/** Try to parse the response body into a structured or legacy error object. */
+async function parseErrorBody(
+  response: Response,
+): Promise<ApiErrorResponse | { detail?: string } | string> {
+  try {
+    return (await response.json()) as ApiErrorResponse | { detail?: string };
+  } catch {
+    try {
+      return await response.text();
+    } catch {
+      return "";
+    }
+  }
+}
+
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     headers: {
@@ -11,7 +96,8 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   });
   if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`);
+    const body = await parseErrorBody(response);
+    throw new ApiError(response.status, response.statusText, body);
   }
   return response.json();
 }
@@ -25,7 +111,8 @@ async function fetchBlob(path: string, options?: RequestInit): Promise<Blob> {
     ...options,
   });
   if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`);
+    const body = await parseErrorBody(response);
+    throw new ApiError(response.status, response.statusText, body);
   }
   return response.blob();
 }
@@ -74,10 +161,25 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ answers, use_ai: useAi, ...options }),
       }),
-    refine: (architecture: Record<string, unknown>, message: string) =>
+    refine: (
+      architecture: Record<string, unknown>,
+      message: string,
+      options?: { architecture_id?: string; version?: number },
+    ) =>
       fetchApi<{ response: string; updated_architecture: Record<string, unknown> | null }>(
         "/api/architecture/refine",
-        { method: "POST", body: JSON.stringify({ architecture, message }) }
+        {
+          method: "POST",
+          body: JSON.stringify({
+            architecture,
+            message,
+            architecture_id: options?.architecture_id,
+            version: options?.version,
+          }),
+          headers: options?.version
+            ? { "If-Match": String(options.version) }
+            : undefined,
+        }
       ),
     estimateCosts: (architecture: Record<string, unknown>) =>
       fetchApi<CostEstimation>(
@@ -114,6 +216,24 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ answers, options }),
       }),
+    update: (
+      projectId: string,
+      architectureId: string,
+      architectureData: Record<string, unknown>,
+      version: number,
+    ) =>
+      fetchApi<{ architecture: Record<string, unknown>; project_id: string; version: number }>(
+        `/api/architecture/project/${projectId}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            architecture_data: architectureData,
+            architecture_id: architectureId,
+            version,
+          }),
+          headers: { "If-Match": String(version) },
+        },
+      ),
   },
   compliance: {
     getFrameworks: () => fetchApi<{ frameworks: Framework[] }>("/api/compliance/frameworks"),
@@ -384,14 +504,8 @@ export const api = {
       form.append("file", file);
       const res = await fetch(`${API_BASE}/api/workloads/import?project_id=${encodeURIComponent(projectId)}`, { method: "POST", body: form });
       if (!res.ok) {
-        let detail: string;
-        try {
-          const json = await res.json() as { detail?: string };
-          detail = json.detail || JSON.stringify(json);
-        } catch {
-          detail = await res.text();
-        }
-        throw new Error(detail || "Import failed");
+        const body = await parseErrorBody(res);
+        throw new ApiError(res.status, res.statusText, body);
       }
       return res.json() as Promise<WorkloadImportResult>;
     },
@@ -627,6 +741,138 @@ export const api = {
           ? `/api/versions/report?threshold_days=${thresholdDays}`
           : "/api/versions/report",
       ),
+  },
+  architectureVersions: {
+    list: (archId: string) =>
+      fetchApi<VersionListResponse>(`/api/architectures/${archId}/versions`),
+    get: (archId: string, version: number) =>
+      fetchApi<ArchitectureVersionItem>(
+        `/api/architectures/${archId}/versions/${version}`,
+      ),
+    restore: (archId: string, version: number, summary?: string) =>
+      fetchApi<ArchitectureVersionItem>(
+        `/api/architectures/${archId}/versions/${version}/restore`,
+        {
+          method: "POST",
+          body: summary !== undefined ? JSON.stringify({ change_summary: summary }) : undefined,
+        },
+      ),
+    diff: (archId: string, from: number, to: number) =>
+      fetchApi<EnhancedVersionDiffResult>(
+        `/api/architectures/${archId}/versions/diff?from=${from}&to=${to}`,
+      ),
+  },
+
+  collaboration: {
+    listMembers: (projectId: string) =>
+      fetchApi<ProjectMemberListResponse>(
+        `/api/projects/${projectId}/members`,
+      ),
+    addMember: (projectId: string, data: ProjectMemberCreateRequest) =>
+      fetchApi<ProjectMemberResponse>(
+        `/api/projects/${projectId}/members`,
+        { method: "POST", body: JSON.stringify(data) },
+      ),
+    removeMember: (projectId: string, userId: string) =>
+      fetchApi<{ removed: boolean; user_id: string }>(
+        `/api/projects/${projectId}/members/${userId}`,
+        { method: "DELETE" },
+      ),
+    listComments: (projectId: string, componentRef?: string) =>
+      fetchApi<CommentListResponse>(
+        `/api/projects/${projectId}/comments${
+          componentRef
+            ? `?component_ref=${encodeURIComponent(componentRef)}`
+            : ""
+        }`,
+      ),
+    addComment: (projectId: string, data: CommentCreateRequest) =>
+      fetchApi<CommentResponseItem>(
+        `/api/projects/${projectId}/comments`,
+        { method: "POST", body: JSON.stringify(data) },
+      ),
+    getActivity: (projectId: string) =>
+      fetchApi<ActivityFeedResponse>(
+        `/api/projects/${projectId}/activity`,
+      ),
+  },
+
+  reviews: {
+    submit: (architectureId: string) =>
+      fetchApi<ReviewSubmitResponse>(
+        `/api/architectures/${architectureId}/reviews/submit`,
+        { method: "POST" },
+      ),
+    perform: (architectureId: string, data: ReviewActionRequest) =>
+      fetchApi<ReviewResponseItem>(
+        `/api/architectures/${architectureId}/reviews`,
+        { method: "POST", body: JSON.stringify(data) },
+      ),
+    getHistory: (architectureId: string) =>
+      fetchApi<ReviewHistoryResponse>(
+        `/api/architectures/${architectureId}/reviews`,
+      ),
+    getStatus: (architectureId: string) =>
+      fetchApi<ReviewStatusResponse>(
+        `/api/architectures/${architectureId}/reviews/status`,
+      ),
+    withdraw: (architectureId: string) =>
+      fetchApi<ReviewSubmitResponse>(
+        `/api/architectures/${architectureId}/reviews/withdraw`,
+        { method: "POST" },
+      ),
+    configureRequirements: (
+      projectId: string,
+      data: { required_approvals: number },
+    ) =>
+      fetchApi<ReviewConfigurationResponse>(
+        `/api/projects/${projectId}/review-config`,
+        { method: "PUT", body: JSON.stringify(data) },
+      ),
+  },
+  msp: {
+    getOverview: () =>
+      fetchApi<MSPOverviewResponse>("/api/msp/overview"),
+    getTenantHealth: (tenantId: string) =>
+      fetchApi<MSPTenantHealthResponse>(
+        `/api/msp/tenants/${tenantId}/health`,
+      ),
+    getComplianceSummary: () =>
+      fetchApi<MSPComplianceSummaryResponse>(
+        "/api/msp/compliance-summary",
+      ),
+  },
+  templates: {
+    list: (params?: Record<string, string>) => {
+      const qs = params
+        ? "?" + new URLSearchParams(params).toString()
+        : "";
+      return fetchApi<TemplateListResponse>(`/api/templates${qs}`);
+    },
+    get: (id: string) =>
+      fetchApi<TemplateItem>(`/api/templates/${id}`),
+    create: (data: {
+      name: string;
+      description?: string;
+      industry: string;
+      tags?: string[];
+      architecture_json: string;
+      visibility?: string;
+    }) =>
+      fetchApi<TemplateItem>("/api/templates", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    use: (id: string, projectId: string) =>
+      fetchApi<TemplateItem>(`/api/templates/${id}/use`, {
+        method: "POST",
+        body: JSON.stringify({ project_id: projectId }),
+      }),
+    rate: (id: string, rating: "up" | "down") =>
+      fetchApi<TemplateItem>(`/api/templates/${id}/rate`, {
+        method: "POST",
+        body: JSON.stringify({ rating }),
+      }),
   },
 };
 
@@ -1222,4 +1468,253 @@ export interface PipelineGenerateResponse {
   iac_format: string;
   pipeline_format: string;
   environments: string[];
+}
+
+// ── Architecture Version types ──────────────────────────────────────────
+
+export interface ArchitectureVersionItem {
+  id: string;
+  version_number: number;
+  architecture_json: string;
+  change_summary: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface VersionListResponse {
+  versions: ArchitectureVersionItem[];
+  total: number;
+}
+
+export interface ComponentChange {
+  name: string;
+  detail: string;
+}
+
+export interface VersionDiffResult {
+  from_version: number;
+  to_version: number;
+  added_components: ComponentChange[];
+  removed_components: ComponentChange[];
+  modified_components: ComponentChange[];
+  summary: string;
+}
+
+// ── Enhanced Diff types ─────────────────────────────────────────────────
+
+export interface PropertyDiff {
+  property_name: string;
+  old_value: unknown;
+  new_value: unknown;
+  change_type: "added" | "removed" | "modified";
+}
+
+export interface EnhancedComponentChange {
+  name: string;
+  detail: string;
+  category: string;
+  property_diffs: PropertyDiff[];
+}
+
+export interface CategoryGroup {
+  category: string;
+  display_name: string;
+  added: EnhancedComponentChange[];
+  removed: EnhancedComponentChange[];
+  modified: EnhancedComponentChange[];
+}
+
+export interface EnhancedVersionDiffResult {
+  from_version: number;
+  to_version: number;
+  added_components: EnhancedComponentChange[];
+  removed_components: EnhancedComponentChange[];
+  modified_components: EnhancedComponentChange[];
+  summary: string;
+  change_counts: Record<string, number>;
+  category_groups: CategoryGroup[];
+}
+
+// ── Conflict types ──────────────────────────────────────────────────────
+
+export interface ConflictResponse {
+  current_version: number;
+  submitted_version: number;
+  current_data: Record<string, unknown>;
+  message: string;
+}
+
+// ── Collaboration types ─────────────────────────────────────────────────
+
+export interface ProjectMemberCreateRequest {
+  email: string;
+  role?: "owner" | "editor" | "viewer";
+}
+
+export interface ProjectMemberResponse {
+  id: string;
+  user_id: string;
+  email: string;
+  display_name: string;
+  role: string;
+  invited_at: string;
+  accepted_at: string | null;
+}
+
+export interface ProjectMemberListResponse {
+  members: ProjectMemberResponse[];
+  total: number;
+}
+
+export interface CommentCreateRequest {
+  content: string;
+  component_ref?: string;
+}
+
+export interface CommentResponseItem {
+  id: string;
+  content: string;
+  component_ref: string | null;
+  user_id: string;
+  display_name: string;
+  created_at: string;
+}
+
+export interface CommentListResponse {
+  comments: CommentResponseItem[];
+  total: number;
+}
+
+export interface ActivityEntryItem {
+  type: string;
+  user_id: string;
+  description: string;
+  timestamp: string;
+}
+
+export interface ActivityFeedResponse {
+  activities: ActivityEntryItem[];
+}
+
+// ── Architecture Review types ───────────────────────────────────────────
+
+export interface ReviewActionRequest {
+  action: "approved" | "changes_requested" | "rejected";
+  comments?: string;
+}
+
+export interface ReviewResponseItem {
+  id: string;
+  architecture_id: string;
+  reviewer_id: string;
+  action: string;
+  comments: string | null;
+  created_at: string;
+}
+
+export interface ReviewHistoryResponse {
+  reviews: ReviewResponseItem[];
+  current_status: string;
+  required_approvals: number;
+  approvals_received: number;
+}
+
+export interface ReviewStatusResponse {
+  status: string;
+  is_locked: boolean;
+  can_deploy: boolean;
+  approvals_needed: number;
+  approvals_received: number;
+}
+
+export interface ReviewSubmitResponse {
+  architecture_id: string;
+  status: string;
+  is_locked: boolean;
+}
+
+export interface ReviewConfigurationResponse {
+  id: string;
+  project_id: string;
+  required_approvals: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── MSP Dashboard types ─────────────────────────────────────────────
+
+export interface MSPTenantOverview {
+  tenant_id: string;
+  name: string;
+  status: string;
+  last_activity: string | null;
+  compliance_score: number;
+  project_count: number;
+  deployment_count: number;
+  active_deployments: number;
+}
+
+export interface MSPOverviewResponse {
+  tenants: MSPTenantOverview[];
+  total_tenants: number;
+  total_projects: number;
+  avg_compliance_score: number;
+}
+
+export interface MSPDeploymentSummary {
+  id: string;
+  project_name: string;
+  status: string;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface MSPTenantHealthResponse {
+  tenant_id: string;
+  name: string;
+  compliance_score: number;
+  compliance_status: string;
+  recent_deployments: MSPDeploymentSummary[];
+  active_alerts: number;
+  resource_count: number;
+}
+
+export interface MSPTenantComplianceScore {
+  tenant_id: string;
+  name: string;
+  score: number;
+  status: string;
+}
+
+export interface MSPComplianceSummaryResponse {
+  total_tenants: number;
+  passing: number;
+  warning: number;
+  failing: number;
+  scores_by_tenant: MSPTenantComplianceScore[];
+}
+
+// ── Template Marketplace Types ──────────────────────────────────────────
+
+export interface TemplateItem {
+  id: string;
+  name: string;
+  description: string | null;
+  industry: string;
+  tags: string[];
+  architecture_json: string | null;
+  author_tenant_id: string | null;
+  visibility: string;
+  download_count: number;
+  rating_up: number;
+  rating_down: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TemplateListResponse {
+  templates: TemplateItem[];
+  total: number;
+  page: number;
+  page_size: number;
 }
