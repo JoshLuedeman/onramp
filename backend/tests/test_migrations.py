@@ -19,11 +19,12 @@ async def test_migrations_run_cleanly():
     async with engine.begin() as conn:
         await conn.run_sync(_run_upgrade_head)
 
-    # Verify we can query alembic_version
+    # Verify we can query alembic_version (head revisions present)
     async with engine.connect() as conn:
         result = await conn.execute(text("SELECT version_num FROM alembic_version"))
         versions = [row[0] for row in result]
-        assert "010" in versions
+        assert len(versions) >= 1, "Expected at least one alembic version"
+        assert "013" in versions, f"Expected head revision '013' in {versions}"
 
     await engine.dispose()
 
