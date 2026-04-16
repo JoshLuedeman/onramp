@@ -161,6 +161,121 @@ export const api = {
         `/api/bicep/project/${projectId}`
       ),
   },
+  arm: {
+    generate: (
+      architecture: Record<string, unknown>,
+      options?: { use_ai?: boolean; project_id?: string },
+    ) =>
+      fetchApi<{ files: Array<{ name: string; content: string; size_bytes: number }>; total_files: number; ai_generated: boolean }>(
+        "/api/arm/generate",
+        {
+          method: "POST",
+          body: JSON.stringify({ architecture, ...options }),
+        },
+      ),
+    download: (architecture: Record<string, unknown>) =>
+      fetchBlob("/api/arm/download", {
+        method: "POST",
+        body: JSON.stringify({ architecture }),
+      }),
+    validate: (template: string) =>
+      fetchApi<{ valid: boolean; errors: string[]; warnings: string[] }>(
+        "/api/arm/validate",
+        {
+          method: "POST",
+          body: JSON.stringify({ template }),
+        },
+      ),
+  },
+  pulumi: {
+    templates: () =>
+      fetchApi<{ templates: PulumiTemplate[] }>("/api/pulumi/templates"),
+    generate: (
+      architecture: Record<string, unknown>,
+      options?: { language?: "typescript" | "python"; use_ai?: boolean; project_id?: string },
+    ) =>
+      fetchApi<{ files: PulumiFile[]; total_files: number; language: string; ai_generated: boolean }>(
+        "/api/pulumi/generate",
+        {
+          method: "POST",
+          body: JSON.stringify({ architecture, ...options }),
+        },
+      ),
+    download: (
+      architecture: Record<string, unknown>,
+      options?: { language?: "typescript" | "python"; use_ai?: boolean },
+    ) =>
+      fetchBlob("/api/pulumi/download", {
+        method: "POST",
+        body: JSON.stringify({ architecture, ...options }),
+      }),
+  },
+  terraform: {
+    templates: () =>
+      fetchApi<{ templates: Array<{ name: string; description: string; category: string }> }>(
+        "/api/terraform/templates",
+      ),
+    generate: (
+      architecture: Record<string, unknown>,
+      options?: { use_ai?: boolean; project_id?: string },
+    ) =>
+      fetchApi<{ files: Array<{ name: string; content: string; size_bytes: number }>; total_files: number; ai_generated: boolean }>(
+        "/api/terraform/generate",
+        {
+          method: "POST",
+          body: JSON.stringify({ architecture, ...options }),
+        },
+      ),
+    download: (architecture: Record<string, unknown>) =>
+      fetchBlob("/api/terraform/download", {
+        method: "POST",
+        body: JSON.stringify({ architecture }),
+      }),
+  },
+  pipelines: {
+    templates: () =>
+      fetchApi<{ templates: PipelineTemplate[] }>("/api/pipelines/templates"),
+    generate: (
+      architecture: Record<string, unknown>,
+      iacFormat: string,
+      options?: {
+        pipeline_format?: string;
+        environments?: string[];
+        include_approval_gates?: boolean;
+        project_name?: string;
+        service_connection?: string;
+        variable_group?: string;
+      },
+    ) =>
+      fetchApi<PipelineGenerateResponse>("/api/pipelines/generate", {
+        method: "POST",
+        body: JSON.stringify({
+          architecture,
+          iac_format: iacFormat,
+          ...options,
+        }),
+      }),
+    download: (
+      architecture: Record<string, unknown>,
+      iacFormat: string,
+      options?: {
+        pipeline_format?: string;
+        environments?: string[];
+        include_approval_gates?: boolean;
+        project_name?: string;
+        service_connection?: string;
+        variable_group?: string;
+      },
+    ) =>
+      fetchBlob("/api/pipelines/download", {
+        method: "POST",
+        body: JSON.stringify({
+          architecture,
+          iac_format: iacFormat,
+          ...options,
+        }),
+      }),
+  },
   deployment: {
     validate: (subscriptionId: string, region: string = "eastus2") =>
       fetchApi<DeploymentValidation>("/api/deployment/validate", {
@@ -444,6 +559,75 @@ export const api = {
     deleteConversation: (conversationId: string) =>
       fetchApi<void>(`/api/chat/${conversationId}`, { method: "DELETE" }),
   },
+
+  iacValidation: {
+    validate: (code: string, format: string, fileName?: string) =>
+      fetchApi<{
+        is_valid: boolean;
+        format: string;
+        errors: { line: number | null; column: number | null; message: string; severity: string }[];
+        warnings: { line: number | null; message: string }[];
+        file_name: string | null;
+      }>("/api/iac/validate", {
+        method: "POST",
+        body: JSON.stringify({ code, format, file_name: fileName }),
+      }),
+    validateBundle: (files: { code: string; file_name: string }[], format: string) =>
+      fetchApi<{
+        is_valid: boolean;
+        format: string;
+        file_results: {
+          is_valid: boolean;
+          format: string;
+          errors: { line: number | null; column: number | null; message: string; severity: string }[];
+          warnings: { line: number | null; message: string }[];
+          file_name: string | null;
+        }[];
+        bundle_errors: { line: number | null; column: number | null; message: string; severity: string }[];
+        bundle_warnings: { line: number | null; message: string }[];
+      }>("/api/iac/validate-bundle", {
+        method: "POST",
+        body: JSON.stringify({ files, format }),
+      }),
+  },
+
+  versions: {
+    terraform: () =>
+      fetchApi<{
+        terraform_version: string;
+        providers: { name: string; source: string; version_constraint: string; release_date: string; notes: string }[];
+      }>("/api/versions/terraform"),
+    pulumi: (language: "typescript" | "python") =>
+      fetchApi<{
+        language: string;
+        packages: { name: string; source: string; version_constraint: string; release_date: string; notes: string }[];
+      }>(`/api/versions/pulumi/${language}`),
+    arm: () =>
+      fetchApi<{
+        schema_version: string;
+        content_version: string;
+        api_versions: { resource_type: string; api_version: string; release_date: string; notes: string }[];
+      }>("/api/versions/arm"),
+    bicep: () =>
+      fetchApi<{
+        api_versions: { resource_type: string; api_version: string; release_date: string; notes: string }[];
+      }>("/api/versions/bicep"),
+    report: (thresholdDays?: number) =>
+      fetchApi<{
+        staleness_threshold_days: number;
+        terraform: { name: string; version: string; release_date: string; age_days: number; is_stale: boolean }[];
+        pulumi_typescript: { name: string; version: string; release_date: string; age_days: number; is_stale: boolean }[];
+        pulumi_python: { name: string; version: string; release_date: string; age_days: number; is_stale: boolean }[];
+        arm: { name: string; version: string; release_date: string; age_days: number; is_stale: boolean }[];
+        bicep: { name: string; version: string; release_date: string; age_days: number; is_stale: boolean }[];
+        total_entries: number;
+        stale_count: number;
+      }>(
+        thresholdDays
+          ? `/api/versions/report?threshold_days=${thresholdDays}`
+          : "/api/versions/report",
+      ),
+  },
 };
 
 export interface Category {
@@ -513,6 +697,18 @@ export interface BicepTemplate {
 export interface BicepFile {
   name: string;
   file_path: string;
+  content: string;
+  size_bytes: number;
+}
+
+export interface PulumiTemplate {
+  name: string;
+  description: string;
+  languages: string[];
+}
+
+export interface PulumiFile {
+  name: string;
   content: string;
   size_bytes: number;
 }
@@ -1002,4 +1198,28 @@ export interface ConversationWithMessages extends ConversationResponse {
 export interface SendMessageApiResponse {
   assistant_message: ConversationMessageItem;
   conversation: ConversationResponse;
+}
+
+// ── Pipeline types ──────────────────────────────────────────────────────
+
+export interface PipelineTemplate {
+  name: string;
+  description: string;
+  iac_format: string;
+  pipeline_format: string;
+}
+
+export interface PipelineFileItem {
+  name: string;
+  content: string;
+  size_bytes: number;
+  environment: string;
+}
+
+export interface PipelineGenerateResponse {
+  files: PipelineFileItem[];
+  total_files: number;
+  iac_format: string;
+  pipeline_format: string;
+  environments: string[];
 }

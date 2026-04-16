@@ -20,6 +20,7 @@ const MigrationPage = lazy(() => import("./pages/MigrationPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const GovernancePage = lazy(() => import("./pages/GovernancePage"));
 const ChatPage = lazy(() => import("./pages/ChatPage"));
+const OutputPage = lazy(() => import("./pages/OutputPage"));
 
 function App() {
   return (
@@ -84,6 +85,12 @@ function App() {
                   <Route path="/chat" element={<ChatPage />} />
                   <Route path="/projects/:projectId/chat" element={
                     <ProjectProvider><ChatPage /></ProjectProvider>
+                  } />
+
+                  {/* Multi-format output */}
+                  <Route path="/output" element={<OutputPage />} />
+                  <Route path="/projects/:projectId/output" element={
+                    <ProjectProvider><OutputPage /></ProjectProvider>
                   } />
                 </Routes>
               </Suspense>

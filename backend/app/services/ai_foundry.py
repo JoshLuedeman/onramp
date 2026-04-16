@@ -226,6 +226,15 @@ class AIFoundryClient:
             BICEP_GENERATION_PROMPT, user_prompt, temperature=0.1, max_tokens=8192
         )
 
+    async def generate_terraform(self, architecture: dict) -> str:
+        """Generate Terraform HCL configurations using AI."""
+        from app.services.prompts import TERRAFORM_GENERATION_PROMPT
+
+        user_prompt = json.dumps(architecture, indent=2)
+        return self.generate_completion(
+            TERRAFORM_GENERATION_PROMPT, user_prompt, temperature=0.1, max_tokens=8192
+        )
+
     def _mock_completion(self, system_prompt: str, user_prompt: str) -> str:
         """Return mock responses for development mode."""
         prompt_lower = system_prompt.lower()
@@ -424,6 +433,115 @@ class AIFoundryClient:
                     "30 privileged users requiring Entra ID P2 licenses",
                     "Standard redundancy for all storage resources",
                 ],
+            })
+        if "terraform" in prompt_lower:
+            return json.dumps({
+                "main.tf": (
+                    '# OnRamp Generated Terraform Configuration\n\n'
+                    'locals {\n'
+                    '  tags = {\n'
+                    '    managed_by   = "OnRamp"\n'
+                    '    environment  = var.environment\n'
+                    '  }\n'
+                    '}\n\n'
+                    'resource "azurerm_resource_group" "platform" {\n'
+                    '  name     = "rg-platform-${var.environment}"\n'
+                    '  location = var.location\n'
+                    '  tags     = local.tags\n'
+                    '}\n\n'
+                    'resource "azurerm_resource_group" "networking" {\n'
+                    '  name     = "rg-networking-${var.environment}"\n'
+                    '  location = var.location\n'
+                    '  tags     = local.tags\n'
+                    '}\n\n'
+                    'resource "azurerm_resource_group" "security" {\n'
+                    '  name     = "rg-security-${var.environment}"\n'
+                    '  location = var.location\n'
+                    '  tags     = local.tags\n'
+                    '}\n\n'
+                    'resource "azurerm_virtual_network" "hub" {\n'
+                    '  name                = "vnet-hub"\n'
+                    '  location            = azurerm_resource_group.networking.location\n'
+                    '  resource_group_name = azurerm_resource_group.networking.name\n'
+                    '  address_space       = [var.hub_cidr]\n'
+                    '  tags                = local.tags\n'
+                    '}\n\n'
+                    'resource "azurerm_subnet" "firewall" {\n'
+                    '  name                 = "AzureFirewallSubnet"\n'
+                    '  resource_group_name  = azurerm_resource_group.networking.name\n'
+                    '  virtual_network_name = azurerm_virtual_network.hub.name\n'
+                    '  address_prefixes     = [cidrsubnet(var.hub_cidr, 10, 0)]\n'
+                    '}\n\n'
+                    'resource "azurerm_subnet" "bastion" {\n'
+                    '  name                 = "AzureBastionSubnet"\n'
+                    '  resource_group_name  = azurerm_resource_group.networking.name\n'
+                    '  virtual_network_name = azurerm_virtual_network.hub.name\n'
+                    '  address_prefixes     = [cidrsubnet(var.hub_cidr, 10, 1)]\n'
+                    '}\n'
+                ),
+                "variables.tf": (
+                    'variable "location" {\n'
+                    '  description = "Primary Azure region"\n'
+                    '  type        = string\n'
+                    '  default     = "eastus2"\n'
+                    '}\n\n'
+                    'variable "environment" {\n'
+                    '  description = "Environment name"\n'
+                    '  type        = string\n'
+                    '  default     = "prod"\n'
+                    '}\n\n'
+                    'variable "hub_cidr" {\n'
+                    '  description = "Hub VNET CIDR block"\n'
+                    '  type        = string\n'
+                    '  default     = "10.0.0.0/16"\n'
+                    '}\n\n'
+                    'variable "enable_firewall" {\n'
+                    '  description = "Enable Azure Firewall"\n'
+                    '  type        = bool\n'
+                    '  default     = true\n'
+                    '}\n\n'
+                    'variable "enable_bastion" {\n'
+                    '  description = "Enable Azure Bastion"\n'
+                    '  type        = bool\n'
+                    '  default     = true\n'
+                    '}\n'
+                ),
+                "outputs.tf": (
+                    'output "resource_group_platform_id" {\n'
+                    '  description = "Platform resource group ID"\n'
+                    '  value       = azurerm_resource_group.platform.id\n'
+                    '}\n\n'
+                    'output "resource_group_networking_id" {\n'
+                    '  description = "Networking resource group ID"\n'
+                    '  value       = azurerm_resource_group.networking.id\n'
+                    '}\n\n'
+                    'output "hub_vnet_id" {\n'
+                    '  description = "Hub virtual network ID"\n'
+                    '  value       = azurerm_virtual_network.hub.id\n'
+                    '}\n\n'
+                    'output "hub_vnet_name" {\n'
+                    '  description = "Hub virtual network name"\n'
+                    '  value       = azurerm_virtual_network.hub.name\n'
+                    '}\n'
+                ),
+                "provider.tf": (
+                    'terraform {\n'
+                    '  required_version = ">= 1.5.0"\n\n'
+                    '  required_providers {\n'
+                    '    azurerm = {\n'
+                    '      source  = "hashicorp/azurerm"\n'
+                    '      version = "~> 4.0"\n'
+                    '    }\n'
+                    '  }\n'
+                    '}\n\n'
+                    'provider "azurerm" {\n'
+                    '  features {\n'
+                    '    resource_group {\n'
+                    '      prevent_deletion_if_contains_resources = false\n'
+                    '    }\n'
+                    '  }\n'
+                    '}\n'
+                ),
             })
         if "bicep" in prompt_lower:
             main_bicep = (

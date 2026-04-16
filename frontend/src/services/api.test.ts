@@ -466,3 +466,127 @@ describe("api.workloads", () => {
     await expect(api.workloads.importFile(fakeFile, "proj-1")).rejects.toThrow("Import failed");
   });
 });
+
+describe("api.terraform", () => {
+  it("generate sends POST with architecture", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ files: [] }),
+    }));
+    await api.terraform.generate({ name: "test" });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/terraform/generate",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("download sends POST with architecture", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      blob: () => Promise.resolve(new Blob(["zip"])),
+    }));
+    await api.terraform.download({ name: "test" });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/terraform/download",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+});
+
+describe("api.arm", () => {
+  it("generate sends POST with architecture", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ files: [] }),
+    }));
+    await api.arm.generate({ name: "test" });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/arm/generate",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+});
+
+describe("api.pulumi", () => {
+  it("generate sends POST with architecture and language", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ files: [] }),
+    }));
+    await api.pulumi.generate({ name: "test" }, { language: "typescript" });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/pulumi/generate",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+});
+
+describe("api.pipelines", () => {
+  it("generate sends POST with pipeline request", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ files: [] }),
+    }));
+    await api.pipelines.generate(
+      { name: "test" },
+      "bicep",
+      { pipeline_format: "github_actions" },
+    );
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/pipelines/generate",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+});
+
+describe("api.iacValidation", () => {
+  it("validate sends POST with code and format", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ is_valid: true, errors: [], warnings: [] }),
+    }));
+    await api.iacValidation.validate("resource group", "bicep");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/iac/validate",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+});
+
+describe("api.versions", () => {
+  it("terraform calls GET /api/versions/terraform", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ terraform_version: "1.5", providers: [] }),
+    }));
+    await api.versions.terraform();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/versions/terraform",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("report calls GET /api/versions/report", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ total_entries: 0, stale_count: 0 }),
+    }));
+    await api.versions.report();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/versions/report",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("report with threshold calls correct URL", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ total_entries: 0, stale_count: 0 }),
+    }));
+    await api.versions.report(90);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/versions/report?threshold_days=90",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});

@@ -323,6 +323,50 @@ POLICY_GENERATION_USER_TEMPLATE = """Generate an Azure Policy definition for the
 Return ONLY the JSON object — no markdown, no explanation."""
 
 
+PULUMI_GENERATION_PROMPT = """You are an Azure Pulumi expert specializing in enterprise-scale
+landing zone deployments. Generate production-ready Pulumi programs that implement the given
+architecture definition.
+
+TARGET LANGUAGE: {language}
+
+RULES:
+1. Use Pulumi best practices (component resources, config, stack outputs)
+2. Use the @pulumi/azure-native (TypeScript) or pulumi-azure-native (Python) provider
+3. Handle secrets via pulumi.secret() — never hard-code credentials
+4. Include proper resource dependencies (parent/dependsOn)
+5. Add descriptive comments for complex logic
+6. Use Azure CAF naming conventions
+7. Include resource tags on all resources
+8. Parameterize environment-specific values via pulumi.Config
+9. Export key resource IDs and names as stack outputs
+10. Organize code into logical sections with clear comments
+
+Generate the Pulumi program as a JSON object where keys are file paths and values
+are the file content:
+
+For TypeScript:
+{{
+    "index.ts": "typescript content...",
+    "Pulumi.yaml": "project config...",
+    "package.json": "npm package config..."
+}}
+
+For Python:
+{{
+    "__main__.py": "python content...",
+    "Pulumi.yaml": "project config...",
+    "requirements.txt": "pip requirements..."
+}}"""
+
+PULUMI_GENERATION_USER_TEMPLATE = """Generate a Pulumi {language} program that implements
+the following Azure landing zone architecture:
+
+Architecture JSON:
+{architecture_json}
+
+Return ONLY the JSON object mapping filenames to content — no markdown, no explanation."""
+
+
 REGULATORY_ANALYSIS_SYSTEM_PROMPT = """You are a regulatory compliance expert specializing in
 cloud infrastructure and data protection frameworks. Analyse regulatory requirements for
 organizations based on their industry, geography, and data handling practices.
@@ -350,6 +394,64 @@ Return a JSON object:
     ],
     "additional_recommendations": ["string"]
 }"""
+
+ARM_GENERATION_PROMPT = """You are an Azure ARM template expert specializing in enterprise-scale
+landing zone deployments. Generate production-ready ARM JSON templates that implement the given
+architecture definition.
+
+RULES:
+1. Use ARM template best practices (nested deployments, parameters, variables, outputs)
+2. Follow the Azure Resource Manager schema (2019-04-01/deploymentTemplate.json#)
+3. Use secureString type for secret parameters — never hardcode credentials
+4. Include proper resource dependencies via dependsOn
+5. Add descriptive metadata and parameter descriptions
+6. Use Azure CAF naming conventions with concat/format expressions
+7. Include resource tags on all resources
+8. Target current API versions (2024-*)
+9. Parameterize environment-specific values with defaultValue and allowedValues
+10. Output modular ARM templates (nested templates per logical area)
+
+Generate the ARM templates as a JSON object where keys are file paths and values
+are the ARM JSON content:
+{
+    "azuredeploy.json": "main template content...",
+    "azuredeploy.parameters.json": "parameters content...",
+    "nestedtemplates/networking.json": "networking template...",
+    "nestedtemplates/security.json": "security template...",
+    "nestedtemplates/identity.json": "identity template...",
+    "nestedtemplates/monitoring.json": "monitoring template..."
+}"""
+
+
+TERRAFORM_GENERATION_PROMPT = """You are an Azure Terraform expert specializing in enterprise-scale
+landing zone deployments. Generate production-ready Terraform HCL configurations that implement
+the given architecture definition.
+
+RULES:
+1. Use Terraform best practices (modules, variables, outputs, locals)
+2. Use the AzureRM provider (hashicorp/azurerm) with features block
+3. Use sensitive variables for secrets — never hardcode credentials
+4. Include proper resource dependencies via implicit references
+5. Add descriptive comments for complex logic
+6. Use Azure CAF naming conventions with local name construction
+7. Include resource tags on all resources using a shared local
+8. Use current AzureRM provider syntax (v4.x compatible)
+9. Parameterize environment-specific values via variables with defaults
+10. Output modular Terraform (one file per logical area where appropriate)
+
+Generate the Terraform configuration as a JSON object where keys are file paths and values
+are the HCL content:
+{
+    "main.tf": "terraform and resource content...",
+    "variables.tf": "variable definitions...",
+    "outputs.tf": "output definitions...",
+    "provider.tf": "provider configuration...",
+    "modules/networking/main.tf": "networking resources...",
+    "modules/networking/variables.tf": "networking variables...",
+    "modules/security/main.tf": "security resources...",
+    "modules/identity/main.tf": "identity resources..."
+}"""
+
 
 REGULATORY_ANALYSIS_USER_TEMPLATE = """Analyse regulatory requirements for the following context:
 
