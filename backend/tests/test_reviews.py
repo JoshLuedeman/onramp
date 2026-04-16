@@ -1212,6 +1212,7 @@ class TestReviewRoutes:
     @pytest.mark.asyncio
     async def test_submit_for_review_route(self, client, db_session):
         arch_id, _, _ = await _seed_full(db_session)
+        await db_session.commit()
         resp = await client.post(
             f"/api/architectures/{arch_id}/reviews/submit"
         )
@@ -1222,6 +1223,7 @@ class TestReviewRoutes:
     @pytest.mark.asyncio
     async def test_submit_nonexistent_returns_400(self, client, db_session):
         await _seed_full(db_session)
+        await db_session.commit()
         resp = await client.post(
             "/api/architectures/nonexistent/reviews/submit"
         )
@@ -1230,6 +1232,7 @@ class TestReviewRoutes:
     @pytest.mark.asyncio
     async def test_perform_review_route(self, client, db_session):
         arch_id, _, _ = await _seed_full(db_session)
+        await db_session.commit()
         # First submit
         await client.post(
             f"/api/architectures/{arch_id}/reviews/submit"
@@ -1246,6 +1249,7 @@ class TestReviewRoutes:
     @pytest.mark.asyncio
     async def test_perform_review_invalid_action(self, client, db_session):
         arch_id, _, _ = await _seed_full(db_session)
+        await db_session.commit()
         await client.post(
             f"/api/architectures/{arch_id}/reviews/submit"
         )
@@ -1258,6 +1262,7 @@ class TestReviewRoutes:
     @pytest.mark.asyncio
     async def test_get_review_history_route(self, client, db_session):
         arch_id, _, _ = await _seed_full(db_session)
+        await db_session.commit()
         resp = await client.get(
             f"/api/architectures/{arch_id}/reviews"
         )
@@ -1269,6 +1274,7 @@ class TestReviewRoutes:
     @pytest.mark.asyncio
     async def test_get_review_status_route(self, client, db_session):
         arch_id, _, _ = await _seed_full(db_session)
+        await db_session.commit()
         resp = await client.get(
             f"/api/architectures/{arch_id}/reviews/status"
         )
@@ -1280,6 +1286,7 @@ class TestReviewRoutes:
     @pytest.mark.asyncio
     async def test_withdraw_review_route(self, client, db_session):
         arch_id, _, _ = await _seed_full(db_session)
+        await db_session.commit()
         await client.post(
             f"/api/architectures/{arch_id}/reviews/submit"
         )
@@ -1293,6 +1300,7 @@ class TestReviewRoutes:
     @pytest.mark.asyncio
     async def test_withdraw_from_draft_returns_400(self, client, db_session):
         arch_id, _, _ = await _seed_full(db_session)
+        await db_session.commit()
         resp = await client.post(
             f"/api/architectures/{arch_id}/reviews/withdraw"
         )
@@ -1301,6 +1309,7 @@ class TestReviewRoutes:
     @pytest.mark.asyncio
     async def test_configure_requirements_route(self, client, db_session):
         _, project_id, _ = await _seed_full(db_session)
+        await db_session.commit()
         resp = await client.put(
             f"/api/projects/{project_id}/review-config",
             json={"required_approvals": 3},
@@ -1312,6 +1321,7 @@ class TestReviewRoutes:
     @pytest.mark.asyncio
     async def test_configure_invalid_approvals(self, client, db_session):
         _, project_id, _ = await _seed_full(db_session)
+        await db_session.commit()
         resp = await client.put(
             f"/api/projects/{project_id}/review-config",
             json={"required_approvals": 0},
@@ -1322,6 +1332,7 @@ class TestReviewRoutes:
     async def test_full_route_workflow(self, client, db_session):
         """End-to-end: submit → review → check status."""
         arch_id, _, _ = await _seed_full(db_session)
+        await db_session.commit()
 
         # Submit
         resp = await client.post(
@@ -1347,6 +1358,7 @@ class TestReviewRoutes:
     @pytest.mark.asyncio
     async def test_review_history_after_actions(self, client, db_session):
         arch_id, _, _ = await _seed_full(db_session)
+        await db_session.commit()
 
         await client.post(
             f"/api/architectures/{arch_id}/reviews/submit"
@@ -1368,6 +1380,7 @@ class TestReviewRoutes:
         self, client, db_session
     ):
         await _seed_full(db_session)
+        await db_session.commit()
         resp = await client.get(
             "/api/architectures/nonexistent/reviews"
         )
@@ -1378,6 +1391,7 @@ class TestReviewRoutes:
         self, client, db_session
     ):
         await _seed_full(db_session)
+        await db_session.commit()
         resp = await client.get(
             "/api/architectures/nonexistent/reviews/status"
         )

@@ -185,6 +185,7 @@ class ReviewService:
                 comments=comments,
             )
             db.add(review)
+            await db.flush()
 
             # Auto-transition on rejection
             if action == "rejected":
@@ -197,8 +198,7 @@ class ReviewService:
                 approval_count = await self._count_approvals(
                     db, architecture_id
                 )
-                # +1 for the current approval being added
-                if approval_count + 1 >= required:
+                if approval_count >= required:
                     arch.review_status = "approved"
 
             await db.flush()
@@ -451,7 +451,7 @@ class ReviewService:
         from app.models.review import ArchitectureReview
 
         result = await db.execute(
-            select(func.count()).where(
+            select(func.count(ArchitectureReview.id)).where(
                 ArchitectureReview.architecture_id == architecture_id,
                 ArchitectureReview.action == "approved",
             )
