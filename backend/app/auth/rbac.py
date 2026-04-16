@@ -28,3 +28,4 @@ class RoleChecker:
 require_admin = RoleChecker(["admin"])
 require_architect = RoleChecker(["admin", "architect"])
 require_viewer = RoleChecker(["admin", "architect", "viewer"])
+require_msp_admin = RoleChecker(["admin", "msp_admin"])
