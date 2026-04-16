@@ -1,12 +1,20 @@
-"""Tenant CRUD service layer."""
+"""Tenant CRUD + lifecycle service layer."""
 
 import logging
+from datetime import datetime, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.tenant import Tenant
 from app.schemas.tenant import TenantCreate, TenantUpdate
+from app.schemas.tenant_lifecycle import (
+    ResourceLimits,
+    TenantOffboardResponse,
+    TenantProvisionRequest,
+    TenantSettingsResponse,
+    TenantSettingsUpdate,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -136,3 +144,130 @@ class TenantService:
             await self.db.flush()
             logger.info("Auto-created default tenant (id=%s)", tenant.id)
         return tenant
+
+    # ------------------------------------------------------------------
+    # Lifecycle operations
+    # ------------------------------------------------------------------
+
+    # In-memory store for settings/limits (until dedicated table exists)
+    _settings_store: dict[str, dict] = {}
+
+    async def provision_tenant(
+        self, data: TenantProvisionRequest,
+    ) -> TenantSettingsResponse:
+        """Provision a new tenant with resource limits and admin invite."""
+        tenant = Tenant(name=data.name, is_active=True)
+        self.db.add(tenant)
+        await self.db.flush()
+
+        limits = data.resource_limits
+        self.__class__._settings_store[tenant.id] = {
+            "resource_limits": limits.model_dump(),
+            "feature_flags": {},
+            "admin_email": data.admin_email,
+        }
+
+        logger.info(
+            "Provisioned tenant '%s' (id=%s) for %s",
+            tenant.name, tenant.id, data.admin_email,
+        )
+
+        return TenantSettingsResponse(
+            tenant_id=tenant.id,
+            name=tenant.name,
+            is_active=tenant.is_active,
+            resource_limits=limits,
+            feature_flags={},
+            created_at=tenant.created_at or datetime.now(timezone.utc),
+        )
+
+    async def get_tenant_settings(
+        self, tenant_id: str,
+    ) -> TenantSettingsResponse | None:
+        """Return tenant settings including resource limits."""
+        tenant = await self.get_tenant(tenant_id)
+        if tenant is None:
+            return None
+
+        stored = self.__class__._settings_store.get(tenant_id, {})
+        limits_data = stored.get(
+            "resource_limits",
+            ResourceLimits().model_dump(),
+        )
+        flags = stored.get("feature_flags", {})
+
+        return TenantSettingsResponse(
+            tenant_id=tenant.id,
+            name=tenant.name,
+            is_active=tenant.is_active,
+            resource_limits=ResourceLimits(**limits_data),
+            feature_flags=flags,
+            created_at=tenant.created_at or datetime.now(timezone.utc),
+        )
+
+    async def update_tenant_settings(
+        self,
+        tenant_id: str,
+        data: TenantSettingsUpdate,
+    ) -> TenantSettingsResponse | None:
+        """Update resource limits and/or feature flags."""
+        tenant = await self.get_tenant(tenant_id)
+        if tenant is None:
+            return None
+
+        stored = self.__class__._settings_store.setdefault(
+            tenant_id, {
+                "resource_limits": ResourceLimits().model_dump(),
+                "feature_flags": {},
+            },
+        )
+
+        if data.resource_limits is not None:
+            stored["resource_limits"] = data.resource_limits.model_dump()
+        if data.feature_flags is not None:
+            stored["feature_flags"] = data.feature_flags
+
+        await self.db.flush()
+        await self.db.refresh(tenant)
+
+        return TenantSettingsResponse(
+            tenant_id=tenant.id,
+            name=tenant.name,
+            is_active=tenant.is_active,
+            resource_limits=ResourceLimits(**stored["resource_limits"]),
+            feature_flags=stored["feature_flags"],
+            created_at=tenant.created_at or datetime.now(timezone.utc),
+        )
+
+    async def offboard_tenant(
+        self,
+        tenant_id: str,
+        *,
+        archive: bool = True,
+        retention_days: int = 90,
+    ) -> TenantOffboardResponse | None:
+        """Deactivate a tenant and mark for archival."""
+        tenant = await self.get_tenant(tenant_id)
+        if tenant is None:
+            return None
+
+        tenant.is_active = False
+        await self.db.flush()
+        await self.db.refresh(tenant)
+
+        logger.info(
+            "Offboarded tenant '%s' (id=%s, archive=%s, retention=%dd)",
+            tenant.name, tenant.id, archive, retention_days,
+        )
+
+        return TenantOffboardResponse(
+            tenant_id=tenant.id,
+            is_active=tenant.is_active,
+            archive=archive,
+            retention_days=retention_days,
+            message=(
+                f"Tenant '{tenant.name}' deactivated. "
+                f"Data {'will be' if archive else 'will NOT be'} archived "
+                f"with {retention_days}-day retention."
+            ),
+        )

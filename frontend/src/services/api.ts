@@ -161,10 +161,25 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ answers, use_ai: useAi, ...options }),
       }),
-    refine: (architecture: Record<string, unknown>, message: string) =>
+    refine: (
+      architecture: Record<string, unknown>,
+      message: string,
+      options?: { architecture_id?: string; version?: number },
+    ) =>
       fetchApi<{ response: string; updated_architecture: Record<string, unknown> | null }>(
         "/api/architecture/refine",
-        { method: "POST", body: JSON.stringify({ architecture, message }) }
+        {
+          method: "POST",
+          body: JSON.stringify({
+            architecture,
+            message,
+            architecture_id: options?.architecture_id,
+            version: options?.version,
+          }),
+          headers: options?.version
+            ? { "If-Match": String(options.version) }
+            : undefined,
+        }
       ),
     estimateCosts: (architecture: Record<string, unknown>) =>
       fetchApi<CostEstimation>(
@@ -201,6 +216,24 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ answers, options }),
       }),
+    update: (
+      projectId: string,
+      architectureId: string,
+      architectureData: Record<string, unknown>,
+      version: number,
+    ) =>
+      fetchApi<{ architecture: Record<string, unknown>; project_id: string; version: number }>(
+        `/api/architecture/project/${projectId}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            architecture_data: architectureData,
+            architecture_id: architectureId,
+            version,
+          }),
+          headers: { "If-Match": String(version) },
+        },
+      ),
   },
   compliance: {
     getFrameworks: () => fetchApi<{ frameworks: Framework[] }>("/api/compliance/frameworks"),
@@ -725,7 +758,7 @@ export const api = {
         },
       ),
     diff: (archId: string, from: number, to: number) =>
-      fetchApi<VersionDiffResult>(
+      fetchApi<EnhancedVersionDiffResult>(
         `/api/architectures/${archId}/versions/diff?from=${from}&to=${to}`,
       ),
   },
@@ -761,6 +794,40 @@ export const api = {
     getActivity: (projectId: string) =>
       fetchApi<ActivityFeedResponse>(
         `/api/projects/${projectId}/activity`,
+      ),
+  },
+
+  reviews: {
+    submit: (architectureId: string) =>
+      fetchApi<ReviewSubmitResponse>(
+        `/api/architectures/${architectureId}/reviews/submit`,
+        { method: "POST" },
+      ),
+    perform: (architectureId: string, data: ReviewActionRequest) =>
+      fetchApi<ReviewResponseItem>(
+        `/api/architectures/${architectureId}/reviews`,
+        { method: "POST", body: JSON.stringify(data) },
+      ),
+    getHistory: (architectureId: string) =>
+      fetchApi<ReviewHistoryResponse>(
+        `/api/architectures/${architectureId}/reviews`,
+      ),
+    getStatus: (architectureId: string) =>
+      fetchApi<ReviewStatusResponse>(
+        `/api/architectures/${architectureId}/reviews/status`,
+      ),
+    withdraw: (architectureId: string) =>
+      fetchApi<ReviewSubmitResponse>(
+        `/api/architectures/${architectureId}/reviews/withdraw`,
+        { method: "POST" },
+      ),
+    configureRequirements: (
+      projectId: string,
+      data: { required_approvals: number },
+    ) =>
+      fetchApi<ReviewConfigurationResponse>(
+        `/api/projects/${projectId}/review-config`,
+        { method: "PUT", body: JSON.stringify(data) },
       ),
   },
   msp: {
@@ -1433,6 +1500,50 @@ export interface VersionDiffResult {
   summary: string;
 }
 
+// ── Enhanced Diff types ─────────────────────────────────────────────────
+
+export interface PropertyDiff {
+  property_name: string;
+  old_value: unknown;
+  new_value: unknown;
+  change_type: "added" | "removed" | "modified";
+}
+
+export interface EnhancedComponentChange {
+  name: string;
+  detail: string;
+  category: string;
+  property_diffs: PropertyDiff[];
+}
+
+export interface CategoryGroup {
+  category: string;
+  display_name: string;
+  added: EnhancedComponentChange[];
+  removed: EnhancedComponentChange[];
+  modified: EnhancedComponentChange[];
+}
+
+export interface EnhancedVersionDiffResult {
+  from_version: number;
+  to_version: number;
+  added_components: EnhancedComponentChange[];
+  removed_components: EnhancedComponentChange[];
+  modified_components: EnhancedComponentChange[];
+  summary: string;
+  change_counts: Record<string, number>;
+  category_groups: CategoryGroup[];
+}
+
+// ── Conflict types ──────────────────────────────────────────────────────
+
+export interface ConflictResponse {
+  current_version: number;
+  submitted_version: number;
+  current_data: Record<string, unknown>;
+  message: string;
+}
+
 // ── Collaboration types ─────────────────────────────────────────────────
 
 export interface ProjectMemberCreateRequest {
@@ -1483,6 +1594,51 @@ export interface ActivityEntryItem {
 
 export interface ActivityFeedResponse {
   activities: ActivityEntryItem[];
+}
+
+// ── Architecture Review types ───────────────────────────────────────────
+
+export interface ReviewActionRequest {
+  action: "approved" | "changes_requested" | "rejected";
+  comments?: string;
+}
+
+export interface ReviewResponseItem {
+  id: string;
+  architecture_id: string;
+  reviewer_id: string;
+  action: string;
+  comments: string | null;
+  created_at: string;
+}
+
+export interface ReviewHistoryResponse {
+  reviews: ReviewResponseItem[];
+  current_status: string;
+  required_approvals: number;
+  approvals_received: number;
+}
+
+export interface ReviewStatusResponse {
+  status: string;
+  is_locked: boolean;
+  can_deploy: boolean;
+  approvals_needed: number;
+  approvals_received: number;
+}
+
+export interface ReviewSubmitResponse {
+  architecture_id: string;
+  status: string;
+  is_locked: boolean;
+}
+
+export interface ReviewConfigurationResponse {
+  id: string;
+  project_id: string;
+  required_approvals: number;
+  created_at: string;
+  updated_at: string;
 }
 
 // ── MSP Dashboard types ─────────────────────────────────────────────
