@@ -2729,3 +2729,91 @@ export interface AiMlBicepResponse {
   bicep: string;
   template_type: string;
 }
+
+// ── SAP Accelerator Types ─────────────────────────────────────────────
+
+export interface SapQuestion {
+  id: string;
+  text: string;
+  type: string;
+  options: { value: string; label: string }[];
+  required: boolean;
+  category: string;
+  help_text: string;
+}
+
+export interface SapQuestionListResult {
+  questions: SapQuestion[];
+  total: number;
+}
+
+export interface SapArchitectureResult {
+  architecture: Record<string, unknown>;
+}
+
+export interface SapCertifiedSku {
+  name: string;
+  series: string;
+  vcpus: number;
+  memory_gb: number;
+  saps_rating: number;
+  max_hana_memory_gb: number;
+  tier: string;
+  description: string;
+}
+
+export interface SapSkuListResult {
+  skus: SapCertifiedSku[];
+  total: number;
+}
+
+export interface SapSizingResult {
+  database_sku: Record<string, unknown>;
+  app_server_sku: Record<string, unknown>;
+  app_server_count: number;
+  total_saps: number;
+  estimated_memory_gb: number;
+}
+
+export interface SapBestPractice {
+  id: string;
+  category: string;
+  title: string;
+  description: string;
+  severity: string;
+  link: string;
+}
+
+export interface SapBestPracticeListResult {
+  best_practices: SapBestPractice[];
+  total: number;
+}
+
+export interface SapBicepResult {
+  template_type: string;
+  bicep_template: string;
+  description: string;
+}
+
+export interface SapReferenceArch {
+  id: string;
+  name: string;
+  description: string;
+  product: string;
+  database: string;
+  ha_enabled: boolean;
+  dr_enabled: boolean;
+  components: string[];
+  link: string;
+}
+
+export interface SapReferenceArchListResult {
+  reference_architectures: SapReferenceArch[];
+  total: number;
+}
+
+export interface SapValidateResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
