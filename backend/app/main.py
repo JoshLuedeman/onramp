@@ -48,6 +48,7 @@ from app.api.routes.terraform import router as terraform_router
 from app.api.routes.users import router as users_router
 from app.api.routes.version_pinning import router as version_pinning_router
 from app.api.routes.workloads import router as workloads_router
+from app.api.versioning import APIVersionHeaderMiddleware, VersionRewriteMiddleware
 from app.config import settings
 from app.db.seed import seed_database
 from app.db.session import close_db, init_db
@@ -56,7 +57,6 @@ from app.security import (
     RequestValidationMiddleware,
     SecurityHeadersMiddleware,
 )
-from app.api.versioning import APIVersionHeaderMiddleware, VersionRewriteMiddleware
 from app.startup import get_startup_status, log_plugin_status, validate_environment
 
 

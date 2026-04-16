@@ -1,6 +1,7 @@
 from app.models.ai_feedback import AIFeedback
 from app.models.approval import ApprovalRequest
 from app.models.architecture import Architecture
+from app.models.architecture_version import ArchitectureVersion
 from app.models.audit_entry import AuditEntry
 from app.models.base import Base
 from app.models.bicep_file import BicepFile
@@ -38,6 +39,7 @@ __all__ = [
     "Question",
     "QuestionnaireResponse",
     "Architecture",
+    "ArchitectureVersion",
     "Deployment",
     "ComplianceFramework",
     "ComplianceControl",

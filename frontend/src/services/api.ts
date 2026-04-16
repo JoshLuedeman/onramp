@@ -2,6 +2,91 @@ import type { Project, ProjectCreate, ProjectUpdate, ProjectStats } from "../typ
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "";
 
+// ── Structured Error Handling ───────────────────────────────────────────
+
+/** Matches the backend's ErrorDetail schema. */
+export interface ApiErrorDetail {
+  code: string;
+  message: string;
+  type: string;
+  details?: Record<string, unknown>[];
+  request_id?: string;
+}
+
+/** Matches the backend's ErrorResponse schema. */
+export interface ApiErrorResponse {
+  error: ApiErrorDetail;
+}
+
+/**
+ * Custom error class thrown by API helpers.
+ *
+ * Attempts to parse the backend's structured error format first.  Falls
+ * back to the legacy `{ detail: ... }` shape and finally to raw status
+ * text so callers always get a usable `.message`.
+ */
+export class ApiError extends Error {
+  status: number;
+  statusText: string;
+  code: string;
+  errorType: string;
+  details?: Record<string, unknown>[];
+  requestId?: string;
+
+  constructor(
+    status: number,
+    statusText: string,
+    body?: ApiErrorResponse | { detail?: string } | string,
+  ) {
+    // Derive a human-readable message from whatever the server returned.
+    let message = `API error: ${status} ${statusText}`;
+    let code = "UNKNOWN";
+    let errorType = "unknown";
+    let details: Record<string, unknown>[] | undefined;
+    let requestId: string | undefined;
+
+    if (body && typeof body === "object" && "error" in body) {
+      // New structured format
+      const structured = body as ApiErrorResponse;
+      message = structured.error.message;
+      code = structured.error.code;
+      errorType = structured.error.type;
+      details = structured.error.details;
+      requestId = structured.error.request_id;
+    } else if (body && typeof body === "object" && "detail" in body) {
+      // Legacy FastAPI format
+      const legacy = body as { detail?: string };
+      message = legacy.detail ?? message;
+    } else if (typeof body === "string" && body.length > 0) {
+      message = body;
+    }
+
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.statusText = statusText;
+    this.code = code;
+    this.errorType = errorType;
+    this.details = details;
+    this.requestId = requestId;
+  }
+}
+
+/** Try to parse the response body into a structured or legacy error object. */
+async function parseErrorBody(
+  response: Response,
+): Promise<ApiErrorResponse | { detail?: string } | string> {
+  try {
+    return (await response.json()) as ApiErrorResponse | { detail?: string };
+  } catch {
+    try {
+      return await response.text();
+    } catch {
+      return "";
+    }
+  }
+}
+
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     headers: {
@@ -11,7 +96,8 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   });
   if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`);
+    const body = await parseErrorBody(response);
+    throw new ApiError(response.status, response.statusText, body);
   }
   return response.json();
 }
@@ -25,7 +111,8 @@ async function fetchBlob(path: string, options?: RequestInit): Promise<Blob> {
     ...options,
   });
   if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`);
+    const body = await parseErrorBody(response);
+    throw new ApiError(response.status, response.statusText, body);
   }
   return response.blob();
 }
@@ -384,14 +471,8 @@ export const api = {
       form.append("file", file);
       const res = await fetch(`${API_BASE}/api/workloads/import?project_id=${encodeURIComponent(projectId)}`, { method: "POST", body: form });
       if (!res.ok) {
-        let detail: string;
-        try {
-          const json = await res.json() as { detail?: string };
-          detail = json.detail || JSON.stringify(json);
-        } catch {
-          detail = await res.text();
-        }
-        throw new Error(detail || "Import failed");
+        const body = await parseErrorBody(res);
+        throw new ApiError(res.status, res.statusText, body);
       }
       return res.json() as Promise<WorkloadImportResult>;
     },
@@ -626,6 +707,26 @@ export const api = {
         thresholdDays
           ? `/api/versions/report?threshold_days=${thresholdDays}`
           : "/api/versions/report",
+      ),
+  },
+  architectureVersions: {
+    list: (archId: string) =>
+      fetchApi<VersionListResponse>(`/api/architectures/${archId}/versions`),
+    get: (archId: string, version: number) =>
+      fetchApi<ArchitectureVersionItem>(
+        `/api/architectures/${archId}/versions/${version}`,
+      ),
+    restore: (archId: string, version: number, summary?: string) =>
+      fetchApi<ArchitectureVersionItem>(
+        `/api/architectures/${archId}/versions/${version}/restore`,
+        {
+          method: "POST",
+          body: summary !== undefined ? JSON.stringify({ change_summary: summary }) : undefined,
+        },
+      ),
+    diff: (archId: string, from: number, to: number) =>
+      fetchApi<VersionDiffResult>(
+        `/api/architectures/${archId}/versions/diff?from=${from}&to=${to}`,
       ),
   },
 };
@@ -1222,4 +1323,34 @@ export interface PipelineGenerateResponse {
   iac_format: string;
   pipeline_format: string;
   environments: string[];
+}
+
+// ── Architecture Version types ──────────────────────────────────────────
+
+export interface ArchitectureVersionItem {
+  id: string;
+  version_number: number;
+  architecture_json: string;
+  change_summary: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface VersionListResponse {
+  versions: ArchitectureVersionItem[];
+  total: number;
+}
+
+export interface ComponentChange {
+  name: string;
+  detail: string;
+}
+
+export interface VersionDiffResult {
+  from_version: number;
+  to_version: number;
+  added_components: ComponentChange[];
+  removed_components: ComponentChange[];
+  modified_components: ComponentChange[];
+  summary: string;
 }
