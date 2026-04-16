@@ -16,6 +16,7 @@ const DeployPage = lazy(() => import("./pages/DeployPage"));
 const ProjectDetailPage = lazy(() => import("./pages/ProjectDetailPage"));
 const GapAnalysisPage = lazy(() => import("./pages/GapAnalysisPage"));
 const WorkloadsPage = lazy(() => import("./pages/WorkloadsPage"));
+const MigrationPage = lazy(() => import("./pages/MigrationPage"));
 
 function App() {
   return (
@@ -62,6 +63,9 @@ function App() {
                   <Route path="/workloads" element={<Navigate to="/projects" replace />} />
                   <Route path="/projects/:projectId/workloads" element={
                     <ProjectProvider><WorkloadsPage /></ProjectProvider>
+                  } />
+                  <Route path="/projects/:projectId/migration" element={
+                    <ProjectProvider><MigrationPage /></ProjectProvider>
                   } />
                 </Routes>
               </Suspense>

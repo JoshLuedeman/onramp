@@ -211,6 +211,34 @@ export default function ProjectDetailPage() {
           );
         })}
       </Card>
+      <Subtitle1>Tools</Subtitle1>
+
+      <Card className={styles.stepCard}>
+        <div className={styles.stepRow}>
+          <div className={styles.stepLabel}>
+            <Body1>Workloads</Body1>
+          </div>
+          <Button
+            appearance="subtle"
+            size="small"
+            onClick={() => navigate(`/projects/${project.id}/workloads`)}
+          >
+            Open →
+          </Button>
+        </div>
+        <div className={styles.stepRow}>
+          <div className={styles.stepLabel}>
+            <Body1>Migration Waves</Body1>
+          </div>
+          <Button
+            appearance="subtle"
+            size="small"
+            onClick={() => navigate(`/projects/${project.id}/migration`)}
+          >
+            Open →
+          </Button>
+        </div>
+      </Card>
     </div>
   );
 }
