@@ -1029,6 +1029,233 @@ describe("api.cloud", () => {
   });
 });
 
+// ── Workload Extensions API Tests ────────────────────────────────────
+
+describe("api.workloadExtensions", () => {
+  it("list calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ extensions: [{ workload_type: "ai_ml" }] }),
+    }));
+    const result = await api.workloadExtensions.list();
+    expect(result.extensions).toHaveLength(1);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/workloads/extensions/",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("get calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ workload_type: "ai_ml", display_name: "AI/ML" }),
+    }));
+    const result = await api.workloadExtensions.get("ai_ml");
+    expect(result.workload_type).toBe("ai_ml");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/workloads/extensions/ai_ml",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getQuestions calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ workload_type: "sap", questions: [] }),
+    }));
+    await api.workloadExtensions.getQuestions("sap");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/workloads/extensions/sap/questions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getBestPractices calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ workload_type: "avd", best_practices: [] }),
+    }));
+    await api.workloadExtensions.getBestPractices("avd");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/workloads/extensions/avd/best-practices",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("validate sends POST with architecture", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ valid: true, errors: [], warnings: [], suggestions: [] }),
+    }));
+    await api.workloadExtensions.validate("ai_ml", { services: [] });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/workloads/extensions/ai_ml/validate");
+    expect(call[1].method).toBe("POST");
+  });
+
+  it("estimateSizing sends POST with requirements", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ workload_type: "iot", sizing: {} }),
+    }));
+    await api.workloadExtensions.estimateSizing("iot", { device_count: "large" });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/workloads/extensions/iot/sizing");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.requirements.device_count).toBe("large");
+  });
+});
+
+// ── SKU API Tests ────────────────────────────────────────────────────
+
+describe("api.skus", () => {
+  it("getCompute calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [], count: 0 }),
+    }));
+    await api.skus.getCompute();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/skus/compute",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getCompute passes filters as query params", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [], count: 0 }),
+    }));
+    await api.skus.getCompute({ family: "N", min_vcpus: 8 });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toContain("family=N");
+    expect(call[0]).toContain("min_vcpus=8");
+  });
+
+  it("getStorage calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [], count: 0 }),
+    }));
+    await api.skus.getStorage();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/skus/storage",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getDatabase calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [], count: 0 }),
+    }));
+    await api.skus.getDatabase();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/skus/database",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getNetworking calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [], count: 0 }),
+    }));
+    await api.skus.getNetworking();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/skus/networking",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("recommend sends POST with workload_type", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ recommended_sku: {}, reason: "best fit", alternatives: [] }),
+    }));
+    await api.skus.recommend("ai_ml", { gpu: true });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.workload_type).toBe("ai_ml");
+  });
+
+  it("compare sends POST with sku_ids", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [{}, {}] }),
+    }));
+    await api.skus.compare(["b2s", "d4s_v5"]);
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    const body = JSON.parse(call[1].body);
+    expect(body.sku_ids).toEqual(["b2s", "d4s_v5"]);
+  });
+});
+
+// ── Validation API Tests ─────────────────────────────────────────────
+
+describe("api.validation", () => {
+  it("validateArchitecture sends POST with architecture", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ valid: true, errors: [], warnings: [] }),
+    }));
+    await api.validation.validateArchitecture({ architecture: { resources: [] } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/validation/architecture");
+    expect(call[1].method).toBe("POST");
+  });
+
+  it("validateSkus sends POST with architecture and region", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ valid: true, errors: [], warnings: [] }),
+    }));
+    await api.validation.validateSkus({ architecture: { resources: [] }, region: "eastus" });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/validation/skus");
+    expect(call[1].method).toBe("POST");
+  });
+
+  it("validateCompliance sends POST with framework", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ valid: true, errors: [], warnings: [], framework: "soc2" }),
+    }));
+    await api.validation.validateCompliance({
+      architecture: { security: {} },
+      framework: "soc2",
+    });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    const body = JSON.parse(call[1].body);
+    expect(body.framework).toBe("soc2");
+  });
+
+  it("validateNetworking sends POST with architecture", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ valid: true, errors: [], warnings: [] }),
+    }));
+    await api.validation.validateNetworking({ architecture: {} });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/validation/networking");
+  });
+
+  it("getRules calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ rules: [{ id: "rule1" }] }),
+    }));
+    const result = await api.validation.getRules();
+    expect(result.rules).toHaveLength(1);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/validation/rules",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});
+
 describe("api.government", () => {
   it("getRegions calls correct endpoint", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
