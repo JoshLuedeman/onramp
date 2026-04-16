@@ -1,67 +1,35 @@
 # Security Policy
 
-## Reporting a Vulnerability
-
-**Please do NOT open a public GitHub issue for security vulnerabilities.**
-
-If you discover a security vulnerability in OnRamp, please report it responsibly:
-
-1. **Email:** Send a detailed report to the repository maintainers via
-   [GitHub Security Advisories](https://github.com/JoshLuedeman/onramp/security/advisories/new).
-2. **Include:**
-   - Description of the vulnerability
-   - Steps to reproduce
-   - Potential impact
-   - Suggested fix (if any)
-
-## Response Timeline
-
-| Action | Timeline |
-|--------|----------|
-| Acknowledgment of report | Within 48 hours |
-| Initial assessment | Within 5 business days |
-| Fix development | Based on severity |
-| Public disclosure | After fix is released |
-
 ## Supported Versions
 
-| Version | Supported |
-|---------|-----------|
-| Latest release on `main` | ✅ |
-| Older releases | ❌ |
+Only the latest release on the `main` branch is supported with security updates.
 
-Only the latest version on the `main` branch receives security updates.
+| Version | Supported          |
+| ------- | ------------------ |
+| Latest  | :white_check_mark: |
 
-## Scope
+## Reporting a Vulnerability
 
-The following are in scope for security reports:
+**Do NOT open a public issue.**
 
-- Authentication and authorization bypass
-- SQL injection or other injection attacks
-- Cross-site scripting (XSS)
-- Sensitive data exposure (credentials, tokens, PII)
-- Server-side request forgery (SSRF)
-- Insecure deserialization
-- Misconfigured Azure resources in generated Bicep templates
+To report a security vulnerability, please use GitHub's private vulnerability reporting:
 
-## Out of Scope
+👉 [Report a vulnerability](https://github.com/joshluedeman/onramp/security/advisories/new)
 
-- Issues in third-party dependencies (report upstream, but let us know)
-- Denial of service via rate limiting (we have rate limiting middleware)
-- Social engineering attacks
-- Issues requiring physical access
+### What to expect
 
-## Security Best Practices
+1. **Acknowledgment** — We will acknowledge receipt of your report within **48 hours**.
+2. **Initial assessment** — We will provide an initial assessment within **7 days**.
+3. **Collaboration** — We will work with you to understand and reproduce the issue.
+4. **Disclosure timing** — We will coordinate disclosure timing with you.
+5. **Credit** — You will be credited in the security advisory unless you prefer to remain anonymous.
 
-When contributing to OnRamp:
+## Responsible Disclosure
 
-- Never commit secrets, credentials, or API keys
-- Use environment variables for all sensitive configuration
-- Validate all user input through Pydantic schemas
-- Follow the principle of least privilege for Azure RBAC
-- Keep dependencies updated and review security advisories
+We ask that you:
 
-## Recognition
+- Give us reasonable time to address the vulnerability before disclosing publicly.
+- Act in good faith to avoid privacy violations, data destruction, or service disruption.
+- Do not access or modify data belonging to other users.
 
-We appreciate responsible disclosure and will acknowledge security researchers
-in our release notes (with permission).
+Thank you for helping keep OnRamp and its users safe.

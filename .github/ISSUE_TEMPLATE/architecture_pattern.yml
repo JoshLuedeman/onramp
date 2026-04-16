@@ -1,19 +1,14 @@
-name: "Architecture Pattern"
-description: "Submit a new architecture pattern or landing zone archetype"
-title: "[Pattern]: "
-labels: ["type:feature", "area:fullstack", "needs-review"]
+name: Architecture Pattern
+description: Propose a new architecture pattern or landing zone template
+title: "[PATTERN] "
+labels: ["architecture", "enhancement"]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Suggest a new landing zone architecture pattern for OnRamp.
-
   - type: input
     id: pattern-name
     attributes:
       label: Pattern Name
-      description: A concise name for this architecture pattern.
-      placeholder: "e.g., Healthcare Regulated Landing Zone"
+      description: A short, descriptive name for this architecture pattern
+      placeholder: "Hub-Spoke with Shared Services"
     validations:
       required: true
 
@@ -21,19 +16,20 @@ body:
     id: description
     attributes:
       label: Description
-      description: What is this pattern for? What type of organization or workload does it target?
+      description: Describe the architecture pattern and its use cases
     validations:
       required: true
 
   - type: dropdown
-    id: org-size
+    id: organization-size
     attributes:
       label: Target Organization Size
+      description: What size organization is this pattern designed for?
       options:
-        - Small (1-100 employees)
-        - Medium (100-1000 employees)
-        - Large (1000-10000 employees)
-        - Enterprise (10000+ employees)
+        - Small (1-50 employees)
+        - Medium (51-500 employees)
+        - Large (501-5000 employees)
+        - Enterprise (5000+ employees)
     validations:
       required: true
 
@@ -41,19 +37,19 @@ body:
     id: azure-services
     attributes:
       label: Azure Services Used
-      description: List the key Azure services this pattern deploys or configures.
+      description: List the Azure services this pattern requires
       placeholder: |
+        - Azure Virtual Network
         - Azure Firewall
-        - Azure Policy
-        - Microsoft Defender for Cloud
+        - Azure Key Vault
     validations:
       required: true
 
   - type: checkboxes
-    id: compliance
+    id: compliance-frameworks
     attributes:
       label: Compliance Frameworks
-      description: Which compliance frameworks does this pattern address?
+      description: Which compliance frameworks does this pattern support?
       options:
         - label: SOC 2
         - label: HIPAA
@@ -61,11 +57,3 @@ body:
         - label: FedRAMP
         - label: NIST 800-53
         - label: ISO 27001
-
-  - type: textarea
-    id: additional
-    attributes:
-      label: Additional Context
-      description: Any diagrams, references, or implementation notes?
-    validations:
-      required: false

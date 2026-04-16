@@ -1,32 +1,32 @@
 ## Description
 
-<!-- Describe what this PR does and why. -->
+<!-- What changes does this PR make and why? -->
 
 ## Related Issue
 
-<!-- Link the issue this PR addresses. -->
-Closes #
+Closes #<!-- issue number -->
 
 ## Type of Change
 
-- [ ] 🚀 New feature
-- [ ] 🐛 Bug fix
-- [ ] 📝 Documentation
-- [ ] ♻️ Refactor
-- [ ] 🧪 Test
-- [ ] 🔧 Chore (dependencies, CI, config)
+- [ ] New feature
+- [ ] Bug fix
+- [ ] Documentation update
+- [ ] Refactor
+- [ ] Test improvement
 
 ## Checklist
 
-- [ ] Tests pass: `cd backend && pytest tests/ -v` and `cd frontend && npm run test`
+- [ ] Linked to an issue
+- [ ] Tests pass: `cd backend && pytest tests/ -v`
 - [ ] Lint passes: `cd backend && ruff check app/` and `cd frontend && npm run lint`
-- [ ] Coverage maintained above 75% for both frontend and backend
-- [ ] No new `any` types in TypeScript
-- [ ] No `print()` statements in Python
-- [ ] Pydantic schemas defined for any new API endpoints
-- [ ] New routes registered in `backend/app/main.py`
-- [ ] Documentation updated if behavior changed
+- [ ] Frontend builds: `cd frontend && npm run build`
+- [ ] Coverage maintained above 75%
+- [ ] No `any` types in TypeScript
+- [ ] No `print()` in Python code
+- [ ] No secrets or credentials committed
+- [ ] Pydantic schemas defined for new API endpoints
+- [ ] Conventional Commit message format
 
-## Screenshots (if UI changes)
+## Reviewer Notes
 
-<!-- Add screenshots or GIFs showing the visual changes. -->
+<!-- Anything reviewers should know or pay attention to -->

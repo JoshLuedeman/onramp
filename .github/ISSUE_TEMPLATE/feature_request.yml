@@ -1,37 +1,38 @@
-name: "Feature Request"
-description: "Suggest a new feature or enhancement for OnRamp"
-title: "[Feature]: "
-labels: ["type:feature", "needs-review"]
+name: Feature Request
+description: Suggest a new feature or improvement
+title: "[FEATURE] "
+labels: ["enhancement"]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Thank you for suggesting a feature! Please fill out the sections below.
-
   - type: textarea
-    id: problem
+    id: problem-statement
     attributes:
       label: Problem Statement
-      description: What problem does this feature solve? Why is it needed?
-      placeholder: "I'm always frustrated when..."
+      description: What problem does this feature solve?
+      placeholder: "I'm frustrated when..."
     validations:
       required: true
 
   - type: textarea
-    id: solution
+    id: proposed-solution
     attributes:
       label: Proposed Solution
-      description: How should this feature work? What would the user experience look like?
-      placeholder: "The application should..."
+      description: How should this feature work?
     validations:
       required: true
 
   - type: textarea
-    id: alternatives
+    id: alternatives-considered
     attributes:
       label: Alternatives Considered
       description: What other approaches did you consider?
-      placeholder: "I also considered..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other context, screenshots, or examples
     validations:
       required: false
 
@@ -39,7 +40,7 @@ body:
     id: area
     attributes:
       label: Area
-      description: Which part of the application does this affect?
+      description: Which part of the project does this relate to?
       options:
         - Frontend
         - Backend
@@ -48,11 +49,3 @@ body:
         - Full Stack
     validations:
       required: true
-
-  - type: textarea
-    id: context
-    attributes:
-      label: Additional Context
-      description: Any other context, screenshots, or references?
-    validations:
-      required: false
