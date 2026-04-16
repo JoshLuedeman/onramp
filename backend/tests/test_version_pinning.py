@@ -652,7 +652,11 @@ class TestPulumiRoute:
 
     def test_invalid_language_error_message(self):
         data = client.get("/api/versions/pulumi/rust").json()
-        assert "Unsupported language" in data["detail"]
+        # Structured error response wraps message in error object
+        if "error" in data:
+            assert "Unsupported language" in data["error"]["message"]
+        else:
+            assert "Unsupported language" in data["detail"]
 
     def test_typescript_response_has_language(self):
         data = client.get("/api/versions/pulumi/typescript").json()
