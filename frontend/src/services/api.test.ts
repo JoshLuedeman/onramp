@@ -1734,3 +1734,98 @@ describe("api.avd", () => {
     expect(body.template_type).toBe("host_pool");
   });
 });
+
+describe("api.aiml", () => {
+  it("getQuestions calls GET /api/accelerators/aiml/questions", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ questions: [] }),
+    }));
+    await api.aiml.getQuestions();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/aiml/questions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getSkuRecommendations calls GET with filters", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [], count: 0 }),
+    }));
+    await api.aiml.getSkuRecommendations({ gpu_type: "A100" });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toContain("/api/accelerators/aiml/skus");
+    expect(call[0]).toContain("gpu_type=A100");
+  });
+
+  it("generateArchitecture sends POST with answers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ architecture: {} }),
+    }));
+    await api.aiml.generateArchitecture({ answers: { ml_workload_type: "training" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/aiml/architecture");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.answers.ml_workload_type).toBe("training");
+  });
+
+  it("getBestPractices calls GET /api/accelerators/aiml/best-practices", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ best_practices: [] }),
+    }));
+    await api.aiml.getBestPractices();
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/aiml/best-practices");
+  });
+
+  it("estimateSizing sends POST with requirements", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ sizing: {} }),
+    }));
+    await api.aiml.estimateSizing({ requirements: { gpu_requirements: "single" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/aiml/sizing");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.requirements.gpu_requirements).toBe("single");
+  });
+
+  it("validateArchitecture sends POST with architecture", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ valid: true, errors: [], warnings: [], suggestions: [] }),
+    }));
+    await api.aiml.validateArchitecture({ architecture: { services: [] } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/aiml/validate");
+    expect(call[1].method).toBe("POST");
+  });
+
+  it("getReferenceArchitectures calls GET endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ reference_architectures: [] }),
+    }));
+    await api.aiml.getReferenceArchitectures();
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/aiml/reference-architectures");
+  });
+
+  it("generateBicep sends POST with template_type and config", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ bicep: "", template_type: "full_stack" }),
+    }));
+    await api.aiml.generateBicep({ template_type: "full_stack", config: {} });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/aiml/bicep");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.template_type).toBe("full_stack");
+  });
+});
