@@ -1528,3 +1528,209 @@ describe("api.confidential", () => {
     );
   });
 });
+
+describe("api.iot", () => {
+  it("getQuestions calls GET /api/accelerators/iot/questions", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ questions: [], total: 0 }),
+    }));
+    const result = await api.iot.getQuestions();
+    expect(result.total).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/iot/questions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getSkuRecommendations sends POST with answers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ recommended_tier: {}, units: 1, rationale: "" }),
+    }));
+    await api.iot.getSkuRecommendations({ answers: { device_count: "10K" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/iot/sku-recommendations");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.answers.device_count).toBe("10K");
+  });
+
+  it("generateArchitecture sends POST with answers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ components: [], connections: [] }),
+    }));
+    await api.iot.generateArchitecture({ answers: { edge_computing: "Yes" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/iot/architecture");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.answers.edge_computing).toBe("Yes");
+  });
+
+  it("getBestPractices calls GET /api/accelerators/iot/best-practices", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ best_practices: [], total: 0 }),
+    }));
+    const result = await api.iot.getBestPractices();
+    expect(result.total).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/iot/best-practices",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("estimateSizing sends POST with requirements", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ iot_hub: {}, storage: {} }),
+    }));
+    await api.iot.estimateSizing({ requirements: { device_count: 5000 } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/iot/sizing");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.requirements.device_count).toBe(5000);
+  });
+
+  it("validateArchitecture sends POST with architecture", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ valid: true, errors: [], warnings: [] }),
+    }));
+    await api.iot.validateArchitecture({ architecture: { components: [] } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/iot/validate");
+    expect(call[1].method).toBe("POST");
+  });
+
+  it("getReferenceArchitectures calls GET /api/accelerators/iot/reference-architectures", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ architectures: [], total: 0 }),
+    }));
+    const result = await api.iot.getReferenceArchitectures();
+    expect(result.total).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/iot/reference-architectures",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("generateBicep sends POST with template_type and config", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ template_type: "iot_hub", bicep_template: "", description: "" }),
+    }));
+    await api.iot.generateBicep({ template_type: "iot_hub", config: { name: "myHub" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/iot/bicep");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.template_type).toBe("iot_hub");
+  });
+});
+
+describe("api.avd", () => {
+  it("getQuestions calls GET /api/accelerators/avd/questions", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([{ id: "avd_user_count", text: "User count" }]),
+    }));
+    const result = await api.avd.getQuestions();
+    expect(result).toHaveLength(1);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/avd/questions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getSkuRecommendations sends POST with user_type", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [], total: 0 }),
+    }));
+    await api.avd.getSkuRecommendations({ user_type: "developer", application_type: "cad_3d" });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/avd/sku-recommendations");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.user_type).toBe("developer");
+  });
+
+  it("generateArchitecture sends POST with answers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ architecture: {} }),
+    }));
+    await api.avd.generateArchitecture({ answers: { avd_desktop_type: "personal" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/avd/architecture");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.answers.avd_desktop_type).toBe("personal");
+  });
+
+  it("getBestPractices calls GET /api/accelerators/avd/best-practices", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([{ id: "bp1", title: "Practice" }]),
+    }));
+    const result = await api.avd.getBestPractices();
+    expect(result).toHaveLength(1);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/avd/best-practices",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("estimateSizing sends POST with requirements", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ session_host_count: 10, users_per_host: 8 }),
+    }));
+    await api.avd.estimateSizing({ requirements: { user_count: "200-1000" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/avd/sizing");
+    expect(call[1].method).toBe("POST");
+  });
+
+  it("validateArchitecture sends POST with architecture", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ valid: true, errors: [], warnings: [] }),
+    }));
+    await api.avd.validateArchitecture({ architecture: { host_pool: {} } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/avd/validate");
+    expect(call[1].method).toBe("POST");
+  });
+
+  it("getReferenceArchitectures calls GET /api/accelerators/avd/reference-architectures", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([{ id: "small_team", name: "Small Team" }]),
+    }));
+    const result = await api.avd.getReferenceArchitectures();
+    expect(result).toHaveLength(1);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/avd/reference-architectures",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("generateBicep sends POST with template_type and config", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ template_type: "host_pool", bicep_template: "" }),
+    }));
+    await api.avd.generateBicep({ template_type: "host_pool", config: {} });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/avd/bicep");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.template_type).toBe("host_pool");
+  });
+});

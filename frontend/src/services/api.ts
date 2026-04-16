@@ -1005,6 +1005,40 @@ export const api = {
       fetchApi<AttestationConfigResponse>(`/api/confidential/attestation/${encodeURIComponent(ccType)}`),
   },
 
+  avd: {
+    getQuestions: () =>
+      fetchApi<AvdQuestionResponse[]>("/api/accelerators/avd/questions"),
+    getSkuRecommendations: (data: { user_type: string; application_type: string }) =>
+      fetchApi<AvdSkuListResponse>("/api/accelerators/avd/sku-recommendations", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    generateArchitecture: (data: { answers: Record<string, unknown> }) =>
+      fetchApi<AvdArchitectureResponse>("/api/accelerators/avd/architecture", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getBestPractices: () =>
+      fetchApi<AvdBestPracticeResponse[]>("/api/accelerators/avd/best-practices"),
+    estimateSizing: (data: { requirements: Record<string, unknown> }) =>
+      fetchApi<AvdSizingResponse>("/api/accelerators/avd/sizing", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    validateArchitecture: (data: { architecture: Record<string, unknown> }) =>
+      fetchApi<AvdValidationResponse>("/api/accelerators/avd/validate", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getReferenceArchitectures: () =>
+      fetchApi<AvdReferenceArchResponse[]>("/api/accelerators/avd/reference-architectures"),
+    generateBicep: (data: { template_type: string; config: Record<string, unknown> }) =>
+      fetchApi<AvdBicepResponse>("/api/accelerators/avd/bicep", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
+
   workloadExtensions: {
     list: () =>
       fetchApi<{ extensions: WorkloadExtensionItem[] }>("/api/workloads/extensions/"),
@@ -1109,6 +1143,140 @@ export const api = {
       }),
     getRules: () =>
       fetchApi<{ rules: ValidationRule[] }>("/api/validation/rules"),
+  },
+
+  iot: {
+    getQuestions: () =>
+      fetchApi<IoTQuestionsListResponse>("/api/accelerators/iot/questions"),
+    getSkuRecommendations: (data: { answers: Record<string, unknown> }) =>
+      fetchApi<IoTSkuRecommendationResponse>("/api/accelerators/iot/sku-recommendations", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    generateArchitecture: (data: { answers: Record<string, unknown> }) =>
+      fetchApi<IoTArchitectureResponse>("/api/accelerators/iot/architecture", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getBestPractices: () =>
+      fetchApi<IoTBestPracticesListResponse>("/api/accelerators/iot/best-practices"),
+    estimateSizing: (data: { requirements: Record<string, unknown> }) =>
+      fetchApi<IoTSizingResponse>("/api/accelerators/iot/sizing", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    validateArchitecture: (data: { architecture: Record<string, unknown> }) =>
+      fetchApi<IoTValidationResponse>("/api/accelerators/iot/validate", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getReferenceArchitectures: () =>
+      fetchApi<IoTReferenceArchitecturesListResponse>(
+        "/api/accelerators/iot/reference-architectures"
+      ),
+    generateBicep: (data: { template_type: string; config: Record<string, unknown> }) =>
+      fetchApi<IoTBicepResponse>("/api/accelerators/iot/bicep", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
+
+  aiml: {
+    getQuestions: () =>
+      fetchApi<AiMlQuestionsListResponse>("/api/accelerators/aiml/questions"),
+    getSkuRecommendations: (filters?: {
+      gpu_type?: string;
+      family?: string;
+      price_tier?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.gpu_type) params.set("gpu_type", filters.gpu_type);
+      if (filters?.family) params.set("family", filters.family);
+      if (filters?.price_tier) params.set("price_tier", filters.price_tier);
+      const qs = params.toString();
+      return fetchApi<AiMlSkuListResponse>(
+        `/api/accelerators/aiml/skus${qs ? `?${qs}` : ""}`
+      );
+    },
+    generateArchitecture: (data: { answers: Record<string, unknown> }) =>
+      fetchApi<AiMlArchitectureResponse>("/api/accelerators/aiml/architecture", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getBestPractices: () =>
+      fetchApi<AiMlBestPracticesListResponse>(
+        "/api/accelerators/aiml/best-practices"
+      ),
+    estimateSizing: (data: { requirements: Record<string, unknown> }) =>
+      fetchApi<AiMlSizingResponse>("/api/accelerators/aiml/sizing", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    validateArchitecture: (data: { architecture: Record<string, unknown> }) =>
+      fetchApi<AiMlValidationResponse>("/api/accelerators/aiml/validate", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getReferenceArchitectures: () =>
+      fetchApi<AiMlReferenceArchitecturesListResponse>(
+        "/api/accelerators/aiml/reference-architectures"
+      ),
+    generateBicep: (data: {
+      template_type: string;
+      config: Record<string, unknown>;
+    }) =>
+      fetchApi<AiMlBicepResponse>("/api/accelerators/aiml/bicep", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
+
+  sap: {
+    getQuestions: () =>
+      fetchApi<SapQuestionListResult>("/api/accelerators/sap/questions"),
+    generateArchitecture: (data: { answers: Record<string, unknown> }) =>
+      fetchApi<SapArchitectureResult>("/api/accelerators/sap/architecture", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getSkus: (params?: { tier?: string; min_memory_gb?: number; min_saps?: number }) => {
+      const query = new URLSearchParams();
+      if (params?.tier) query.set("tier", params.tier);
+      if (params?.min_memory_gb) query.set("min_memory_gb", String(params.min_memory_gb));
+      if (params?.min_saps) query.set("min_saps", String(params.min_saps));
+      const qs = query.toString();
+      return fetchApi<SapSkuListResult>(
+        `/api/accelerators/sap/skus${qs ? `?${qs}` : ""}`,
+      );
+    },
+    estimateSizing: (data: {
+      saps: number;
+      data_volume: string;
+      concurrent_users: number;
+    }) =>
+      fetchApi<SapSizingResult>("/api/accelerators/sap/sizing", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getBestPractices: () =>
+      fetchApi<SapBestPracticeListResult>("/api/accelerators/sap/best-practices"),
+    generateBicep: (data: {
+      template_type: string;
+      config: Record<string, unknown>;
+    }) =>
+      fetchApi<SapBicepResult>("/api/accelerators/sap/bicep", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getReferenceArchitectures: () =>
+      fetchApi<SapReferenceArchListResult>(
+        "/api/accelerators/sap/reference-architectures",
+      ),
+    validate: (data: { architecture: Record<string, unknown> }) =>
+      fetchApi<SapValidateResult>("/api/accelerators/sap/validate", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
   },
 };
 
@@ -2231,6 +2399,86 @@ export interface AttestationConfigResponse {
   steps: string[];
 }
 
+// ── AVD Types ─────────────────────────────────────────────────────────
+
+export interface AvdQuestionOption {
+  value: string;
+  label: string;
+}
+
+export interface AvdQuestionResponse {
+  id: string;
+  category: string;
+  text: string;
+  type: string;
+  options: AvdQuestionOption[];
+  required: boolean;
+  order: number;
+}
+
+export interface AvdSkuResponse {
+  name: string;
+  series: string;
+  family: string;
+  vcpus: number;
+  memory_gb: number;
+  gpu: boolean;
+  users_per_vm: Record<string, number>;
+  recommended_users: number | null;
+  description: string;
+}
+
+export interface AvdSkuListResponse {
+  skus: AvdSkuResponse[];
+  total: number;
+}
+
+export interface AvdArchitectureResponse {
+  architecture: Record<string, unknown>;
+}
+
+export interface AvdBestPracticeResponse {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  severity: string;
+}
+
+export interface AvdSizingResponse {
+  session_host_count: number;
+  users_per_host: number;
+  recommended_sku: string;
+  total_users: number;
+  storage_gb: number;
+}
+
+export interface AvdValidationResponse {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface AvdReferenceArchResponse {
+  id: string;
+  name: string;
+  description: string;
+  user_count: string;
+  host_pool_type: string;
+  session_host_count: number;
+  vm_sku: string;
+  fslogix_storage: string;
+  regions: number;
+  scaling: string;
+  components: string[];
+}
+
+export interface AvdBicepResponse {
+  template_type: string;
+  bicep_template: string;
+  description: string;
+}
+
 // ── Workload Extensions Types ─────────────────────────────────────────
 
 export interface WorkloadExtensionItem {
@@ -2309,4 +2557,175 @@ export interface ValidationRule {
   category: string;
   description: string;
   severity: string;
+}
+
+// ── IoT Accelerator Types ─────────────────────────────────────────────
+
+export interface IoTQuestion {
+  id: string;
+  text: string;
+  type: string;
+  options: string[];
+  default: string;
+  category: string;
+  help_text: string;
+}
+
+export interface IoTQuestionsListResponse {
+  questions: IoTQuestion[];
+  total: number;
+}
+
+export interface IoTSkuRecommendationResponse {
+  recommended_tier: Record<string, unknown>;
+  units: number;
+  estimated_daily_messages: number;
+  device_count: number;
+  rationale: string;
+  alternatives: Record<string, unknown>[];
+}
+
+export interface IoTArchitectureResponse {
+  components: Record<string, unknown>[];
+  connections: Record<string, unknown>[];
+  iot_hub_tier: Record<string, unknown>;
+  iot_hub_units: number;
+  estimated_daily_messages: number;
+  description: string;
+}
+
+export interface IoTBestPractice {
+  id: string;
+  category: string;
+  title: string;
+  description: string;
+  priority: string;
+}
+
+export interface IoTBestPracticesListResponse {
+  best_practices: IoTBestPractice[];
+  total: number;
+}
+
+export interface IoTSizingResponse {
+  iot_hub: Record<string, unknown>;
+  storage: Record<string, unknown>;
+  edge: Record<string, unknown>;
+  event_hubs: Record<string, unknown>;
+  stream_analytics: Record<string, unknown>;
+}
+
+export interface IoTValidationResponse {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface IoTReferenceArchitecture {
+  id: string;
+  name: string;
+  description: string;
+  components: string[];
+  device_types: string[];
+  protocols: string[];
+  scale: string;
+  use_cases: string[];
+}
+
+export interface IoTReferenceArchitecturesListResponse {
+  architectures: IoTReferenceArchitecture[];
+  total: number;
+}
+
+export interface IoTBicepResponse {
+  template_type: string;
+  bicep_template: string;
+  description: string;
+}
+
+// ── AI/ML Accelerator Types ─────────────────────────────────────────────
+
+export interface AiMlQuestionOption {
+  value: string;
+  label: string;
+}
+
+export interface AiMlQuestion {
+  id: string;
+  text: string;
+  type: string;
+  options?: AiMlQuestionOption[];
+  required: boolean;
+  category: string;
+  help_text: string;
+}
+
+export interface AiMlQuestionsListResponse {
+  questions: AiMlQuestion[];
+}
+
+export interface AiMlGpuSku {
+  id: string;
+  name: string;
+  family: string;
+  gpu_type: string;
+  gpu_count: number;
+  gpu_memory_gb: number;
+  vcpus: number;
+  ram_gb: number;
+  use_case: string;
+  price_tier: string;
+}
+
+export interface AiMlSkuListResponse {
+  skus: AiMlGpuSku[];
+  count: number;
+}
+
+export interface AiMlArchitectureResponse {
+  architecture: Record<string, unknown>;
+}
+
+export interface AiMlBestPractice {
+  id: string;
+  title: string;
+  category: string;
+  priority: string;
+  description: string;
+}
+
+export interface AiMlBestPracticesListResponse {
+  best_practices: AiMlBestPractice[];
+}
+
+export interface AiMlSizingResponse {
+  sizing: Record<string, unknown>;
+}
+
+export interface AiMlValidationResponse {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  suggestions: string[];
+}
+
+export interface AiMlReferenceArchitecture {
+  id: string;
+  name: string;
+  description: string;
+  team_size: string;
+  use_case: string;
+  services: string[];
+  estimated_monthly_cost_usd: number;
+  gpu_type: string;
+  mlops_level: string;
+}
+
+export interface AiMlReferenceArchitecturesListResponse {
+  reference_architectures: AiMlReferenceArchitecture[];
+}
+
+export interface AiMlBicepResponse {
+  bicep: string;
+  template_type: string;
 }

@@ -5,6 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.exception_handlers import register_exception_handlers
 from app.api.routes.adr import router as adr_router
+from app.api.routes.aiml import router as aiml_router
+from app.api.routes.avd import router as avd_router
 from app.api.routes.ai_eval import router as ai_eval_router
 from app.api.routes.ai_quality import router as ai_quality_router
 from app.api.routes.ai_validation import router as ai_validation_router
@@ -19,6 +21,7 @@ from app.api.routes.china import router as china_router
 from app.api.routes.cloud_config import router as cloud_config_router
 from app.api.routes.collaboration import router as collaboration_router
 from app.api.routes.confidential import router as confidential_router
+from app.api.routes.sap import router as sap_router
 from app.api.routes.compliance import router as compliance_router
 from app.api.routes.content_safety import router as content_safety_router
 from app.api.routes.cost import router as cost_router
@@ -32,6 +35,7 @@ from app.api.routes.government import router as government_router
 from app.api.routes.governance_scorecard import router as governance_scorecard_router
 from app.api.routes.governance_tasks import router as governance_tasks_router
 from app.api.routes.iac_validation import router as iac_validation_router
+from app.api.routes.iot import router as iot_router
 from app.api.routes.migration import router as migration_router
 from app.api.routes.msp import router as msp_router
 from app.api.routes.notifications import router as notifications_router
@@ -204,6 +208,10 @@ app.include_router(validation_router)
 app.include_router(government_router)
 app.include_router(china_router)
 app.include_router(confidential_router)
+app.include_router(sap_router)
+app.include_router(aiml_router)
+app.include_router(iot_router)
+app.include_router(avd_router)
 
 
 @app.get("/health")
