@@ -21,6 +21,8 @@ const AdminPage = lazy(() => import("./pages/AdminPage"));
 const GovernancePage = lazy(() => import("./pages/GovernancePage"));
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const OutputPage = lazy(() => import("./pages/OutputPage"));
+const MSPDashboardPage = lazy(() => import("./pages/MSPDashboardPage"));
+const MarketplacePage = lazy(() => import("./pages/MarketplacePage"));
 
 function App() {
   return (
@@ -92,6 +94,13 @@ function App() {
                   <Route path="/projects/:projectId/output" element={
                     <ProjectProvider><OutputPage /></ProjectProvider>
                   } />
+
+                  {/* MSP Dashboard */}
+                  <Route path="/msp" element={<MSPDashboardPage />} />
+                  <Route path="/msp/tenants/:tenantId" element={<MSPDashboardPage />} />
+
+                  {/* Template Marketplace */}
+                  <Route path="/marketplace" element={<MarketplacePage />} />
                 </Routes>
               </Suspense>
             </ErrorBoundary>

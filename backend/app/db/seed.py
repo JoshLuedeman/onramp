@@ -23,8 +23,15 @@ async def seed_database():
         await _seed_question_categories(session)
         await _seed_questions(session)
         await _seed_compliance_frameworks(session)
+        await _seed_curated_templates(session)
         await session.commit()
         logger.info("Database seeding complete")
+
+
+async def _seed_curated_templates(session: AsyncSession):
+    """Seed curated marketplace templates."""
+    from app.db.seed_templates import seed_curated_templates
+    await seed_curated_templates(session)
 
 
 async def _seed_dev_tenant(session: AsyncSession):
