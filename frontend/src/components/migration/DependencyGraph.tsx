@@ -3,6 +3,7 @@
  * Uses SVG/HTML5 only (no external graph libraries).
  */
 
+import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Badge,
@@ -197,6 +198,8 @@ const MIGRATION_STRATEGY_COLOR: Record<string, string> = {
   rebuild: tokens.colorStatusDangerForeground1,
   retire: tokens.colorNeutralForeground4,
   retain: tokens.colorNeutralForeground3,
+  replace: tokens.colorPaletteRedForeground1,
+  unknown: tokens.colorNeutralForeground3,
 };
 
 // ---------------------------------------------------------------------------
@@ -285,7 +288,7 @@ function GraphEdge({ from, to, inCycle, edge }: EdgeProps) {
   const color = inCycle ? tokens.colorStatusDangerForeground1 : tokens.colorNeutralForeground3;
   const strokeWidth = inCycle ? 2 : 1.5;
 
-  const tooltipText = `${from.summary.name} → ${to.summary.name} (${edge.dependency_type})`;
+  const tooltipText = `${to.summary.name} depends on ${from.summary.name} (${edge.dependency_type})`;
 
   return (
     <line
@@ -987,8 +990,8 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
               <Text size={200} className={styles.detailLabel}>Depends on:</Text>
               <Text size={200}>
                 {(graph?.edges ?? [])
-                  .filter((e) => e.source === selectedNode.id)
-                  .map((e) => graph?.nodes.find((n) => n.id === e.target)?.name ?? e.target)
+                  .filter((e) => e.target === selectedNode.id)
+                  .map((e) => graph?.nodes.find((n) => n.id === e.source)?.name ?? e.source)
                   .join(", ") || "—"}
               </Text>
             </div>
@@ -996,8 +999,8 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
               <Text size={200} className={styles.detailLabel}>Required by:</Text>
               <Text size={200}>
                 {(graph?.edges ?? [])
-                  .filter((e) => e.target === selectedNode.id)
-                  .map((e) => graph?.nodes.find((n) => n.id === e.source)?.name ?? e.source)
+                  .filter((e) => e.source === selectedNode.id)
+                  .map((e) => graph?.nodes.find((n) => n.id === e.target)?.name ?? e.target)
                   .join(", ") || "—"}
               </Text>
             </div>

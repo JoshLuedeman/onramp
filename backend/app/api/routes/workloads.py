@@ -548,19 +548,15 @@ async def add_dependency(
         raise HTTPException(status_code=503, detail="Database not configured")
 
     try:
-        result = await db.execute(select(Workload).where(Workload.id == workload_id))
+        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
+        result = await db.execute(
+            select(Workload)
+            .join(Project, Project.id == Workload.project_id)
+            .where(Workload.id == workload_id, Project.tenant_id == tenant_id)
+        )
         workload = result.scalar_one_or_none()
         if not workload:
             raise HTTPException(status_code=404, detail="Workload not found")
-
-        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
-        proj_result = await db.execute(
-            select(Project).where(
-                Project.id == workload.project_id, Project.tenant_id == tenant_id
-            )
-        )
-        if proj_result.scalar_one_or_none() is None:
-            raise HTTPException(status_code=403, detail="Project not found or access denied")
 
         # Verify target exists in same project
         tgt_result = await db.execute(
@@ -664,19 +660,15 @@ async def remove_dependency(
         raise HTTPException(status_code=503, detail="Database not configured")
 
     try:
-        result = await db.execute(select(Workload).where(Workload.id == workload_id))
+        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
+        result = await db.execute(
+            select(Workload)
+            .join(Project, Project.id == Workload.project_id)
+            .where(Workload.id == workload_id, Project.tenant_id == tenant_id)
+        )
         workload = result.scalar_one_or_none()
         if not workload:
             raise HTTPException(status_code=404, detail="Workload not found")
-
-        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
-        proj_result = await db.execute(
-            select(Project).where(
-                Project.id == workload.project_id, Project.tenant_id == tenant_id
-            )
-        )
-        if proj_result.scalar_one_or_none() is None:
-            raise HTTPException(status_code=403, detail="Project not found or access denied")
 
         deps: list[str] = list(workload.dependencies or [])
         if target_id in deps:
