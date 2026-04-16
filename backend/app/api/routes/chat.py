@@ -1,9 +1,11 @@
 """Chat API routes for multi-turn AI conversations."""
 
+import asyncio
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
@@ -235,5 +237,124 @@ async def delete_conversation(
         return {"id": conv.id, "deleted": True}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def _mock_stream_tokens(content: str):
+    """Yield mock tokens with small delays for dev mode streaming."""
+    words = content.split()
+    for i, word in enumerate(words):
+        token = word if i == len(words) - 1 else word + " "
+        yield f"data: {token}\n\n"
+        await asyncio.sleep(0.05)
+    yield "data: [DONE]\n\n"
+
+
+@router.post("/{conversation_id}/stream")
+async def stream_message(
+    conversation_id: str,
+    body: SendMessageRequest,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Stream an AI response token-by-token via SSE.
+
+    Sends Server-Sent Events where each ``data:`` frame contains a token.
+    The final frame is ``data: [DONE]`` to signal completion.
+    """
+    if db is None:
+        # Dev mode: stream a mock response
+        mock_content = (
+            f"[Dev mode] I received your message: '{body.content[:100]}'. "
+            "Here is a **streaming** mock response with some architectural advice:\n\n"
+            "- Consider using **Azure Front Door** for global load balancing\n"
+            "- Enable `Azure Policy` for governance guardrails\n"
+            "- Use **managed identities** instead of service principal secrets"
+        )
+        return StreamingResponse(
+            _mock_stream_tokens(mock_content),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
+    try:
+        from app.models.base import generate_uuid
+        from app.models.conversation import ConversationMessage
+        from app.services.ai_foundry import ai_client
+        from app.services.conversation_manager import conversation_manager, estimate_tokens
+        from app.services.prompts import CHAT_SYSTEM_PROMPT
+
+        # Verify conversation exists and belongs to user
+        conv = await conversation_manager.get_conversation(db, conversation_id)
+        if conv is None:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+
+        # Store the user message
+        user_msg = ConversationMessage(
+            id=generate_uuid(),
+            conversation_id=conversation_id,
+            role="user",
+            content=body.content,
+            token_count=estimate_tokens(body.content),
+        )
+        db.add(user_msg)
+        await db.flush()
+
+        # Build context for the AI
+        context_messages = []
+        for msg in conv.messages:
+            context_messages.append({"role": msg.role, "content": msg.content})
+        context_messages.append({"role": "user", "content": body.content})
+
+        # Build user prompt from context
+        user_prompt = "\n".join(
+            f"[{m['role']}]: {m['content']}" for m in context_messages if m["role"] != "system"
+        )
+
+        async def generate():
+            full_response = []
+            try:
+                async for token in ai_client.stream_completion(
+                    system_prompt=CHAT_SYSTEM_PROMPT,
+                    user_prompt=user_prompt,
+                ):
+                    full_response.append(token)
+                    yield f"data: {token}\n\n"
+            except Exception as e:
+                yield f"data: Error: {str(e)}\n\n"
+
+            # Store the assistant response
+            assistant_content = "".join(full_response)
+            assistant_msg = ConversationMessage(
+                id=generate_uuid(),
+                conversation_id=conversation_id,
+                role="assistant",
+                content=assistant_content,
+                token_count=estimate_tokens(assistant_content),
+            )
+            db.add(assistant_msg)
+
+            # Update conversation token totals
+            conv.total_tokens += user_msg.token_count + assistant_msg.token_count
+            await db.commit()
+
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(
+            generate(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

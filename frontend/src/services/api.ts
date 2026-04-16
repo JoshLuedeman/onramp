@@ -104,6 +104,16 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ adrs, format }),
       }),
+    compare: (answers: Record<string, string>, options?: object) =>
+      fetchApi<ComparisonResult>("/api/architecture/compare", {
+        method: "POST",
+        body: JSON.stringify({ answers, options }),
+      }),
+    compareTradeoffs: (answers: Record<string, string>, options?: object) =>
+      fetchApi<{ tradeoff_analysis: string }>("/api/architecture/compare/tradeoffs", {
+        method: "POST",
+        body: JSON.stringify({ answers, options }),
+      }),
   },
   compliance: {
     getFrameworks: () => fetchApi<{ frameworks: Framework[] }>("/api/compliance/frameworks"),
@@ -347,6 +357,28 @@ export const api = {
       fetchApi<PluginResponse>(`/api/plugins/${encodeURIComponent(name)}`),
   },
 
+  policies: {
+    generate: (description: string, context?: object) =>
+      fetchApi<PolicyDefinition>("/api/policies/generate", {
+        method: "POST",
+        body: JSON.stringify({ description, context }),
+      }).then((res) => (res as unknown as { policy: PolicyDefinition }).policy),
+    validate: (policy: object) =>
+      fetchApi<PolicyValidationResult>("/api/policies/validate", {
+        method: "POST",
+        body: JSON.stringify({ policy }),
+      }),
+    getLibrary: () =>
+      fetchApi<{ policies: PolicyTemplate[] }>("/api/policies/library").then(
+        (res) => res.policies,
+      ),
+    apply: (policy: object, architectureId?: string) =>
+      fetchApi<void>("/api/policies/apply", {
+        method: "POST",
+        body: JSON.stringify({ policy, architecture_id: architectureId }),
+      }),
+  },
+
   governance: {
     drift: {
       remediate: (data: RemediationRequest) =>
@@ -374,6 +406,43 @@ export const api = {
       getSummary: (projectId: string) =>
         fetchApi<ExecutiveSummaryResponse>(`/api/governance/scorecard/${projectId}/summary`),
     },
+  },
+
+  security: {
+    analyze: (architecture: Record<string, unknown>, useAi?: boolean) =>
+      fetchApi<SecurityAnalysisResponse>("/api/security/analyze", {
+        method: "POST",
+        body: JSON.stringify({ architecture, use_ai: useAi ?? false }),
+      }),
+    getChecks: () => fetchApi<SecurityCheckItem[]>("/api/security/checks"),
+    fix: (findingId: string, architecture: Record<string, unknown>) =>
+      fetchApi<SecurityRemediationStep>("/api/security/fix", {
+        method: "POST",
+        body: JSON.stringify({ finding_id: findingId, architecture }),
+      }),
+  },
+
+  chat: {
+    createConversation: (projectId?: string) =>
+      fetchApi<ConversationResponse>("/api/chat/new", {
+        method: "POST",
+        body: JSON.stringify({ project_id: projectId ?? "default" }),
+      }),
+    getConversations: (projectId?: string) =>
+      fetchApi<{ conversations: ConversationResponse[] }>(
+        `/api/chat/conversations?project_id=${encodeURIComponent(projectId ?? "default")}`,
+      ).then((r) => r.conversations),
+    getConversation: (conversationId: string) =>
+      fetchApi<ConversationWithMessages>(`/api/chat/${conversationId}`),
+    sendMessage: (conversationId: string, content: string) =>
+      fetchApi<SendMessageApiResponse>(`/api/chat/${conversationId}/message`, {
+        method: "POST",
+        body: JSON.stringify({ content }),
+      }),
+    archiveConversation: (conversationId: string) =>
+      fetchApi<void>(`/api/chat/${conversationId}/archive`, { method: "POST" }),
+    deleteConversation: (conversationId: string) =>
+      fetchApi<void>(`/api/chat/${conversationId}`, { method: "DELETE" }),
   },
 };
 
@@ -824,4 +893,113 @@ export interface ScoreTrendResponse {
 
 export interface ExecutiveSummaryResponse {
   executive_summary: string;
+}
+
+// ── Policy types ──────────────────────────────────────────────────────────
+
+export interface PolicyDefinition {
+  name: string;
+  display_name: string;
+  description: string;
+  mode: string;
+  policy_rule: Record<string, unknown>;
+  parameters: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+}
+
+export interface PolicyValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface PolicyTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  policy_json: Record<string, unknown>;
+}
+
+// ── Architecture Comparison types ─────────────────────────────────────────
+
+export interface ArchitectureVariant {
+  name: string;
+  description: string;
+  architecture: Record<string, unknown>;
+  resource_count: number;
+  estimated_monthly_cost_min: number;
+  estimated_monthly_cost_max: number;
+  complexity: "simple" | "moderate" | "complex";
+  compliance_scores: Record<string, number>;
+}
+
+export interface ComparisonResult {
+  variants: ArchitectureVariant[];
+  tradeoff_analysis: string;
+  recommended_index: number;
+}
+
+// ── Security posture types ───────────────────────────────────────────────
+
+export interface SecurityFindingResponse {
+  id: string;
+  severity: "critical" | "high" | "medium" | "low";
+  category: string;
+  resource: string;
+  finding: string;
+  remediation: string;
+  auto_fixable: boolean;
+}
+
+export interface SecurityAnalysisResponse {
+  score: number;
+  findings: SecurityFindingResponse[];
+  summary: string;
+  analyzed_at: string;
+}
+
+export interface SecurityCheckItem {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  severity: "critical" | "high" | "medium" | "low";
+}
+
+export interface SecurityRemediationStep {
+  finding_id: string;
+  description: string;
+  architecture_changes: Record<string, unknown>;
+}
+
+// ── Chat / Conversation types ───────────────────────────────────────────
+
+export interface ConversationMessageItem {
+  id: string;
+  role: "system" | "user" | "assistant";
+  content: string;
+  token_count: number | null;
+  created_at: string;
+}
+
+export interface ConversationResponse {
+  id: string;
+  title: string | null;
+  status: string;
+  model_name: string;
+  total_tokens: number;
+  project_id: string;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+}
+
+export interface ConversationWithMessages extends ConversationResponse {
+  messages: ConversationMessageItem[];
+}
+
+export interface SendMessageApiResponse {
+  assistant_message: ConversationMessageItem;
+  conversation: ConversationResponse;
 }
