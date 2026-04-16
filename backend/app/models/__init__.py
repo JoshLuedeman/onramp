@@ -1,3 +1,4 @@
+from app.models.approval import ApprovalRequest
 from app.models.architecture import Architecture
 from app.models.audit_entry import AuditEntry
 from app.models.base import Base
@@ -8,6 +9,9 @@ from app.models.cost import CostAnomaly, CostBudget, CostSnapshot
 from app.models.deployment import Deployment
 from app.models.discovery import DiscoveredResource, DiscoveryScan
 from app.models.drift import DriftBaseline, DriftEvent, DriftScanResult
+from app.models.drift_notification_rule import DriftNotificationRule
+from app.models.drift_remediation import DriftRemediation
+from app.models.governance_audit import GovernanceAuditEntry
 from app.models.migration_wave import MigrationPlan, MigrationWave, WaveWorkload
 from app.models.notification import Notification, NotificationPreference
 from app.models.policy_compliance import PolicyComplianceResult, PolicyViolation
@@ -47,6 +51,8 @@ __all__ = [
     "DriftBaseline",
     "DriftEvent",
     "DriftScanResult",
+    "DriftRemediation",
+    "DriftNotificationRule",
     "PolicyComplianceResult",
     "PolicyViolation",
     "CostSnapshot",
@@ -57,4 +63,6 @@ __all__ = [
     "TaggingViolation",
     "RBACScanResult",
     "RBACFinding",
+    "ApprovalRequest",
+    "GovernanceAuditEntry",
 ]

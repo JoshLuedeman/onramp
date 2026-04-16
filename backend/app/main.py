@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.adr import router as adr_router
+from app.api.routes.approvals import router as approvals_router
 from app.api.routes.architecture import router as architecture_router
 from app.api.routes.bicep import router as bicep_router
 from app.api.routes.compliance import router as compliance_router
@@ -11,7 +12,10 @@ from app.api.routes.cost import router as cost_router
 from app.api.routes.deployment import router as deployment_router
 from app.api.routes.discovery import router as discovery_router
 from app.api.routes.drift import router as drift_router
+from app.api.routes.drift_notifications import router as drift_notifications_router
 from app.api.routes.events import router as events_router
+from app.api.routes.governance_audit import router as governance_audit_router
+from app.api.routes.governance_scorecard import router as governance_scorecard_router
 from app.api.routes.governance_tasks import router as governance_tasks_router
 from app.api.routes.migration import router as migration_router
 from app.api.routes.notifications import router as notifications_router
@@ -21,6 +25,7 @@ from app.api.routes.projects import router as projects_router
 from app.api.routes.questionnaire import router as questionnaire_router
 from app.api.routes.questionnaire_state import router as questionnaire_state_router
 from app.api.routes.rbac_health import router as rbac_health_router
+from app.api.routes.scan_operations import router as scan_operations_router
 from app.api.routes.scoring import router as scoring_router
 from app.api.routes.tagging import router as tagging_router
 from app.api.routes.users import router as users_router
@@ -111,10 +116,15 @@ app.include_router(plugins_router)
 app.include_router(events_router)
 app.include_router(governance_tasks_router)
 app.include_router(drift_router)
+app.include_router(drift_notifications_router)
 app.include_router(rbac_health_router)
 app.include_router(cost_router)
 app.include_router(policy_compliance_router)
 app.include_router(tagging_router)
+app.include_router(governance_scorecard_router)
+app.include_router(approvals_router)
+app.include_router(governance_audit_router)
+app.include_router(scan_operations_router)
 
 
 @app.get("/health")
