@@ -3,11 +3,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.exception_handlers import register_exception_handlers
 from app.api.routes.adr import router as adr_router
 from app.api.routes.ai_eval import router as ai_eval_router
 from app.api.routes.ai_quality import router as ai_quality_router
 from app.api.routes.ai_validation import router as ai_validation_router
 from app.api.routes.approvals import router as approvals_router
+from app.api.routes.arch_versions import router as arch_versions_router
 from app.api.routes.architecture import router as architecture_router
 from app.api.routes.arm import router as arm_router
 from app.api.routes.bicep import router as bicep_router
@@ -41,6 +43,7 @@ from app.api.routes.scoring import router as scoring_router
 from app.api.routes.security import router as security_router
 from app.api.routes.sizing import router as sizing_router
 from app.api.routes.tagging import router as tagging_router
+from app.api.routes.tenants import router as tenants_router
 from app.api.routes.terraform import router as terraform_router
 from app.api.routes.users import router as users_router
 from app.api.routes.version_pinning import router as version_pinning_router
@@ -53,6 +56,7 @@ from app.security import (
     RequestValidationMiddleware,
     SecurityHeadersMiddleware,
 )
+from app.api.versioning import APIVersionHeaderMiddleware, VersionRewriteMiddleware
 from app.startup import get_startup_status, log_plugin_status, validate_environment
 
 
@@ -89,6 +93,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Register structured exception handlers (must be before middleware).
+register_exception_handlers(app)
+
 # CORS — restrict methods/headers in production
 _cors_methods = (
     ["*"] if settings.is_dev_mode
@@ -102,6 +109,7 @@ _cors_headers = (
 # Middleware ordering: Starlette applies middleware in reverse add order.
 # Add rate-limit/validation first so CORS and security headers wrap ALL responses
 # (including 429/413/400 early returns).
+app.add_middleware(APIVersionHeaderMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(RequestValidationMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
@@ -113,11 +121,16 @@ app.add_middleware(
     allow_headers=_cors_headers,
 )
 
+# Outermost ASGI middleware — rewrites /api/v1/… → /api/… before routing.
+app.add_middleware(VersionRewriteMiddleware)
+
+app.include_router(tenants_router)
 app.include_router(users_router)
 app.include_router(questionnaire_router)
 app.include_router(compliance_router)
 app.include_router(projects_router)
 app.include_router(architecture_router)
+app.include_router(arch_versions_router)
 app.include_router(adr_router)
 app.include_router(deployment_router)
 app.include_router(bicep_router)
