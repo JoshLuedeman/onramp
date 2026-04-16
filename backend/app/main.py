@@ -14,6 +14,7 @@ from app.api.routes.architecture import router as architecture_router
 from app.api.routes.arm import router as arm_router
 from app.api.routes.bicep import router as bicep_router
 from app.api.routes.chat import router as chat_router
+from app.api.routes.collaboration import router as collaboration_router
 from app.api.routes.compliance import router as compliance_router
 from app.api.routes.content_safety import router as content_safety_router
 from app.api.routes.cost import router as cost_router
@@ -27,6 +28,7 @@ from app.api.routes.governance_scorecard import router as governance_scorecard_r
 from app.api.routes.governance_tasks import router as governance_tasks_router
 from app.api.routes.iac_validation import router as iac_validation_router
 from app.api.routes.migration import router as migration_router
+from app.api.routes.msp import router as msp_router
 from app.api.routes.notifications import router as notifications_router
 from app.api.routes.pipelines import router as pipelines_router
 from app.api.routes.plugins import router as plugins_router
@@ -43,6 +45,7 @@ from app.api.routes.scoring import router as scoring_router
 from app.api.routes.security import router as security_router
 from app.api.routes.sizing import router as sizing_router
 from app.api.routes.tagging import router as tagging_router
+from app.api.routes.templates import router as templates_router
 from app.api.routes.tenants import router as tenants_router
 from app.api.routes.terraform import router as terraform_router
 from app.api.routes.users import router as users_router
@@ -160,6 +163,7 @@ app.include_router(ai_quality_router)
 app.include_router(ai_eval_router)
 app.include_router(ai_validation_router)
 app.include_router(chat_router)
+app.include_router(collaboration_router)
 app.include_router(regulatory_router)
 app.include_router(security_router)
 app.include_router(sizing_router)
@@ -168,6 +172,8 @@ app.include_router(iac_validation_router)
 app.include_router(terraform_router)
 app.include_router(version_pinning_router)
 app.include_router(pipelines_router)
+app.include_router(msp_router)
+app.include_router(templates_router)
 
 
 @app.get("/health")

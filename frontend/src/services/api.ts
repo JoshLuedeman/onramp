@@ -729,6 +729,84 @@ export const api = {
         `/api/architectures/${archId}/versions/diff?from=${from}&to=${to}`,
       ),
   },
+
+  collaboration: {
+    listMembers: (projectId: string) =>
+      fetchApi<ProjectMemberListResponse>(
+        `/api/projects/${projectId}/members`,
+      ),
+    addMember: (projectId: string, data: ProjectMemberCreateRequest) =>
+      fetchApi<ProjectMemberResponse>(
+        `/api/projects/${projectId}/members`,
+        { method: "POST", body: JSON.stringify(data) },
+      ),
+    removeMember: (projectId: string, userId: string) =>
+      fetchApi<{ removed: boolean; user_id: string }>(
+        `/api/projects/${projectId}/members/${userId}`,
+        { method: "DELETE" },
+      ),
+    listComments: (projectId: string, componentRef?: string) =>
+      fetchApi<CommentListResponse>(
+        `/api/projects/${projectId}/comments${
+          componentRef
+            ? `?component_ref=${encodeURIComponent(componentRef)}`
+            : ""
+        }`,
+      ),
+    addComment: (projectId: string, data: CommentCreateRequest) =>
+      fetchApi<CommentResponseItem>(
+        `/api/projects/${projectId}/comments`,
+        { method: "POST", body: JSON.stringify(data) },
+      ),
+    getActivity: (projectId: string) =>
+      fetchApi<ActivityFeedResponse>(
+        `/api/projects/${projectId}/activity`,
+      ),
+  },
+  msp: {
+    getOverview: () =>
+      fetchApi<MSPOverviewResponse>("/api/msp/overview"),
+    getTenantHealth: (tenantId: string) =>
+      fetchApi<MSPTenantHealthResponse>(
+        `/api/msp/tenants/${tenantId}/health`,
+      ),
+    getComplianceSummary: () =>
+      fetchApi<MSPComplianceSummaryResponse>(
+        "/api/msp/compliance-summary",
+      ),
+  },
+  templates: {
+    list: (params?: Record<string, string>) => {
+      const qs = params
+        ? "?" + new URLSearchParams(params).toString()
+        : "";
+      return fetchApi<TemplateListResponse>(`/api/templates${qs}`);
+    },
+    get: (id: string) =>
+      fetchApi<TemplateItem>(`/api/templates/${id}`),
+    create: (data: {
+      name: string;
+      description?: string;
+      industry: string;
+      tags?: string[];
+      architecture_json: string;
+      visibility?: string;
+    }) =>
+      fetchApi<TemplateItem>("/api/templates", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    use: (id: string, projectId: string) =>
+      fetchApi<TemplateItem>(`/api/templates/${id}/use`, {
+        method: "POST",
+        body: JSON.stringify({ project_id: projectId }),
+      }),
+    rate: (id: string, rating: "up" | "down") =>
+      fetchApi<TemplateItem>(`/api/templates/${id}/rate`, {
+        method: "POST",
+        body: JSON.stringify({ rating }),
+      }),
+  },
 };
 
 export interface Category {
@@ -1353,4 +1431,134 @@ export interface VersionDiffResult {
   removed_components: ComponentChange[];
   modified_components: ComponentChange[];
   summary: string;
+}
+
+// ── Collaboration types ─────────────────────────────────────────────────
+
+export interface ProjectMemberCreateRequest {
+  email: string;
+  role?: "owner" | "editor" | "viewer";
+}
+
+export interface ProjectMemberResponse {
+  id: string;
+  user_id: string;
+  email: string;
+  display_name: string;
+  role: string;
+  invited_at: string;
+  accepted_at: string | null;
+}
+
+export interface ProjectMemberListResponse {
+  members: ProjectMemberResponse[];
+  total: number;
+}
+
+export interface CommentCreateRequest {
+  content: string;
+  component_ref?: string;
+}
+
+export interface CommentResponseItem {
+  id: string;
+  content: string;
+  component_ref: string | null;
+  user_id: string;
+  display_name: string;
+  created_at: string;
+}
+
+export interface CommentListResponse {
+  comments: CommentResponseItem[];
+  total: number;
+}
+
+export interface ActivityEntryItem {
+  type: string;
+  user_id: string;
+  description: string;
+  timestamp: string;
+}
+
+export interface ActivityFeedResponse {
+  activities: ActivityEntryItem[];
+}
+
+// ── MSP Dashboard types ─────────────────────────────────────────────
+
+export interface MSPTenantOverview {
+  tenant_id: string;
+  name: string;
+  status: string;
+  last_activity: string | null;
+  compliance_score: number;
+  project_count: number;
+  deployment_count: number;
+  active_deployments: number;
+}
+
+export interface MSPOverviewResponse {
+  tenants: MSPTenantOverview[];
+  total_tenants: number;
+  total_projects: number;
+  avg_compliance_score: number;
+}
+
+export interface MSPDeploymentSummary {
+  id: string;
+  project_name: string;
+  status: string;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface MSPTenantHealthResponse {
+  tenant_id: string;
+  name: string;
+  compliance_score: number;
+  compliance_status: string;
+  recent_deployments: MSPDeploymentSummary[];
+  active_alerts: number;
+  resource_count: number;
+}
+
+export interface MSPTenantComplianceScore {
+  tenant_id: string;
+  name: string;
+  score: number;
+  status: string;
+}
+
+export interface MSPComplianceSummaryResponse {
+  total_tenants: number;
+  passing: number;
+  warning: number;
+  failing: number;
+  scores_by_tenant: MSPTenantComplianceScore[];
+}
+
+// ── Template Marketplace Types ──────────────────────────────────────────
+
+export interface TemplateItem {
+  id: string;
+  name: string;
+  description: string | null;
+  industry: string;
+  tags: string[];
+  architecture_json: string | null;
+  author_tenant_id: string | null;
+  visibility: string;
+  download_count: number;
+  rating_up: number;
+  rating_down: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TemplateListResponse {
+  templates: TemplateItem[];
+  total: number;
+  page: number;
+  page_size: number;
 }

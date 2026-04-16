@@ -1,6 +1,7 @@
 from app.models.ai_feedback import AIFeedback
 from app.models.approval import ApprovalRequest
 from app.models.architecture import Architecture
+from app.models.comment import Comment
 from app.models.architecture_version import ArchitectureVersion
 from app.models.audit_entry import AuditEntry
 from app.models.base import Base
@@ -19,11 +20,13 @@ from app.models.migration_wave import MigrationPlan, MigrationWave, WaveWorkload
 from app.models.notification import Notification, NotificationPreference
 from app.models.policy_compliance import PolicyComplianceResult, PolicyViolation
 from app.models.project import Project
+from app.models.project_member import ProjectMember
 from app.models.prompt_version import PromptVersion
 from app.models.questionnaire import Question, QuestionCategory, QuestionnaireResponse
 from app.models.rbac_health import RBACFinding, RBACScanResult
 from app.models.tagging import TaggingPolicy, TaggingScanResult, TaggingViolation
 from app.models.task_execution import TaskExecution
+from app.models.template import Template
 from app.models.tenant import Tenant
 from app.models.token_usage import TokenUsage
 from app.models.user import User
@@ -32,9 +35,11 @@ from app.models.workload import Workload
 __all__ = [
     "AIFeedback",
     "Base",
+    "Comment",
     "Tenant",
     "User",
     "Project",
+    "ProjectMember",
     "QuestionCategory",
     "Question",
     "QuestionnaireResponse",
@@ -76,4 +81,5 @@ __all__ = [
     "TokenUsage",
     "Conversation",
     "ConversationMessage",
+    "Template",
 ]
