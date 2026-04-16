@@ -9,7 +9,11 @@ from app.api.routes.bicep import router as bicep_router
 from app.api.routes.compliance import router as compliance_router
 from app.api.routes.deployment import router as deployment_router
 from app.api.routes.discovery import router as discovery_router
+from app.api.routes.drift import router as drift_router
+from app.api.routes.events import router as events_router
+from app.api.routes.governance_tasks import router as governance_tasks_router
 from app.api.routes.migration import router as migration_router
+from app.api.routes.notifications import router as notifications_router
 from app.api.routes.plugins import router as plugins_router
 from app.api.routes.projects import router as projects_router
 from app.api.routes.questionnaire import router as questionnaire_router
@@ -39,7 +43,16 @@ async def lifespan(app):
     plugin_registry.discover_plugins("plugins")
     plugin_registry.load_entry_points()
     log_plugin_status()
+
+    # Start the governance task scheduler
+    from app.services.task_scheduler import task_scheduler
+
+    await task_scheduler.start()
+
     yield
+
+    # Shut down scheduler before closing DB
+    await task_scheduler.shutdown()
     await close_db()
 
 
@@ -87,7 +100,11 @@ app.include_router(questionnaire_state_router)
 app.include_router(discovery_router)
 app.include_router(workloads_router)
 app.include_router(migration_router)
+app.include_router(notifications_router)
 app.include_router(plugins_router)
+app.include_router(events_router)
+app.include_router(governance_tasks_router)
+app.include_router(drift_router)
 
 
 @app.get("/health")
