@@ -513,7 +513,7 @@ describe("api.pulumi", () => {
       ok: true,
       json: () => Promise.resolve({ files: [] }),
     }));
-    await api.pulumi.generate({ name: "test" }, "typescript");
+    await api.pulumi.generate({ name: "test" }, { language: "typescript" });
     expect(fetch).toHaveBeenCalledWith(
       "/api/pulumi/generate",
       expect.objectContaining({ method: "POST" })
@@ -527,11 +527,11 @@ describe("api.pipelines", () => {
       ok: true,
       json: () => Promise.resolve({ files: [] }),
     }));
-    await api.pipelines.generate({
-      architecture: { name: "test" },
-      pipeline_format: "github_actions",
-      iac_format: "bicep",
-    });
+    await api.pipelines.generate(
+      { name: "test" },
+      "bicep",
+      { pipeline_format: "github_actions" },
+    );
     expect(fetch).toHaveBeenCalledWith(
       "/api/pipelines/generate",
       expect.objectContaining({ method: "POST" })
