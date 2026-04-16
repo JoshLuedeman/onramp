@@ -260,6 +260,29 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify({ target_subscription_id: subscriptionId, reasoning }),
       }),
+    getDependencyGraph: (projectId: string) =>
+      fetchApi<DependencyGraph>(
+        `/api/workloads/dependency-graph?project_id=${encodeURIComponent(projectId)}`,
+      ),
+    getMigrationOrder: (projectId: string) =>
+      fetchApi<MigrationOrderResponse>(
+        `/api/workloads/migration-order?project_id=${encodeURIComponent(projectId)}`,
+      ),
+    /** Add a dependency between two workloads.
+     *
+     * @param dependencyType - Accepted by the API for future extensibility.
+     *   Currently only "depends_on" is supported; the backend records the
+     *   dependency as a plain ID reference and does not yet persist the type.
+     */
+    addDependency: (workloadId: string, targetId: string, dependencyType = "depends_on") =>
+      fetchApi<WorkloadRecord>(`/api/workloads/${workloadId}/dependencies`, {
+        method: "POST",
+        body: JSON.stringify({ target_workload_id: targetId, dependency_type: dependencyType }),
+      }),
+    removeDependency: (workloadId: string, targetId: string) =>
+      fetchApi<WorkloadRecord>(`/api/workloads/${workloadId}/dependencies/${targetId}`, {
+        method: "DELETE",
+      }),
   },
 };
 
@@ -499,4 +522,33 @@ export interface WorkloadMappingRecord {
 export interface WorkloadMappingResponse {
   mappings: WorkloadMappingRecord[];
   warnings: string[];
+}
+
+export interface WorkloadSummary {
+  id: string;
+  name: string;
+  criticality: string;
+  migration_strategy: string;
+  project_id: string;
+}
+
+export interface DependencyEdge {
+  source: string;
+  target: string;
+  dependency_type: string;
+}
+
+export interface DependencyGraph {
+  nodes: WorkloadSummary[];
+  edges: DependencyEdge[];
+  circular_dependencies: string[][];
+  migration_groups: string[][];
+}
+
+export interface MigrationOrderResponse {
+  order: string[];
+  migration_groups: string[][];
+  circular_dependencies: string[][];
+  has_circular: boolean;
+  workload_names: Record<string, string>;
 }

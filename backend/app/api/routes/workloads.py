@@ -1,4 +1,4 @@
-"""Workload API routes — import, list, create, update, delete, map."""
+"""Workload API routes — import, list, create, update, delete, map, dependency graph."""
 
 import logging
 import uuid
@@ -12,6 +12,13 @@ from app.auth import get_current_user
 from app.db.session import get_db
 from app.models.project import Project
 from app.models.workload import Workload
+from app.schemas.dependency import (
+    AddDependencyRequest,
+    DependencyEdge,
+    DependencyGraph,
+    MigrationOrderResponse,
+    WorkloadSummary,
+)
 from app.schemas.workload import (
     WorkloadCreate,
     WorkloadImportResult,
@@ -19,6 +26,7 @@ from app.schemas.workload import (
     WorkloadUpdate,
 )
 from app.schemas.workload_mapping import MappingOverride, MappingRequest, MappingResponse
+from app.services.dependency_analyzer import DependencyAnalyzer
 from app.services.workload_importer import detect_format, parse_file
 
 logger = logging.getLogger(__name__)
@@ -334,10 +342,10 @@ async def delete_workload(
         logger.exception("Failed to delete workload %s", workload_id)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-
 # ---------------------------------------------------------------------------
 # POST /api/workloads/map — generate workload-to-subscription mappings
 # ---------------------------------------------------------------------------
+
 
 @router.post("/map", response_model=MappingResponse)
 async def map_workloads(
@@ -445,8 +453,143 @@ async def map_workloads(
 
 
 # ---------------------------------------------------------------------------
+# Helper — tenant-scoped workload fetch
+# ---------------------------------------------------------------------------
+
+_analyzer = DependencyAnalyzer()
+
+
+async def _get_project_workloads(
+    project_id: str,
+    tenant_id: str,
+    db: AsyncSession,
+) -> list[Workload]:
+    """Return all workloads for *project_id*, verifying tenant ownership."""
+    proj_result = await db.execute(
+        select(Project).where(Project.id == project_id, Project.tenant_id == tenant_id)
+    )
+    if proj_result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=403, detail="Project not found or access denied")
+
+    result = await db.execute(select(Workload).where(Workload.project_id == project_id))
+    return list(result.scalars().all())
+
+
+def _workloads_to_graph(workloads: list[Workload]) -> DependencyGraph:
+    """Build a DependencyGraph from a list of ORM Workload objects.
+
+    Edge convention: ``source → target`` means *source is a prerequisite
+    for target* (source must be migrated before target).  If workload X has
+    ``dependencies=["Y"]`` the edge is ``Y → X`` because Y must be ready
+    before X can be migrated.
+    """
+    summaries = [
+        WorkloadSummary(
+            id=w.id,
+            name=w.name,
+            criticality=w.criticality,
+            migration_strategy=w.migration_strategy,
+            project_id=w.project_id,
+        )
+        for w in workloads
+    ]
+    node_ids = {w.id for w in workloads}
+    edges: list[DependencyEdge] = []
+    for w in workloads:
+        for dep_id in w.dependencies or []:
+            if dep_id in node_ids:
+                # Edge: dep_id → w.id means "dep_id must be migrated before w.id"
+                # (consistent with the "source precedes target" convention used
+                #  throughout DependencyAnalyzer — source is the prerequisite).
+                edges.append(DependencyEdge(source=dep_id, target=w.id))
+    return _analyzer.get_dependency_graph(summaries, edges)
+
+
+# ---------------------------------------------------------------------------
+# GET /api/workloads/dependency-graph
+# ---------------------------------------------------------------------------
+
+
+@router.get("/dependency-graph", response_model=DependencyGraph)
+async def get_dependency_graph(
+    project_id: str = Query(..., description="Project ID"),
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> DependencyGraph:
+    """Return the dependency graph for a project."""
+    if db is None:
+        return DependencyGraph()
+
+    try:
+        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
+        workloads = await _get_project_workloads(project_id, tenant_id, db)
+        return _workloads_to_graph(workloads)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to build dependency graph for project %s", project_id)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /api/workloads/{id}/dependencies
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{workload_id}/dependencies", response_model=WorkloadResponse)
+async def add_dependency(
+    workload_id: str,
+    body: AddDependencyRequest,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> WorkloadResponse:
+    """Add a dependency link from *workload_id* → *target_workload_id*."""
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database not configured")
+
+    try:
+        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
+        result = await db.execute(
+            select(Workload)
+            .join(Project, Project.id == Workload.project_id)
+            .where(Workload.id == workload_id, Project.tenant_id == tenant_id)
+        )
+        workload = result.scalar_one_or_none()
+        if not workload:
+            raise HTTPException(status_code=404, detail="Workload not found")
+
+        # Verify target exists in same project
+        tgt_result = await db.execute(
+            select(Workload).where(
+                Workload.id == body.target_workload_id,
+                Workload.project_id == workload.project_id,
+            )
+        )
+        if tgt_result.scalar_one_or_none() is None:
+            raise HTTPException(status_code=404, detail="Target workload not found")
+
+        deps: list[str] = list(workload.dependencies or [])
+        if body.target_workload_id not in deps:
+            deps.append(body.target_workload_id)
+            workload.dependencies = deps
+            workload.updated_at = datetime.now(timezone.utc)
+            await db.flush()
+        # NOTE: body.dependency_type is accepted for future extensibility but is
+        # not yet persisted — dependencies are currently stored as a plain list
+        # of workload IDs.  Persisting dependency types is tracked as a follow-up.
+
+        return _to_response(workload)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to add dependency for workload %s", workload_id)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
 # PATCH /api/workloads/{workload_id}/mapping — persist manual override
 # ---------------------------------------------------------------------------
+
 
 @router.patch("/{workload_id}/mapping", response_model=WorkloadResponse)
 async def override_workload_mapping(
@@ -470,22 +613,116 @@ async def override_workload_mapping(
         tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
         proj_result = await db.execute(
             select(Project).where(
-                Project.id == workload.project_id, Project.tenant_id == tenant_id
+                Project.id == workload.project_id,
+                Project.tenant_id == tenant_id,
             )
         )
         if proj_result.scalar_one_or_none() is None:
-            raise HTTPException(status_code=403, detail="Project not found or access denied")
+            raise HTTPException(
+                status_code=403, detail="Project not found or access denied"
+            )
 
         workload.target_subscription_id = override.target_subscription_id
         workload.mapping_reasoning = override.reasoning
         workload.updated_at = datetime.now(timezone.utc)
 
         await db.flush()
-        logger.info("Overrode mapping for workload %s → %s", workload_id, override.target_subscription_id)
+        logger.info(
+            "Overrode mapping for workload %s → %s",
+            workload_id,
+            override.target_subscription_id,
+        )
         return _to_response(workload)
 
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception("Failed to override mapping for workload %s", workload_id)
+        logger.exception(
+            "Failed to override mapping for workload %s", workload_id
+        )
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# DELETE /api/workloads/{id}/dependencies/{target_id}
+# ---------------------------------------------------------------------------
+
+
+@router.delete("/{workload_id}/dependencies/{target_id}", response_model=WorkloadResponse)
+async def remove_dependency(
+    workload_id: str,
+    target_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> WorkloadResponse:
+    """Remove a dependency link from *workload_id* → *target_id*."""
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database not configured")
+
+    try:
+        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
+        result = await db.execute(
+            select(Workload)
+            .join(Project, Project.id == Workload.project_id)
+            .where(Workload.id == workload_id, Project.tenant_id == tenant_id)
+        )
+        workload = result.scalar_one_or_none()
+        if not workload:
+            raise HTTPException(status_code=404, detail="Workload not found")
+
+        deps: list[str] = list(workload.dependencies or [])
+        if target_id in deps:
+            deps.remove(target_id)
+            workload.dependencies = deps
+            workload.updated_at = datetime.now(timezone.utc)
+            await db.flush()
+
+        return _to_response(workload)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to remove dependency for workload %s", workload_id)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# GET /api/workloads/migration-order
+# ---------------------------------------------------------------------------
+
+
+@router.get("/migration-order", response_model=MigrationOrderResponse)
+async def get_migration_order(
+    project_id: str = Query(..., description="Project ID"),
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> MigrationOrderResponse:
+    """Return a suggested migration order plus migration groups and cycle warnings."""
+    if db is None:
+        return MigrationOrderResponse()
+
+    try:
+        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
+        workloads = await _get_project_workloads(project_id, tenant_id, db)
+        graph = _workloads_to_graph(workloads)
+
+        workload_names = {w.id: w.name for w in workloads}
+        cycles = graph.circular_dependencies
+        groups = graph.migration_groups
+
+        try:
+            order = _analyzer.suggest_migration_order(graph)
+        except ValueError:
+            order = []
+
+        return MigrationOrderResponse(
+            order=order,
+            migration_groups=groups,
+            circular_dependencies=cycles,
+            has_circular=len(cycles) > 0,
+            workload_names=workload_names,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to compute migration order for project %s", project_id)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
