@@ -1028,3 +1028,276 @@ describe("api.cloud", () => {
     expect(body.required_services).toEqual(["compute"]);
   });
 });
+
+describe("api.government", () => {
+  it("getRegions calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ regions: [], total: 0 }),
+    }));
+    const result = await api.government.getRegions();
+    expect(result.total).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/government/regions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getRegion calls correct endpoint with name", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ name: "usgovvirginia", display_name: "US Gov Virginia" }),
+    }));
+    await api.government.getRegion("usgovvirginia");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/government/regions/usgovvirginia",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getDodRegions calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ regions: [], total: 0 }),
+    }));
+    await api.government.getDodRegions();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/government/regions/dod",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("customizeBicep sends POST with bicep content", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ customized_content: "test", changes_applied: [] }),
+    }));
+    await api.government.customizeBicep({
+      bicep_content: "param location string = 'eastus'",
+      region: "usgovvirginia",
+      compliance_level: "high",
+    });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/government/bicep/customize");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.bicep_content).toBeDefined();
+    expect(body.region).toBe("usgovvirginia");
+  });
+
+  it("getQuestions calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([]),
+    }));
+    await api.government.getQuestions();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/government/questions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("applyConstraints sends POST with architecture and gov_answers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ architecture: {}, warnings: [] }),
+    }));
+    await api.government.applyConstraints({
+      architecture: { name: "test" },
+      gov_answers: { gov_impact_level: "IL4" },
+    });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/government/constraints");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.architecture).toBeDefined();
+    expect(body.gov_answers.gov_impact_level).toBe("IL4");
+  });
+});
+
+describe("api.china", () => {
+  it("getRegions calls GET /api/china/regions", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ regions: [], total: 0 }),
+    }));
+    const result = await api.china.getRegions();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/china/regions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+    expect(result.total).toBe(0);
+  });
+
+  it("getRegion calls GET /api/china/regions/{name}", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ name: "chinanorth2", display_name: "China North 2" }),
+    }));
+    await api.china.getRegion("chinanorth2");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/china/regions/chinanorth2",
+      expect.any(Object)
+    );
+  });
+
+  it("customizeBicep sends POST with bicep content", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ customized_content: "", region: "chinanorth2", compliance_level: "mlps3", endpoints_replaced: 0 }),
+    }));
+    await api.china.customizeBicep({ bicep_content: "param location string", region: "chinanorth2" });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/china/bicep/customize");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.region).toBe("chinanorth2");
+  });
+
+  it("getQuestions calls GET /api/china/questions", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([]),
+    }));
+    await api.china.getQuestions();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/china/questions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("applyConstraints sends POST with architecture and answers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ architecture: {}, region: "chinanorth2", compliance_level: "level3", cloud_environment: "china" }),
+    }));
+    await api.china.applyConstraints({ architecture: { mg: {} }, china_answers: { china_region: "chinanorth2" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/china/constraints");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.china_answers.china_region).toBe("chinanorth2");
+  });
+
+  it("getDataResidency calls GET /api/china/data-residency", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ jurisdiction: "PRC", cross_border_transfer: false }),
+    }));
+    await api.china.getDataResidency();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/china/data-residency",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getIcpRequirements calls GET /api/china/icp-requirements", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ requires_icp: false, affected_resources: [] }),
+    }));
+    await api.china.getIcpRequirements();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/china/icp-requirements",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});
+
+describe("api.confidential", () => {
+  it("getOptions calls GET /api/confidential/options", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ options: [], total: 0 }),
+    }));
+    const result = await api.confidential.getOptions();
+    expect(result.total).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/confidential/options",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getVmSkus calls GET /api/confidential/vm-skus", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [], total: 0 }),
+    }));
+    const result = await api.confidential.getVmSkus();
+    expect(result.total).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/confidential/vm-skus",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getRegions calls GET /api/confidential/regions", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ regions: [], total: 0 }),
+    }));
+    const result = await api.confidential.getRegions();
+    expect(result.total).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/confidential/regions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("recommend sends POST with workload_type", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ workload_type: "web_app", recommended_option: {} }),
+    }));
+    await api.confidential.recommend({ workload_type: "web_app", requirements: {} });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/confidential/recommend");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.workload_type).toBe("web_app");
+  });
+
+  it("generateArchitecture sends POST with architecture and cc_options", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ architecture: {}, cc_enabled: true }),
+    }));
+    await api.confidential.generateArchitecture({
+      base_architecture: { network: {} },
+      cc_options: { cc_type: "confidential_vms" },
+    });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/confidential/architecture");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.cc_options.cc_type).toBe("confidential_vms");
+  });
+
+  it("generateBicep sends POST with template_type and config", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ template_type: "confidential_vm", bicep_template: "" }),
+    }));
+    await api.confidential.generateBicep({
+      template_type: "confidential_vm",
+      config: { name: "myVm" },
+    });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/confidential/bicep");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.template_type).toBe("confidential_vm");
+  });
+
+  it("getAttestationConfig calls GET with cc_type path param", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ cc_type: "confidential_vms", steps: [] }),
+    }));
+    await api.confidential.getAttestationConfig("confidential_vms");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/confidential/attestation/confidential_vms",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});

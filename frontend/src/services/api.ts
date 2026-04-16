@@ -917,6 +917,199 @@ export const api = {
         { method: "POST", body: JSON.stringify(data) }
       ),
   },
+
+  government: {
+    getRegions: () =>
+      fetchApi<GovernmentRegionListResponse>("/api/government/regions"),
+    getRegion: (name: string) =>
+      fetchApi<GovernmentRegionResponse>(`/api/government/regions/${name}`),
+    getDodRegions: () =>
+      fetchApi<GovernmentRegionListResponse>("/api/government/regions/dod"),
+    customizeBicep: (data: {
+      bicep_content: string;
+      region: string;
+      compliance_level?: string;
+    }) =>
+      fetchApi<GovernmentBicepResponse>("/api/government/bicep/customize", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getQuestions: () =>
+      fetchApi<GovernmentQuestionResponse[]>("/api/government/questions"),
+    applyConstraints: (data: {
+      architecture: Record<string, unknown>;
+      gov_answers: Record<string, string>;
+    }) =>
+      fetchApi<GovernmentConstraintsResponse>("/api/government/constraints", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
+
+  china: {
+    getRegions: () =>
+      fetchApi<ChinaRegionListResponse>("/api/china/regions"),
+    getRegion: (name: string) =>
+      fetchApi<ChinaRegionResponse>(`/api/china/regions/${name}`),
+    customizeBicep: (data: {
+      bicep_content: string;
+      region: string;
+      compliance_level?: string;
+    }) =>
+      fetchApi<ChinaBicepResponse>("/api/china/bicep/customize", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getQuestions: () =>
+      fetchApi<ChinaQuestionResponse[]>("/api/china/questions"),
+    applyConstraints: (data: {
+      architecture: Record<string, unknown>;
+      china_answers: Record<string, string>;
+    }) =>
+      fetchApi<ChinaConstraintsResponse>("/api/china/constraints", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getDataResidency: () =>
+      fetchApi<DataResidencyResponse>("/api/china/data-residency"),
+    getIcpRequirements: () =>
+      fetchApi<ICPRequirementsResponse>("/api/china/icp-requirements"),
+  },
+
+  confidential: {
+    getOptions: () =>
+      fetchApi<ConfidentialOptionsListResponse>("/api/confidential/options"),
+    getVmSkus: () =>
+      fetchApi<ConfidentialVmSkuListResponse>("/api/confidential/vm-skus"),
+    getRegions: () =>
+      fetchApi<ConfidentialRegionListResponse>("/api/confidential/regions"),
+    recommend: (data: { workload_type: string; requirements: Record<string, unknown> }) =>
+      fetchApi<ConfidentialRecommendResponse>("/api/confidential/recommend", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    generateArchitecture: (data: {
+      base_architecture: Record<string, unknown>;
+      cc_options: Record<string, unknown>;
+    }) =>
+      fetchApi<ConfidentialArchitectureResponse>("/api/confidential/architecture", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    generateBicep: (data: { template_type: string; config: Record<string, unknown> }) =>
+      fetchApi<ConfidentialBicepResponse>("/api/confidential/bicep", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getAttestationConfig: (ccType: string) =>
+      fetchApi<AttestationConfigResponse>(`/api/confidential/attestation/${encodeURIComponent(ccType)}`),
+  },
+
+  workloadExtensions: {
+    list: () =>
+      fetchApi<{ extensions: WorkloadExtensionItem[] }>("/api/workloads/extensions/"),
+    get: (workloadType: string) =>
+      fetchApi<WorkloadExtensionDetail>(`/api/workloads/extensions/${workloadType}`),
+    getQuestions: (workloadType: string) =>
+      fetchApi<{ workload_type: string; questions: WorkloadQuestion[] }>(
+        `/api/workloads/extensions/${workloadType}/questions`
+      ),
+    getBestPractices: (workloadType: string) =>
+      fetchApi<{ workload_type: string; best_practices: BestPractice[] }>(
+        `/api/workloads/extensions/${workloadType}/best-practices`
+      ),
+    validate: (workloadType: string, architecture: Record<string, unknown>) =>
+      fetchApi<WorkloadValidationResult>(
+        `/api/workloads/extensions/${workloadType}/validate`,
+        { method: "POST", body: JSON.stringify({ architecture }) }
+      ),
+    estimateSizing: (workloadType: string, requirements: Record<string, unknown>) =>
+      fetchApi<{ workload_type: string; sizing: Record<string, unknown> }>(
+        `/api/workloads/extensions/${workloadType}/sizing`,
+        { method: "POST", body: JSON.stringify({ requirements }) }
+      ),
+  },
+
+  skus: {
+    getCompute: (filters?: { family?: string; min_vcpus?: number; min_ram?: number; gpu?: boolean; price_tier?: string }) => {
+      const params = new URLSearchParams();
+      if (filters?.family) params.set("family", filters.family);
+      if (filters?.min_vcpus != null) params.set("min_vcpus", String(filters.min_vcpus));
+      if (filters?.min_ram != null) params.set("min_ram", String(filters.min_ram));
+      if (filters?.gpu != null) params.set("gpu", String(filters.gpu));
+      if (filters?.price_tier) params.set("price_tier", filters.price_tier);
+      const qs = params.toString();
+      return fetchApi<SkuListResult>(`/api/skus/compute${qs ? `?${qs}` : ""}`);
+    },
+    getStorage: (filters?: { tier?: string; media?: string }) => {
+      const params = new URLSearchParams();
+      if (filters?.tier) params.set("tier", filters.tier);
+      if (filters?.media) params.set("media", filters.media);
+      const qs = params.toString();
+      return fetchApi<SkuListResult>(`/api/skus/storage${qs ? `?${qs}` : ""}`);
+    },
+    getDatabase: (filters?: { service?: string; tier?: string }) => {
+      const params = new URLSearchParams();
+      if (filters?.service) params.set("service", filters.service);
+      if (filters?.tier) params.set("tier", filters.tier);
+      const qs = params.toString();
+      return fetchApi<SkuListResult>(`/api/skus/database${qs ? `?${qs}` : ""}`);
+    },
+    getNetworking: (filters?: { service?: string; tier?: string }) => {
+      const params = new URLSearchParams();
+      if (filters?.service) params.set("service", filters.service);
+      if (filters?.tier) params.set("tier", filters.tier);
+      const qs = params.toString();
+      return fetchApi<SkuListResult>(`/api/skus/networking${qs ? `?${qs}` : ""}`);
+    },
+    recommend: (workloadType: string, requirements: Record<string, unknown>) =>
+      fetchApi<SkuRecommendResult>("/api/skus/recommend", {
+        method: "POST",
+        body: JSON.stringify({ workload_type: workloadType, requirements }),
+      }),
+    compare: (skuIds: string[]) =>
+      fetchApi<{ skus: Record<string, unknown>[] }>("/api/skus/compare", {
+        method: "POST",
+        body: JSON.stringify({ sku_ids: skuIds }),
+      }),
+    validateAvailability: (sku: string, region: string, cloudEnv?: string) =>
+      fetchApi<SkuAvailabilityResult>("/api/skus/validate", {
+        method: "POST",
+        body: JSON.stringify({ sku, region, cloud_env: cloudEnv ?? "commercial" }),
+      }),
+  },
+
+  validation: {
+    validateArchitecture: (data: {
+      architecture: Record<string, unknown>;
+      workload_type?: string;
+      cloud_env?: string;
+    }) =>
+      fetchApi<ArchValidationResult>("/api/validation/architecture", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    validateSkus: (data: { architecture: Record<string, unknown>; region?: string }) =>
+      fetchApi<ArchValidationResult>("/api/validation/skus", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    validateCompliance: (data: {
+      architecture: Record<string, unknown>;
+      framework: string;
+    }) =>
+      fetchApi<ArchValidationResult>("/api/validation/compliance", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    validateNetworking: (data: { architecture: Record<string, unknown> }) =>
+      fetchApi<ArchValidationResult>("/api/validation/networking", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getRules: () =>
+      fetchApi<{ rules: ValidationRule[] }>("/api/validation/rules"),
+  },
 };
 
 export interface Category {
@@ -1865,4 +2058,255 @@ export interface ArchitectureCompatibilityResult {
   missing_services: string[];
   warnings: string[];
   alternatives: Record<string, string>;
+}
+
+// ── China Types ─────────────────────────────────────────────────────────────
+
+// ── Government Cloud Types ───────────────────────────────────────────────────
+
+export interface GovernmentRegionResponse {
+  name: string;
+  display_name: string;
+  paired_region: string;
+  geography: string;
+  available_zones: string[];
+  restricted: boolean;
+}
+
+export interface GovernmentRegionListResponse {
+  regions: GovernmentRegionResponse[];
+  total: number;
+}
+
+export interface GovernmentBicepResponse {
+  customized_content: string;
+  changes_applied: string[];
+}
+
+export interface GovernmentQuestionResponse {
+  id: string;
+  text: string;
+  type: string;
+  options: { value: string; label: string; group?: string }[];
+  required: boolean;
+  category: string;
+  help_text: string;
+}
+
+export interface GovernmentConstraintsResponse {
+  architecture: Record<string, unknown>;
+  warnings: string[];
+}
+
+// ── China Cloud Types ───────────────────────────────────────────────────────
+
+export interface ChinaRegionResponse {
+  name: string;
+  display_name: string;
+  paired_region: string;
+  geography: string;
+  available_zones: string[];
+}
+
+export interface ChinaRegionListResponse {
+  regions: ChinaRegionResponse[];
+  total: number;
+}
+
+export interface ChinaBicepResponse {
+  customized_content: string;
+  region: string;
+  compliance_level: string;
+  endpoints_replaced: number;
+}
+
+export interface ChinaQuestionResponse {
+  id: string;
+  text: string;
+  description: string;
+  type: string;
+  options: { value: string; label: string }[];
+  required: boolean;
+  category: string;
+}
+
+export interface ChinaConstraintsResponse {
+  architecture: Record<string, unknown>;
+  region: string;
+  compliance_level: string;
+  cloud_environment: string;
+}
+
+export interface DataResidencyResponse {
+  jurisdiction: string;
+  data_boundary: string;
+  cross_border_transfer: boolean;
+  regulations: string[];
+  requirements: string[];
+  operator: string;
+  operator_relationship: string;
+}
+
+export interface ICPRequirementsResponse {
+  requires_icp: boolean;
+  affected_resources: string[];
+  resource_types_checked: number;
+  guidance: string;
+  icp_types: { type: string; description: string; applies_to: string }[];
+}
+
+// ── Confidential Computing Types ────────────────────────────────────────
+
+export interface ConfidentialOption {
+  id: string;
+  name: string;
+  category: string;
+  tee_types: string[];
+  description: string;
+  use_cases: string[];
+  vm_series: string[];
+  attestation_supported: boolean;
+}
+
+export interface ConfidentialOptionsListResponse {
+  options: ConfidentialOption[];
+  total: number;
+}
+
+export interface ConfidentialVmSku {
+  name: string;
+  series: string;
+  vcpus: number;
+  memory_gb: number;
+  tee_type: string;
+  vendor: string;
+  max_data_disks: number;
+  enclave_memory_mb: number | null;
+  description: string;
+}
+
+export interface ConfidentialVmSkuListResponse {
+  skus: ConfidentialVmSku[];
+  total: number;
+}
+
+export interface ConfidentialRegion {
+  name: string;
+  display_name: string;
+  tee_types: string[];
+  services: string[];
+}
+
+export interface ConfidentialRegionListResponse {
+  regions: ConfidentialRegion[];
+  total: number;
+}
+
+export interface ConfidentialRecommendResponse {
+  workload_type: string;
+  recommended_option: Record<string, unknown>;
+  recommended_skus: Record<string, unknown>[];
+  region_options: Record<string, unknown>[];
+  attestation: Record<string, unknown> | null;
+  rationale: string;
+}
+
+export interface ConfidentialArchitectureResponse {
+  architecture: Record<string, unknown>;
+  cc_enabled: boolean;
+}
+
+export interface ConfidentialBicepResponse {
+  template_type: string;
+  bicep_template: string;
+  description: string;
+}
+
+export interface AttestationConfigResponse {
+  cc_type: string;
+  attestation_provider: string;
+  protocol: string;
+  evidence_type: string;
+  key_release_policy: string;
+  steps: string[];
+}
+
+// ── Workload Extensions Types ─────────────────────────────────────────
+
+export interface WorkloadExtensionItem {
+  workload_type: string;
+  display_name: string;
+  description: string;
+}
+
+export interface WorkloadQuestion {
+  id: string;
+  category: string;
+  text: string;
+  type: string;
+  options?: { value: string; label: string }[];
+  required: boolean;
+  order: number;
+}
+
+export interface BestPractice {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  severity: string;
+}
+
+export interface WorkloadExtensionDetail {
+  workload_type: string;
+  display_name: string;
+  description: string;
+  questions: WorkloadQuestion[];
+  best_practices: BestPractice[];
+}
+
+export interface WorkloadValidationResult {
+  workload_type: string;
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  suggestions: string[];
+}
+
+// ── SKU Types ─────────────────────────────────────────────────────────
+
+export interface SkuListResult {
+  skus: Record<string, unknown>[];
+  count: number;
+}
+
+export interface SkuRecommendResult {
+  recommended_sku: Record<string, unknown>;
+  reason: string;
+  alternatives: Record<string, unknown>[];
+}
+
+export interface SkuAvailabilityResult {
+  available: boolean;
+  sku: string;
+  region: string;
+  cloud_env: string;
+  reason?: string;
+}
+
+// ── Architecture Validation Types ─────────────────────────────────────
+
+export interface ArchValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  suggestions?: string[];
+  framework?: string;
+}
+
+export interface ValidationRule {
+  id: string;
+  category: string;
+  description: string;
+  severity: string;
 }
