@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { FluentProvider, teamsLightTheme } from "@fluentui/react-components";
 import Layout from "./Layout";
+import { TUTORIAL_STORAGE_KEY } from "../../hooks/useTutorial";
 
 // Mock useAuth used by AuthButton
 vi.mock("../../auth", () => ({
@@ -24,6 +26,26 @@ vi.mock("../../services/api", () => ({
   },
 }));
 
+function createStorageMock(): Storage {
+  let store: Record<string, string> = {};
+  return {
+    getItem: (key: string) => store[key] ?? null,
+    setItem: (key: string, value: string) => {
+      store[key] = value;
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
+    get length() {
+      return Object.keys(store).length;
+    },
+    key: (index: number) => Object.keys(store)[index] ?? null,
+  };
+}
+
 function renderLayout(children = <div>Test Content</div>, initialRoute = "/") {
   return render(
     <FluentProvider theme={teamsLightTheme}>
@@ -35,9 +57,19 @@ function renderLayout(children = <div>Test Content</div>, initialRoute = "/") {
 }
 
 describe("Layout", () => {
+  let storageMock: Storage;
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockProjectsList.mockResolvedValue({ projects: [] });
+    // Provide a functional localStorage mock and mark tutorial as completed
+    storageMock = createStorageMock();
+    storageMock.setItem(TUTORIAL_STORAGE_KEY, "true");
+    vi.stubGlobal("localStorage", storageMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("renders OnRamp title", () => {
@@ -81,5 +113,29 @@ describe("Layout", () => {
       expect(mockProjectsList).toHaveBeenCalled();
     });
     expect(screen.queryByLabelText("Switch project")).not.toBeInTheDocument();
+  });
+
+  it("renders tutorial help button", () => {
+    renderLayout();
+    expect(
+      screen.getByRole("button", { name: /start tutorial/i })
+    ).toBeInTheDocument();
+  });
+
+  it("shows tutorial overlay when help button is clicked", async () => {
+    // Tutorial is already marked as completed in beforeEach
+    const user = userEvent.setup();
+    renderLayout();
+
+    // Tutorial should not be visible initially (already completed)
+    expect(screen.queryByTestId("tutorial-overlay")).not.toBeInTheDocument();
+
+    // Click the help button
+    await user.click(
+      screen.getByRole("button", { name: /start tutorial/i })
+    );
+
+    // Tutorial overlay should now be visible
+    expect(screen.getByTestId("tutorial-overlay")).toBeInTheDocument();
   });
 });

@@ -8,6 +8,8 @@ import {
   TabList,
   Dropdown,
   Option,
+  Button,
+  Tooltip,
 } from "@fluentui/react-components";
 import {
   HomeRegular,
@@ -17,8 +19,11 @@ import {
   CodeRegular,
   RocketRegular,
   FolderRegular,
+  QuestionCircleRegular,
 } from "@fluentui/react-icons";
 import AuthButton from "./AuthButton";
+import TutorialOverlay from "./TutorialOverlay";
+import { useTutorial } from "../../hooks/useTutorial";
 import { api } from "../../services/api";
 import type { Project } from "../../types/project";
 
@@ -92,6 +97,7 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
+  const tutorial = useTutorial(location.pathname);
 
   useEffect(() => {
     api.projects.list().then((res) => setProjects(res.projects)).catch(() => {});
@@ -145,10 +151,28 @@ export default function Layout({ children }: LayoutProps) {
               ))}
             </Dropdown>
           )}
+          <Tooltip content="Start tutorial" relationship="label">
+            <Button
+              appearance="subtle"
+              icon={<QuestionCircleRegular />}
+              onClick={tutorial.startTutorial}
+              aria-label="Start tutorial"
+              size="small"
+            />
+          </Tooltip>
           <AuthButton />
         </div>
       </header>
       <main className={styles.content}>{children}</main>
+      <TutorialOverlay
+        isActive={tutorial.isActive}
+        currentStep={tutorial.currentStep}
+        currentStepIndex={tutorial.currentStepIndex}
+        totalSteps={tutorial.totalSteps}
+        onNext={tutorial.nextStep}
+        onPrev={tutorial.prevStep}
+        onSkip={tutorial.skipTutorial}
+      />
     </div>
   );
 }
