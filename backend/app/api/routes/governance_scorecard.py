@@ -68,6 +68,9 @@ async def get_executive_summary(
     user: dict = Depends(get_current_user),
 ):
     """Get the executive summary for the governance scorecard."""
-    categories = await governance_scorer.get_category_scores(project_id)
-    summary = governance_scorer.generate_executive_summary(categories)
-    return {"executive_summary": summary}
+    try:
+        categories = await governance_scorer.get_category_scores(project_id)
+        summary = governance_scorer.generate_executive_summary(categories)
+        return {"executive_summary": summary}
+    except Exception:
+        return {"executive_summary": "Unable to generate summary at this time."}
