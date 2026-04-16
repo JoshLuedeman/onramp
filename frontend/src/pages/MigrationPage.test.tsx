@@ -186,4 +186,155 @@ describe("MigrationPage", () => {
       expect(screen.getByText("Network error")).toBeInTheDocument();
     });
   });
+
+  it("validates plan and shows warnings", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("generate-btn")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId("generate-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("validate-btn")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId("validate-btn"));
+
+    await waitFor(() => {
+      expect(mockedApi.validatePlan).toHaveBeenCalledWith("proj-1");
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Test warning message").length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  it("exports plan as CSV", async () => {
+    const user = userEvent.setup();
+    global.URL.createObjectURL = vi.fn(() => "blob:test");
+    global.URL.revokeObjectURL = vi.fn();
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("generate-btn")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId("generate-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("export-csv-btn")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId("export-csv-btn"));
+
+    await waitFor(() => {
+      expect(mockedApi.exportPlan).toHaveBeenCalledWith("proj-1", "csv");
+    });
+  });
+
+  it("exports plan as markdown", async () => {
+    const user = userEvent.setup();
+    global.URL.createObjectURL = vi.fn(() => "blob:test");
+    global.URL.revokeObjectURL = vi.fn();
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("generate-btn")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId("generate-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("export-md-btn")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId("export-md-btn"));
+
+    await waitFor(() => {
+      expect(mockedApi.exportPlan).toHaveBeenCalledWith("proj-1", "markdown");
+    });
+  });
+
+  it("reorders workloads when move button clicked", async () => {
+    const user = userEvent.setup();
+    const multiWorkloadPlan: WavePlanResponse = {
+      ...MOCK_PLAN_WITH_WAVES,
+      waves: [
+        {
+          id: "wave-1",
+          name: "Wave 1",
+          order: 0,
+          status: "planned",
+          notes: null,
+          workloads: [
+            {
+              id: "ww-1",
+              workload_id: "wl-1",
+              name: "App Server",
+              type: "vm",
+              criticality: "standard",
+              migration_strategy: "rehost",
+              position: 0,
+              dependencies: [],
+            },
+            {
+              id: "ww-2",
+              workload_id: "wl-2",
+              name: "Cache Server",
+              type: "container",
+              criticality: "dev-test",
+              migration_strategy: "rehost",
+              position: 1,
+              dependencies: [],
+            },
+          ],
+          created_at: "2026-01-01T00:00:00Z",
+          updated_at: "2026-01-01T00:00:00Z",
+        },
+      ],
+    };
+    mockedApi.generateWaves.mockResolvedValue(multiWorkloadPlan);
+    mockedApi.moveWorkload.mockResolvedValue(multiWorkloadPlan);
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("generate-btn")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId("generate-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByText("App Server")).toBeInTheDocument();
+      expect(screen.getByText("Cache Server")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByLabelText("Move App Server down"));
+
+    await waitFor(() => {
+      expect(mockedApi.moveWorkload).toHaveBeenCalled();
+    });
+  });
+
+  it("shows error when generation fails", async () => {
+    const user = userEvent.setup();
+    mockedApi.generateWaves.mockRejectedValue(new Error("Generation failed"));
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("generate-btn")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId("generate-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Generation failed")).toBeInTheDocument();
+    });
+  });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FluentProvider, teamsLightTheme } from "@fluentui/react-components";
 import { MemoryRouter } from "react-router-dom";
@@ -174,5 +174,77 @@ describe("WaveTimeline", () => {
     renderTimeline();
     const card = screen.getByTestId("workload-card-wl-1");
     expect(card).toHaveAttribute("draggable", "true");
+  });
+
+  it("calls onReorder with up direction", async () => {
+    const user = userEvent.setup();
+    const onReorder = vi.fn();
+    renderTimeline({ onReorder });
+
+    const moveUpBtn = screen.getByLabelText("Move Cache Server up");
+    await user.click(moveUpBtn);
+    expect(onReorder).toHaveBeenCalledWith("wave-1", "wl-2", "up");
+  });
+
+  it("supports drag and drop to move workloads between waves", () => {
+    const onMoveWorkload = vi.fn();
+    renderTimeline({ onMoveWorkload });
+
+    const card = screen.getByTestId("workload-card-wl-1");
+    const targetWave = screen.getByTestId("wave-column-wave-2");
+
+    const mockDataTransfer = {
+      setData: vi.fn(),
+      getData: vi.fn(() => "wl-1"),
+      effectAllowed: "none",
+      dropEffect: "none",
+    };
+
+    const startEvt = new Event("dragstart", { bubbles: true });
+    Object.defineProperty(startEvt, "dataTransfer", { value: mockDataTransfer });
+    fireEvent(card, startEvt);
+
+    const overEvt = new Event("dragover", { bubbles: true, cancelable: true });
+    Object.defineProperty(overEvt, "dataTransfer", { value: mockDataTransfer });
+    fireEvent(targetWave, overEvt);
+
+    const dropEvt = new Event("drop", { bubbles: true, cancelable: true });
+    Object.defineProperty(dropEvt, "dataTransfer", { value: mockDataTransfer });
+    fireEvent(targetWave, dropEvt);
+
+    expect(onMoveWorkload).toHaveBeenCalledWith("wl-1", "wave-2", 0);
+  });
+
+  it("resets drag state on drag end", () => {
+    renderTimeline();
+    const card = screen.getByTestId("workload-card-wl-1");
+    fireEvent.dragEnd(card);
+  });
+
+  it("resets drag over state on drag leave", () => {
+    renderTimeline();
+    const waveColumn = screen.getByTestId("wave-column-wave-1");
+    fireEvent.dragLeave(waveColumn);
+  });
+
+  it("renders completed status badge", () => {
+    const completedWaves: WaveResponse[] = [
+      { ...MOCK_WAVES[0], status: "completed" },
+    ];
+    renderTimeline({ waves: completedWaves });
+    expect(screen.getByText("completed")).toBeInTheDocument();
+  });
+
+  it("renders business-critical criticality badge", () => {
+    const bcWaves: WaveResponse[] = [
+      {
+        ...MOCK_WAVES[0],
+        workloads: [
+          { ...MOCK_WAVES[0].workloads[0], criticality: "business-critical" },
+        ],
+      },
+    ];
+    renderTimeline({ waves: bcWaves });
+    expect(screen.getByText("business-critical")).toBeInTheDocument();
   });
 });
