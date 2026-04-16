@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.tenant_scope import require_project_tenant
 from app.auth import get_current_user
 from app.db.session import get_db
 from app.schemas.cost import (
@@ -33,6 +34,11 @@ async def get_cost_summary(
     db: AsyncSession = Depends(get_db),
 ):
     """Get cost summary for a project — total, by service, by resource group."""
+    if db is not None:
+        tenant_id = user.get(
+            "tid", user.get("tenant_id", "dev-tenant")
+        )
+        await require_project_tenant(db, project_id, tenant_id)
     result = await cost_manager.get_cost_summary(
         project_id, subscription_id, time_range
     )
@@ -52,6 +58,11 @@ async def get_cost_trend(
     db: AsyncSession = Depends(get_db),
 ):
     """Get cost trend data over time."""
+    if db is not None:
+        tenant_id = user.get(
+            "tid", user.get("tenant_id", "dev-tenant")
+        )
+        await require_project_tenant(db, project_id, tenant_id)
     result = await cost_manager.get_cost_trend(
         project_id, subscription_id, granularity, days
     )
@@ -70,6 +81,11 @@ async def get_budget_status(
 ):
     """Get budget vs actual spend for a project."""
     if db is not None:
+        tenant_id = user.get(
+            "tid", user.get("tenant_id", "dev-tenant")
+        )
+        await require_project_tenant(db, project_id, tenant_id)
+
         from app.models.cost import CostBudget
 
         result = await db.execute(
@@ -125,6 +141,13 @@ async def create_or_update_budget(
             is_over_threshold=False,
             is_over_budget=False,
         )
+
+    tenant_id = user.get(
+        "tid", user.get("tenant_id", "dev-tenant")
+    )
+    await require_project_tenant(
+        db, payload.project_id, tenant_id
+    )
 
     from app.models.cost import CostBudget
 
@@ -186,6 +209,11 @@ async def list_anomalies(
 ):
     """List cost anomalies for a project."""
     if db is not None:
+        tenant_id = user.get(
+            "tid", user.get("tenant_id", "dev-tenant")
+        )
+        await require_project_tenant(db, project_id, tenant_id)
+
         from app.models.cost import CostAnomaly
 
         result = await db.execute(
@@ -212,6 +240,12 @@ async def trigger_cost_scan(
     db: AsyncSession = Depends(get_db),
 ):
     """Trigger a cost analysis scan for a project."""
+    if db is not None:
+        tenant_id = user.get(
+            "tid", user.get("tenant_id", "dev-tenant")
+        )
+        await require_project_tenant(db, project_id, tenant_id)
+
     # Clear cached data to force fresh fetch
     cost_manager.clear_cache()
 

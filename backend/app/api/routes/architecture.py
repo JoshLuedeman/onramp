@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.tenant_scope import require_project_tenant
 from app.auth import get_current_user, require_architect
 from app.db.session import get_db
 from app.services.archetypes import get_archetype_for_answers, list_archetypes
@@ -48,6 +49,12 @@ async def generate_architecture(
 
     # Persist if project_id provided and DB available
     if request.project_id and db is not None:
+        tenant_id = user.get(
+            "tid", user.get("tenant_id", "dev-tenant")
+        )
+        await require_project_tenant(
+            db, request.project_id, tenant_id
+        )
         try:
             from app.models import Architecture as ArchModel
             arch_record = ArchModel(

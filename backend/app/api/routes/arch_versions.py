@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.tenant_scope import require_architecture_tenant
 from app.auth import get_current_user
 from app.db.session import get_db
 from app.schemas.version import (
@@ -26,6 +27,10 @@ async def list_versions(
     db: AsyncSession = Depends(get_db),
 ) -> VersionListResponse:
     """List all versions for an architecture, newest first."""
+    tenant_id = user.get(
+        "tid", user.get("tenant_id", "dev-tenant")
+    )
+    await require_architecture_tenant(db, arch_id, tenant_id)
     versions = await version_service.list_versions(db, arch_id)
     return VersionListResponse(
         versions=[
@@ -44,6 +49,10 @@ async def diff_versions(
     db: AsyncSession = Depends(get_db),
 ) -> VersionDiffResponse:
     """Compute a diff between two architecture versions."""
+    tenant_id = user.get(
+        "tid", user.get("tenant_id", "dev-tenant")
+    )
+    await require_architecture_tenant(db, arch_id, tenant_id)
     ver_a = await version_service.get_version(db, arch_id, from_version)
     if ver_a is None:
         raise HTTPException(status_code=404, detail=f"Version {from_version} not found")
@@ -66,6 +75,10 @@ async def get_version(
     db: AsyncSession = Depends(get_db),
 ) -> ArchitectureVersionResponse:
     """Retrieve a specific architecture version."""
+    tenant_id = user.get(
+        "tid", user.get("tenant_id", "dev-tenant")
+    )
+    await require_architecture_tenant(db, arch_id, tenant_id)
     version = await version_service.get_version(db, arch_id, version_number)
     if version is None:
         raise HTTPException(status_code=404, detail=f"Version {version_number} not found")
@@ -81,6 +94,10 @@ async def restore_version(
     db: AsyncSession = Depends(get_db),
 ) -> ArchitectureVersionResponse:
     """Restore a historical version, creating a new version from it."""
+    tenant_id = user.get(
+        "tid", user.get("tenant_id", "dev-tenant")
+    )
+    await require_architecture_tenant(db, arch_id, tenant_id)
     user_id = user.get("oid", user.get("sub"))
     change_summary = body.change_summary if body else None
 

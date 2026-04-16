@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.tenant_scope import require_project_tenant
 from app.auth import get_current_user
 from app.db.session import get_db
 
@@ -32,6 +33,13 @@ async def save_questionnaire_state(
             "message": "State saved in-memory (database not configured)",
             "project_id": request.project_id,
         }
+
+    tenant_id = user.get(
+        "tid", user.get("tenant_id", "dev-tenant")
+    )
+    await require_project_tenant(
+        db, request.project_id, tenant_id
+    )
 
     try:
         from app.models import QuestionnaireResponse
@@ -69,6 +77,11 @@ async def load_questionnaire_state(
     """Load saved questionnaire answers for a project."""
     if db is None:
         return {"answers": {}, "message": "Database not configured"}
+
+    tenant_id = user.get(
+        "tid", user.get("tenant_id", "dev-tenant")
+    )
+    await require_project_tenant(db, project_id, tenant_id)
 
     try:
         from app.models import QuestionnaireResponse
