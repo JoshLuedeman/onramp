@@ -242,10 +242,10 @@ describe("ChatPage", () => {
 
     renderChatPage();
     await waitFor(() => {
-      expect(screen.getByLabelText("Chat message input")).toBeInTheDocument();
+      expect(screen.getByLabelText("Type a message")).toBeInTheDocument();
     });
 
-    await user.type(screen.getByLabelText("Chat message input"), "Hello");
+    await user.type(screen.getByLabelText("Type a message"), "Hello");
     await user.click(screen.getByLabelText("Send message"));
 
     await waitFor(() => {
@@ -271,10 +271,10 @@ describe("ChatPage", () => {
 
     renderChatPage();
     await waitFor(() => {
-      expect(screen.getByLabelText("Chat message input")).toBeInTheDocument();
+      expect(screen.getByLabelText("Type a message")).toBeInTheDocument();
     });
 
-    await user.type(screen.getByLabelText("Chat message input"), "Test error");
+    await user.type(screen.getByLabelText("Type a message"), "Test error");
     await user.click(screen.getByLabelText("Send message"));
 
     await waitFor(() => {
