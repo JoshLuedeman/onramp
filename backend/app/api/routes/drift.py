@@ -19,6 +19,13 @@ from app.schemas.drift import (
     DriftScanResultResponse,
     DriftSummary,
 )
+from app.schemas.drift_remediation import (
+    BatchRemediationRequest,
+    BatchRemediationResponse,
+    RemediationAuditLog,
+    RemediationRequest,
+    RemediationResponse,
+)
 
 router = APIRouter(prefix="/api/governance/drift", tags=["drift"])
 
@@ -345,3 +352,71 @@ async def trigger_drift_scan(
         removed_count=0,
         events=[],
     )
+
+
+# ── Remediation ──────────────────────────────────────────────────────────────
+
+
+@router.post("/remediate", response_model=RemediationResponse)
+async def remediate_finding(
+    payload: RemediationRequest,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remediate a single drift finding (accept, revert, or suppress)."""
+    from app.services.drift_remediator import drift_remediator
+
+    return await drift_remediator.remediate_finding(
+        finding_id=payload.finding_id,
+        action=payload.action.value,
+        actor=user.get("name", user.get("sub", "unknown")),
+        justification=payload.justification,
+        expiration_days=payload.expiration_days,
+        db=db,
+    )
+
+
+@router.post("/remediate/batch", response_model=BatchRemediationResponse)
+async def remediate_batch(
+    payload: BatchRemediationRequest,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remediate multiple drift findings with the same action."""
+    from app.services.drift_remediator import drift_remediator
+
+    return await drift_remediator.remediate_batch(
+        finding_ids=payload.finding_ids,
+        action=payload.action.value,
+        actor=user.get("name", user.get("sub", "unknown")),
+        justification=payload.justification,
+        expiration_days=payload.expiration_days,
+        db=db,
+    )
+
+
+@router.get("/remediation/history", response_model=RemediationAuditLog)
+async def get_remediation_history(
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get the remediation audit log."""
+    from app.services.drift_remediator import drift_remediator
+
+    return await drift_remediator.get_remediation_history(db=db)
+
+
+@router.get("/remediation/{remediation_id}", response_model=RemediationResponse)
+async def get_remediation(
+    remediation_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get the status of a remediation action."""
+    from app.services.drift_remediator import drift_remediator
+
+    result = await drift_remediator.get_remediation(remediation_id, db=db)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Remediation not found")
+    return result
+
