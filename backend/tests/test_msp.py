@@ -910,7 +910,9 @@ class TestMSPRoutesTenantHealth:
             "/api/msp/tenants/nonexistent/health"
         )
         assert resp.status_code == 404
-        assert "not found" in resp.json()["detail"].lower()
+        data = resp.json()
+        msg = data.get("error", {}).get("message", "") or data.get("detail", "")
+        assert "not found" in msg.lower()
 
     def test_health_response_model_valid(
         self, msp_admin_user

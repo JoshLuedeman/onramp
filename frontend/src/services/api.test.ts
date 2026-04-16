@@ -845,7 +845,7 @@ describe("api.templates", () => {
       ok: true,
       json: () => Promise.resolve({ id: "t-1" }),
     }));
-    await api.templates.create({ name: "Test", architecture_json: "{}" });
+    await api.templates.create({ name: "Test", industry: "general", architecture_json: "{}" });
     expect(fetch).toHaveBeenCalledWith(
       "/api/templates",
       expect.objectContaining({ method: "POST" })
