@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -267,4 +267,81 @@ async def get_drift_summary(
         by_type=by_type,
         latest_scan_at=latest_scan_at,
         active_baseline_id=active_baseline.id,
+    )
+
+
+# ── Scan trigger ─────────────────────────────────────────────────────────────
+
+
+@router.post(
+    "/scan/{project_id}",
+    response_model=DriftScanResultResponse,
+    status_code=202,
+)
+async def trigger_drift_scan(
+    project_id: str,
+    background_tasks: BackgroundTasks,
+    tenant_id: str = Query(None, description="Optional tenant ID"),
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger a drift scan for a project.
+
+    Creates a DriftScanResult immediately (status=running) and runs
+    the full scan asynchronously in the background.
+    Returns 202 Accepted with the scan result stub.
+    """
+    from app.services.drift_scanner import drift_scanner
+
+    now = datetime.now(timezone.utc)
+    scan_id = str(uuid.uuid4())
+    baseline_id = str(uuid.uuid4())
+
+    # If DB is available, look up the active baseline
+    if db is not None:
+        result = await db.execute(
+            select(DriftBaseline).where(
+                DriftBaseline.project_id == project_id,
+                DriftBaseline.status == "active",
+            )
+        )
+        active_baseline = result.scalar_one_or_none()
+        if active_baseline is not None:
+            baseline_id = active_baseline.id
+
+        # Persist initial scan result
+        scan_row = DriftScanResult(
+            id=scan_id,
+            baseline_id=baseline_id,
+            project_id=project_id,
+            tenant_id=tenant_id,
+            scan_started_at=now,
+            status="running",
+        )
+        db.add(scan_row)
+        await db.flush()
+        await db.refresh(scan_row)
+
+    # Schedule the background scan
+    async def _run_scan():
+        await drift_scanner.scan_project(
+            project_id=project_id,
+            tenant_id=tenant_id,
+        )
+
+    background_tasks.add_task(_run_scan)
+
+    # Return the initial scan result (status=running)
+    return DriftScanResultResponse(
+        id=scan_id,
+        baseline_id=baseline_id,
+        project_id=project_id,
+        tenant_id=tenant_id,
+        scan_started_at=now,
+        status="running",
+        total_resources_scanned=0,
+        drifted_count=0,
+        new_count=0,
+        removed_count=0,
+        events=[],
     )
