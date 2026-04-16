@@ -225,7 +225,7 @@ const AvdAcceleratorPanel: React.FC<AvdAcceleratorPanelProps> = ({
                 }
               >
                 {q.options.map((opt) => (
-                  <Option key={opt.value} value={opt.value}>
+                  <Option key={opt.value} value={opt.value} text={opt.label}>
                     {opt.label}
                   </Option>
                 ))}
@@ -250,7 +250,7 @@ const AvdAcceleratorPanel: React.FC<AvdAcceleratorPanelProps> = ({
             }
           >
             {skus.map((sku) => (
-              <Option key={sku.name} value={sku.name}>
+              <Option key={sku.name} value={sku.name} text={`${sku.name} — ${sku.vcpus} vCPUs, ${sku.memory_gb} GiB${sku.gpu ? " (GPU)" : ""}`}>
                 {sku.name} — {sku.vcpus} vCPUs, {sku.memory_gb} GiB
                 {sku.gpu ? " (GPU)" : ""}
               </Option>

@@ -261,7 +261,7 @@ const ConfidentialComputingPanel: React.FC<ConfidentialComputingPanelProps> = ({
             }
           >
             {filteredSkus.map((sku) => (
-              <Option key={sku.name} value={sku.name}>
+              <Option key={sku.name} value={sku.name} text={`${sku.name} — ${sku.vcpus} vCPUs, ${sku.memory_gb} GiB RAM (${sku.tee_type})`}>
                 {sku.name} — {sku.vcpus} vCPUs, {sku.memory_gb} GiB RAM ({sku.tee_type})
               </Option>
             ))}
@@ -281,7 +281,7 @@ const ConfidentialComputingPanel: React.FC<ConfidentialComputingPanelProps> = ({
           }
         >
           {filteredRegions.map((region) => (
-            <Option key={region.name} value={region.name}>
+            <Option key={region.name} value={region.name} text={`${region.display_name} (${region.tee_types.join(", ")})`}>
               {region.display_name} ({region.tee_types.join(", ")})
             </Option>
           ))}

@@ -228,7 +228,7 @@ const AiMlAcceleratorPanel: React.FC<AiMlAcceleratorPanelProps> = ({
           }
         >
           {gpuSkus.map((sku) => (
-            <Option key={sku.id} value={sku.id}>
+            <Option key={sku.id} value={sku.id} text={`${sku.name} (${sku.gpu_type} ×${sku.gpu_count}, ${sku.gpu_memory_gb} GB)`}>
               {sku.name} ({sku.gpu_type} ×{sku.gpu_count}, {sku.gpu_memory_gb}
               GB)
             </Option>
@@ -250,7 +250,7 @@ const AiMlAcceleratorPanel: React.FC<AiMlAcceleratorPanelProps> = ({
           }
         >
           {FRAMEWORKS.map((fw) => (
-            <Option key={fw.value} value={fw.value}>
+            <Option key={fw.value} value={fw.value} text={fw.label}>
               {fw.label}
             </Option>
           ))}
@@ -273,7 +273,7 @@ const AiMlAcceleratorPanel: React.FC<AiMlAcceleratorPanelProps> = ({
           }
         >
           {MLOPS_LEVELS.map((level) => (
-            <Option key={level.value} value={level.value}>
+            <Option key={level.value} value={level.value} text={level.label}>
               {level.label}
             </Option>
           ))}
