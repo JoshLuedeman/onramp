@@ -161,6 +161,77 @@ export const api = {
         `/api/bicep/project/${projectId}`
       ),
   },
+  arm: {
+    generate: (
+      architecture: Record<string, unknown>,
+      options?: { use_ai?: boolean; project_id?: string },
+    ) =>
+      fetchApi<{ files: Array<{ name: string; content: string; size_bytes: number }>; total_files: number; ai_generated: boolean }>(
+        "/api/arm/generate",
+        {
+          method: "POST",
+          body: JSON.stringify({ architecture, ...options }),
+        },
+      ),
+    download: (architecture: Record<string, unknown>) =>
+      fetchBlob("/api/arm/download", {
+        method: "POST",
+        body: JSON.stringify({ architecture }),
+      }),
+    validate: (template: string) =>
+      fetchApi<{ valid: boolean; errors: string[]; warnings: string[] }>(
+        "/api/arm/validate",
+        {
+          method: "POST",
+          body: JSON.stringify({ template }),
+        },
+      ),
+  },
+  pulumi: {
+    templates: () =>
+      fetchApi<{ templates: PulumiTemplate[] }>("/api/pulumi/templates"),
+    generate: (
+      architecture: Record<string, unknown>,
+      options?: { language?: "typescript" | "python"; use_ai?: boolean; project_id?: string },
+    ) =>
+      fetchApi<{ files: PulumiFile[]; total_files: number; language: string; ai_generated: boolean }>(
+        "/api/pulumi/generate",
+        {
+          method: "POST",
+          body: JSON.stringify({ architecture, ...options }),
+        },
+      ),
+    download: (
+      architecture: Record<string, unknown>,
+      options?: { language?: "typescript" | "python"; use_ai?: boolean },
+    ) =>
+      fetchBlob("/api/pulumi/download", {
+        method: "POST",
+        body: JSON.stringify({ architecture, ...options }),
+      }),
+  },
+  terraform: {
+    templates: () =>
+      fetchApi<{ templates: Array<{ name: string; description: string; category: string }> }>(
+        "/api/terraform/templates",
+      ),
+    generate: (
+      architecture: Record<string, unknown>,
+      options?: { use_ai?: boolean; project_id?: string },
+    ) =>
+      fetchApi<{ files: Array<{ name: string; content: string; size_bytes: number }>; total_files: number; ai_generated: boolean }>(
+        "/api/terraform/generate",
+        {
+          method: "POST",
+          body: JSON.stringify({ architecture, ...options }),
+        },
+      ),
+    download: (architecture: Record<string, unknown>) =>
+      fetchBlob("/api/terraform/download", {
+        method: "POST",
+        body: JSON.stringify({ architecture }),
+      }),
+  },
   deployment: {
     validate: (subscriptionId: string, region: string = "eastus2") =>
       fetchApi<DeploymentValidation>("/api/deployment/validate", {
@@ -444,6 +515,37 @@ export const api = {
     deleteConversation: (conversationId: string) =>
       fetchApi<void>(`/api/chat/${conversationId}`, { method: "DELETE" }),
   },
+
+  iacValidation: {
+    validate: (code: string, format: string, fileName?: string) =>
+      fetchApi<{
+        is_valid: boolean;
+        format: string;
+        errors: { line: number | null; column: number | null; message: string; severity: string }[];
+        warnings: { line: number | null; message: string }[];
+        file_name: string | null;
+      }>("/api/iac/validate", {
+        method: "POST",
+        body: JSON.stringify({ code, format, file_name: fileName }),
+      }),
+    validateBundle: (files: { code: string; file_name: string }[], format: string) =>
+      fetchApi<{
+        is_valid: boolean;
+        format: string;
+        file_results: {
+          is_valid: boolean;
+          format: string;
+          errors: { line: number | null; column: number | null; message: string; severity: string }[];
+          warnings: { line: number | null; message: string }[];
+          file_name: string | null;
+        }[];
+        bundle_errors: { line: number | null; column: number | null; message: string; severity: string }[];
+        bundle_warnings: { line: number | null; message: string }[];
+      }>("/api/iac/validate-bundle", {
+        method: "POST",
+        body: JSON.stringify({ files, format }),
+      }),
+  },
 };
 
 export interface Category {
@@ -513,6 +615,18 @@ export interface BicepTemplate {
 export interface BicepFile {
   name: string;
   file_path: string;
+  content: string;
+  size_bytes: number;
+}
+
+export interface PulumiTemplate {
+  name: string;
+  description: string;
+  languages: string[];
+}
+
+export interface PulumiFile {
+  name: string;
   content: string;
   size_bytes: number;
 }

@@ -9,6 +9,7 @@ from app.api.routes.ai_quality import router as ai_quality_router
 from app.api.routes.ai_validation import router as ai_validation_router
 from app.api.routes.approvals import router as approvals_router
 from app.api.routes.architecture import router as architecture_router
+from app.api.routes.arm import router as arm_router
 from app.api.routes.bicep import router as bicep_router
 from app.api.routes.chat import router as chat_router
 from app.api.routes.compliance import router as compliance_router
@@ -22,12 +23,14 @@ from app.api.routes.events import router as events_router
 from app.api.routes.governance_audit import router as governance_audit_router
 from app.api.routes.governance_scorecard import router as governance_scorecard_router
 from app.api.routes.governance_tasks import router as governance_tasks_router
+from app.api.routes.iac_validation import router as iac_validation_router
 from app.api.routes.migration import router as migration_router
 from app.api.routes.notifications import router as notifications_router
 from app.api.routes.plugins import router as plugins_router
 from app.api.routes.policies import router as policies_router
 from app.api.routes.policy_compliance import router as policy_compliance_router
 from app.api.routes.projects import router as projects_router
+from app.api.routes.pulumi import router as pulumi_router
 from app.api.routes.questionnaire import router as questionnaire_router
 from app.api.routes.questionnaire_state import router as questionnaire_state_router
 from app.api.routes.rbac_health import router as rbac_health_router
@@ -37,6 +40,7 @@ from app.api.routes.scoring import router as scoring_router
 from app.api.routes.security import router as security_router
 from app.api.routes.sizing import router as sizing_router
 from app.api.routes.tagging import router as tagging_router
+from app.api.routes.terraform import router as terraform_router
 from app.api.routes.users import router as users_router
 from app.api.routes.workloads import router as workloads_router
 from app.config import settings
@@ -115,6 +119,8 @@ app.include_router(architecture_router)
 app.include_router(adr_router)
 app.include_router(deployment_router)
 app.include_router(bicep_router)
+app.include_router(arm_router)
+app.include_router(pulumi_router)
 app.include_router(scoring_router)
 app.include_router(questionnaire_state_router)
 app.include_router(discovery_router)
@@ -143,6 +149,8 @@ app.include_router(regulatory_router)
 app.include_router(security_router)
 app.include_router(sizing_router)
 app.include_router(content_safety_router)
+app.include_router(iac_validation_router)
+app.include_router(terraform_router)
 
 
 @app.get("/health")
