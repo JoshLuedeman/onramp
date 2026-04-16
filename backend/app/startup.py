@@ -69,16 +69,6 @@ def validate_environment() -> dict:
     if warnings:
         logger.info("📋 %d warning(s) — see above for details", len(warnings))
 
-    # Plugin status
-    try:
-        from app.plugins.loader import plugin_registry
-
-        plugin_count = len(plugin_registry.get_all_plugins())
-        logger.info("🔌 %d plugin(s) loaded", plugin_count)
-    except Exception:
-        plugin_count = 0
-        logger.debug("Plugin system not yet initialised")
-
     return {
         "mode": mode,
         "warnings": warnings,
@@ -86,12 +76,23 @@ def validate_environment() -> dict:
         "auth": "entra_id" if settings.azure_tenant_id else "mock",
         "ai": "ai_foundry" if settings.ai_foundry_endpoint else "mock",
         "database": "configured" if settings.database_url else "none",
-        "plugins": plugin_count,
     }
 
 
 # Cached result
 _startup_status = None
+
+
+def log_plugin_status() -> None:
+    """Log the number of loaded plugins.
+
+    Must be called *after* plugin discovery completes in the application
+    lifespan — calling it earlier will always report zero plugins.
+    """
+    from app.plugins.loader import plugin_registry
+
+    plugin_count = len(plugin_registry.get_all_plugins())
+    logger.info("🔌 %d plugin(s) loaded", plugin_count)
 
 
 def get_startup_status() -> dict:

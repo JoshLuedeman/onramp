@@ -34,6 +34,16 @@ class PluginRegistry:
     # Registration
     # ------------------------------------------------------------------
 
+    def clear(self) -> None:
+        """Remove all registered plugins.
+
+        Primarily intended for test isolation — resets the registry to its
+        initial empty state.
+        """
+        self._compliance_plugins.clear()
+        self._architecture_plugins.clear()
+        self._output_plugins.clear()
+
     def register_compliance(self, plugin: CompliancePlugin) -> None:
         """Register a compliance-framework plugin after protocol validation."""
         if not isinstance(plugin, CompliancePlugin):

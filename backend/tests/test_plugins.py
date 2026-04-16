@@ -314,6 +314,23 @@ class TestEntryPoints:
 # ---------------------------------------------------------------------------
 
 class TestPluginAPI:
+    @pytest.fixture(autouse=True)
+    def _isolate_registry(self):
+        """Snapshot and restore the global plugin registry around each test."""
+        from app.plugins.loader import plugin_registry
+
+        saved_compliance = list(plugin_registry.get_compliance_plugins())
+        saved_architecture = list(plugin_registry.get_architecture_plugins())
+        saved_output = list(plugin_registry.get_output_plugins())
+        yield plugin_registry
+        plugin_registry.clear()
+        for p in saved_compliance:
+            plugin_registry.register_compliance(p)
+        for p in saved_architecture:
+            plugin_registry.register_architecture(p)
+        for p in saved_output:
+            plugin_registry.register_output(p)
+
     def test_list_plugins(self):
         response = client.get("/api/plugins/")
         assert response.status_code == 200
@@ -326,13 +343,11 @@ class TestPluginAPI:
         response = client.get("/api/plugins/nonexistent-plugin")
         assert response.status_code == 404
 
-    def test_get_plugin_found(self):
+    def test_get_plugin_found(self, _isolate_registry):
         """Register a plugin then fetch it by name via the API."""
-        from app.plugins.loader import plugin_registry
-
-        # Ensure a known plugin is registered
+        registry = _isolate_registry
         plugin = _FakeCompliance()
-        plugin_registry._compliance_plugins[plugin.name] = plugin
+        registry.register_compliance(plugin)
 
         response = client.get(f"/api/plugins/{plugin.name}")
         assert response.status_code == 200
@@ -340,21 +355,14 @@ class TestPluginAPI:
         assert data["name"] == "fake-compliance"
         assert data["plugin_type"] == "compliance"
 
-        # Cleanup
-        del plugin_registry._compliance_plugins[plugin.name]
-
-    def test_list_plugins_returns_registered(self):
+    def test_list_plugins_returns_registered(self, _isolate_registry):
         """Verify the list endpoint includes a freshly registered plugin."""
-        from app.plugins.loader import plugin_registry
-
+        registry = _isolate_registry
         plugin = _FakeArchitecture()
-        plugin_registry._architecture_plugins[plugin.name] = plugin
+        registry.register_architecture(plugin)
 
         response = client.get("/api/plugins/")
         assert response.status_code == 200
         data = response.json()
         names = [p["name"] for p in data["plugins"]]
         assert "fake-architecture" in names
-
-        # Cleanup
-        del plugin_registry._architecture_plugins[plugin.name]

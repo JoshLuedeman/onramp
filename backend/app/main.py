@@ -25,7 +25,7 @@ from app.security import (
     RequestValidationMiddleware,
     SecurityHeadersMiddleware,
 )
-from app.startup import get_startup_status, validate_environment
+from app.startup import get_startup_status, log_plugin_status, validate_environment
 
 
 @asynccontextmanager
@@ -38,6 +38,7 @@ async def lifespan(app):
 
     plugin_registry.discover_plugins("plugins")
     plugin_registry.load_entry_points()
+    log_plugin_status()
     yield
     await close_db()
 

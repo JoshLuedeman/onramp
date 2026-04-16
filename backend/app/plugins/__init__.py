@@ -55,6 +55,8 @@ class PluginInfo:
         self.version = version
         self.plugin_type = plugin_type
         self.description = description
+        # v1: All discovered plugins are enabled by default. Disabling individual
+        # plugins via configuration will be supported in a future version.
         self.enabled = enabled
 
     def to_dict(self) -> dict[str, Any]:
