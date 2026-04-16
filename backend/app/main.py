@@ -8,15 +8,20 @@ from app.api.routes.adr import router as adr_router
 from app.api.routes.ai_eval import router as ai_eval_router
 from app.api.routes.ai_quality import router as ai_quality_router
 from app.api.routes.ai_validation import router as ai_validation_router
+from app.api.routes.aiml import router as aiml_router
 from app.api.routes.approvals import router as approvals_router
 from app.api.routes.arch_versions import router as arch_versions_router
 from app.api.routes.architecture import router as architecture_router
 from app.api.routes.arm import router as arm_router
 from app.api.routes.audit import router as audit_router
+from app.api.routes.avd import router as avd_router
 from app.api.routes.bicep import router as bicep_router
 from app.api.routes.chat import router as chat_router
+from app.api.routes.china import router as china_router
+from app.api.routes.cloud_config import router as cloud_config_router
 from app.api.routes.collaboration import router as collaboration_router
 from app.api.routes.compliance import router as compliance_router
+from app.api.routes.confidential import router as confidential_router
 from app.api.routes.content_safety import router as content_safety_router
 from app.api.routes.cost import router as cost_router
 from app.api.routes.deployment import router as deployment_router
@@ -27,7 +32,9 @@ from app.api.routes.events import router as events_router
 from app.api.routes.governance_audit import router as governance_audit_router
 from app.api.routes.governance_scorecard import router as governance_scorecard_router
 from app.api.routes.governance_tasks import router as governance_tasks_router
+from app.api.routes.government import router as government_router
 from app.api.routes.iac_validation import router as iac_validation_router
+from app.api.routes.iot import router as iot_router
 from app.api.routes.migration import router as migration_router
 from app.api.routes.msp import router as msp_router
 from app.api.routes.notifications import router as notifications_router
@@ -44,10 +51,13 @@ from app.api.routes.rbac_health import router as rbac_health_router
 from app.api.routes.regulatory import router as regulatory_router
 from app.api.routes.reviews import config_router as review_config_router
 from app.api.routes.reviews import router as reviews_router
+from app.api.routes.sap import router as sap_router
 from app.api.routes.scan_operations import router as scan_operations_router
 from app.api.routes.scoring import router as scoring_router
 from app.api.routes.security import router as security_router
 from app.api.routes.sizing import router as sizing_router
+from app.api.routes.skus import router as skus_router
+from app.api.routes.sovereign import router as sovereign_router
 from app.api.routes.tagging import router as tagging_router
 from app.api.routes.template_safety import router as template_safety_router
 from app.api.routes.templates import router as templates_router
@@ -55,7 +65,9 @@ from app.api.routes.tenant_lifecycle import router as tenant_lifecycle_router
 from app.api.routes.tenants import router as tenants_router
 from app.api.routes.terraform import router as terraform_router
 from app.api.routes.users import router as users_router
+from app.api.routes.validation import router as validation_router
 from app.api.routes.version_pinning import router as version_pinning_router
+from app.api.routes.workload_extensions import router as workload_extensions_router
 from app.api.routes.workloads import router as workloads_router
 from app.api.versioning import APIVersionHeaderMiddleware, VersionRewriteMiddleware
 from app.config import settings
@@ -188,6 +200,18 @@ app.include_router(templates_router)
 app.include_router(project_rbac_router)
 app.include_router(tenant_lifecycle_router)
 app.include_router(audit_router)
+app.include_router(sovereign_router)
+app.include_router(cloud_config_router)
+app.include_router(workload_extensions_router)
+app.include_router(skus_router)
+app.include_router(validation_router)
+app.include_router(government_router)
+app.include_router(china_router)
+app.include_router(confidential_router)
+app.include_router(sap_router)
+app.include_router(aiml_router)
+app.include_router(iot_router)
+app.include_router(avd_router)
 
 
 @app.get("/health")

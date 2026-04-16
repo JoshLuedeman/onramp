@@ -874,6 +874,410 @@ export const api = {
         body: JSON.stringify({ rating }),
       }),
   },
+  cloud: {
+    getEnvironments: () =>
+      fetchApi<CloudEnvironmentItem[]>("/api/cloud/environments"),
+    getEnvironment: (name: string) =>
+      fetchApi<CloudEnvironmentItem>(`/api/cloud/environments/${name}`),
+    getEndpoints: (name: string) =>
+      fetchApi<CloudEndpointsItem>(`/api/cloud/environments/${name}/endpoints`),
+    validateEnvironment: (data: {
+      environment: string;
+      required_services: string[];
+    }) =>
+      fetchApi<CloudValidationResult>("/api/cloud/environments/validate", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
+  sovereign: {
+    getFrameworks: () =>
+      fetchApi<SovereignFrameworkListResponse>("/api/sovereign/frameworks"),
+    getFramework: (name: string) =>
+      fetchApi<SovereignFrameworkDetail>(`/api/sovereign/frameworks/${name}`),
+    getControls: (name: string) =>
+      fetchApi<{ framework: string; controls: SovereignControl[] }>(
+        `/api/sovereign/frameworks/${name}/controls`
+      ),
+    evaluateCompliance: (name: string, architecture: Record<string, unknown>) =>
+      fetchApi<SovereignComplianceResult>(
+        `/api/sovereign/frameworks/${name}/evaluate`,
+        { method: "POST", body: JSON.stringify({ architecture }) }
+      ),
+    getServices: () =>
+      fetchApi<ServiceAvailabilityItem[]>("/api/sovereign/services"),
+    getAvailabilityMatrix: () =>
+      fetchApi<ServiceAvailabilityMatrix>("/api/sovereign/services/matrix"),
+    checkCompatibility: (data: {
+      architecture: Record<string, unknown>;
+      target_environment: string;
+    }) =>
+      fetchApi<ArchitectureCompatibilityResult>(
+        "/api/sovereign/services/check-compatibility",
+        { method: "POST", body: JSON.stringify(data) }
+      ),
+  },
+
+  government: {
+    getRegions: () =>
+      fetchApi<GovernmentRegionListResponse>("/api/government/regions"),
+    getRegion: (name: string) =>
+      fetchApi<GovernmentRegionResponse>(`/api/government/regions/${name}`),
+    getDodRegions: () =>
+      fetchApi<GovernmentRegionListResponse>("/api/government/regions/dod"),
+    customizeBicep: (data: {
+      bicep_content: string;
+      region: string;
+      compliance_level?: string;
+    }) =>
+      fetchApi<GovernmentBicepResponse>("/api/government/bicep/customize", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getQuestions: () =>
+      fetchApi<GovernmentQuestionResponse[]>("/api/government/questions"),
+    applyConstraints: (data: {
+      architecture: Record<string, unknown>;
+      gov_answers: Record<string, string>;
+    }) =>
+      fetchApi<GovernmentConstraintsResponse>("/api/government/constraints", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
+
+  china: {
+    getRegions: () =>
+      fetchApi<ChinaRegionListResponse>("/api/china/regions"),
+    getRegion: (name: string) =>
+      fetchApi<ChinaRegionResponse>(`/api/china/regions/${name}`),
+    customizeBicep: (data: {
+      bicep_content: string;
+      region: string;
+      compliance_level?: string;
+    }) =>
+      fetchApi<ChinaBicepResponse>("/api/china/bicep/customize", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getQuestions: () =>
+      fetchApi<ChinaQuestionResponse[]>("/api/china/questions"),
+    applyConstraints: (data: {
+      architecture: Record<string, unknown>;
+      china_answers: Record<string, string>;
+    }) =>
+      fetchApi<ChinaConstraintsResponse>("/api/china/constraints", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getDataResidency: () =>
+      fetchApi<DataResidencyResponse>("/api/china/data-residency"),
+    getIcpRequirements: () =>
+      fetchApi<ICPRequirementsResponse>("/api/china/icp-requirements"),
+  },
+
+  confidential: {
+    getOptions: () =>
+      fetchApi<ConfidentialOptionsListResponse>("/api/confidential/options"),
+    getVmSkus: () =>
+      fetchApi<ConfidentialVmSkuListResponse>("/api/confidential/vm-skus"),
+    getRegions: () =>
+      fetchApi<ConfidentialRegionListResponse>("/api/confidential/regions"),
+    recommend: (data: { workload_type: string; requirements: Record<string, unknown> }) =>
+      fetchApi<ConfidentialRecommendResponse>("/api/confidential/recommend", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    generateArchitecture: (data: {
+      base_architecture: Record<string, unknown>;
+      cc_options: Record<string, unknown>;
+    }) =>
+      fetchApi<ConfidentialArchitectureResponse>("/api/confidential/architecture", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    generateBicep: (data: { template_type: string; config: Record<string, unknown> }) =>
+      fetchApi<ConfidentialBicepResponse>("/api/confidential/bicep", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getAttestationConfig: (ccType: string) =>
+      fetchApi<AttestationConfigResponse>(`/api/confidential/attestation/${encodeURIComponent(ccType)}`),
+  },
+
+  avd: {
+    getQuestions: () =>
+      fetchApi<AvdQuestionResponse[]>("/api/accelerators/avd/questions"),
+    getSkuRecommendations: (data: { user_type: string; application_type: string }) =>
+      fetchApi<AvdSkuListResponse>("/api/accelerators/avd/sku-recommendations", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    generateArchitecture: (data: { answers: Record<string, unknown> }) =>
+      fetchApi<AvdArchitectureResponse>("/api/accelerators/avd/architecture", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getBestPractices: () =>
+      fetchApi<AvdBestPracticeResponse[]>("/api/accelerators/avd/best-practices"),
+    estimateSizing: (data: { requirements: Record<string, unknown> }) =>
+      fetchApi<AvdSizingResponse>("/api/accelerators/avd/sizing", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    validateArchitecture: (data: { architecture: Record<string, unknown> }) =>
+      fetchApi<AvdValidationResponse>("/api/accelerators/avd/validate", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getReferenceArchitectures: () =>
+      fetchApi<AvdReferenceArchResponse[]>("/api/accelerators/avd/reference-architectures"),
+    generateBicep: (data: { template_type: string; config: Record<string, unknown> }) =>
+      fetchApi<AvdBicepResponse>("/api/accelerators/avd/bicep", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
+
+  workloadExtensions: {
+    list: () =>
+      fetchApi<{ extensions: WorkloadExtensionItem[] }>("/api/workloads/extensions/"),
+    get: (workloadType: string) =>
+      fetchApi<WorkloadExtensionDetail>(`/api/workloads/extensions/${workloadType}`),
+    getQuestions: (workloadType: string) =>
+      fetchApi<{ workload_type: string; questions: WorkloadQuestion[] }>(
+        `/api/workloads/extensions/${workloadType}/questions`
+      ),
+    getBestPractices: (workloadType: string) =>
+      fetchApi<{ workload_type: string; best_practices: BestPractice[] }>(
+        `/api/workloads/extensions/${workloadType}/best-practices`
+      ),
+    validate: (workloadType: string, architecture: Record<string, unknown>) =>
+      fetchApi<WorkloadValidationResult>(
+        `/api/workloads/extensions/${workloadType}/validate`,
+        { method: "POST", body: JSON.stringify({ architecture }) }
+      ),
+    estimateSizing: (workloadType: string, requirements: Record<string, unknown>) =>
+      fetchApi<{ workload_type: string; sizing: Record<string, unknown> }>(
+        `/api/workloads/extensions/${workloadType}/sizing`,
+        { method: "POST", body: JSON.stringify({ requirements }) }
+      ),
+  },
+
+  skus: {
+    getCompute: (filters?: { family?: string; min_vcpus?: number; min_ram?: number; gpu?: boolean; price_tier?: string }) => {
+      const params = new URLSearchParams();
+      if (filters?.family) params.set("family", filters.family);
+      if (filters?.min_vcpus != null) params.set("min_vcpus", String(filters.min_vcpus));
+      if (filters?.min_ram != null) params.set("min_ram", String(filters.min_ram));
+      if (filters?.gpu != null) params.set("gpu", String(filters.gpu));
+      if (filters?.price_tier) params.set("price_tier", filters.price_tier);
+      const qs = params.toString();
+      return fetchApi<SkuListResult>(`/api/skus/compute${qs ? `?${qs}` : ""}`);
+    },
+    getStorage: (filters?: { tier?: string; media?: string }) => {
+      const params = new URLSearchParams();
+      if (filters?.tier) params.set("tier", filters.tier);
+      if (filters?.media) params.set("media", filters.media);
+      const qs = params.toString();
+      return fetchApi<SkuListResult>(`/api/skus/storage${qs ? `?${qs}` : ""}`);
+    },
+    getDatabase: (filters?: { service?: string; tier?: string }) => {
+      const params = new URLSearchParams();
+      if (filters?.service) params.set("service", filters.service);
+      if (filters?.tier) params.set("tier", filters.tier);
+      const qs = params.toString();
+      return fetchApi<SkuListResult>(`/api/skus/database${qs ? `?${qs}` : ""}`);
+    },
+    getNetworking: (filters?: { service?: string; tier?: string }) => {
+      const params = new URLSearchParams();
+      if (filters?.service) params.set("service", filters.service);
+      if (filters?.tier) params.set("tier", filters.tier);
+      const qs = params.toString();
+      return fetchApi<SkuListResult>(`/api/skus/networking${qs ? `?${qs}` : ""}`);
+    },
+    recommend: (workloadType: string, requirements: Record<string, unknown>) =>
+      fetchApi<SkuRecommendResult>("/api/skus/recommend", {
+        method: "POST",
+        body: JSON.stringify({ workload_type: workloadType, requirements }),
+      }),
+    compare: (skuIds: string[]) =>
+      fetchApi<{ skus: Record<string, unknown>[] }>("/api/skus/compare", {
+        method: "POST",
+        body: JSON.stringify({ sku_ids: skuIds }),
+      }),
+    validateAvailability: (sku: string, region: string, cloudEnv?: string) =>
+      fetchApi<SkuAvailabilityResult>("/api/skus/validate", {
+        method: "POST",
+        body: JSON.stringify({ sku, region, cloud_env: cloudEnv ?? "commercial" }),
+      }),
+  },
+
+  validation: {
+    validateArchitecture: (data: {
+      architecture: Record<string, unknown>;
+      workload_type?: string;
+      cloud_env?: string;
+    }) =>
+      fetchApi<ArchValidationResult>("/api/validation/architecture", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    validateSkus: (data: { architecture: Record<string, unknown>; region?: string }) =>
+      fetchApi<ArchValidationResult>("/api/validation/skus", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    validateCompliance: (data: {
+      architecture: Record<string, unknown>;
+      framework: string;
+    }) =>
+      fetchApi<ArchValidationResult>("/api/validation/compliance", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    validateNetworking: (data: { architecture: Record<string, unknown> }) =>
+      fetchApi<ArchValidationResult>("/api/validation/networking", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getRules: () =>
+      fetchApi<{ rules: ValidationRule[] }>("/api/validation/rules"),
+  },
+
+  iot: {
+    getQuestions: () =>
+      fetchApi<IoTQuestionsListResponse>("/api/accelerators/iot/questions"),
+    getSkuRecommendations: (data: { answers: Record<string, unknown> }) =>
+      fetchApi<IoTSkuRecommendationResponse>("/api/accelerators/iot/sku-recommendations", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    generateArchitecture: (data: { answers: Record<string, unknown> }) =>
+      fetchApi<IoTArchitectureResponse>("/api/accelerators/iot/architecture", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getBestPractices: () =>
+      fetchApi<IoTBestPracticesListResponse>("/api/accelerators/iot/best-practices"),
+    estimateSizing: (data: { requirements: Record<string, unknown> }) =>
+      fetchApi<IoTSizingResponse>("/api/accelerators/iot/sizing", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    validateArchitecture: (data: { architecture: Record<string, unknown> }) =>
+      fetchApi<IoTValidationResponse>("/api/accelerators/iot/validate", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getReferenceArchitectures: () =>
+      fetchApi<IoTReferenceArchitecturesListResponse>(
+        "/api/accelerators/iot/reference-architectures"
+      ),
+    generateBicep: (data: { template_type: string; config: Record<string, unknown> }) =>
+      fetchApi<IoTBicepResponse>("/api/accelerators/iot/bicep", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
+
+  aiml: {
+    getQuestions: () =>
+      fetchApi<AiMlQuestionsListResponse>("/api/accelerators/aiml/questions"),
+    getSkuRecommendations: (filters?: {
+      gpu_type?: string;
+      family?: string;
+      price_tier?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.gpu_type) params.set("gpu_type", filters.gpu_type);
+      if (filters?.family) params.set("family", filters.family);
+      if (filters?.price_tier) params.set("price_tier", filters.price_tier);
+      const qs = params.toString();
+      return fetchApi<AiMlSkuListResponse>(
+        `/api/accelerators/aiml/skus${qs ? `?${qs}` : ""}`
+      );
+    },
+    generateArchitecture: (data: { answers: Record<string, unknown> }) =>
+      fetchApi<AiMlArchitectureResponse>("/api/accelerators/aiml/architecture", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getBestPractices: () =>
+      fetchApi<AiMlBestPracticesListResponse>(
+        "/api/accelerators/aiml/best-practices"
+      ),
+    estimateSizing: (data: { requirements: Record<string, unknown> }) =>
+      fetchApi<AiMlSizingResponse>("/api/accelerators/aiml/sizing", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    validateArchitecture: (data: { architecture: Record<string, unknown> }) =>
+      fetchApi<AiMlValidationResponse>("/api/accelerators/aiml/validate", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getReferenceArchitectures: () =>
+      fetchApi<AiMlReferenceArchitecturesListResponse>(
+        "/api/accelerators/aiml/reference-architectures"
+      ),
+    generateBicep: (data: {
+      template_type: string;
+      config: Record<string, unknown>;
+    }) =>
+      fetchApi<AiMlBicepResponse>("/api/accelerators/aiml/bicep", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
+
+  sap: {
+    getQuestions: () =>
+      fetchApi<SapQuestionListResult>("/api/accelerators/sap/questions"),
+    generateArchitecture: (data: { answers: Record<string, unknown> }) =>
+      fetchApi<SapArchitectureResult>("/api/accelerators/sap/architecture", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getSkus: (params?: { tier?: string; min_memory_gb?: number; min_saps?: number }) => {
+      const query = new URLSearchParams();
+      if (params?.tier) query.set("tier", params.tier);
+      if (params?.min_memory_gb) query.set("min_memory_gb", String(params.min_memory_gb));
+      if (params?.min_saps) query.set("min_saps", String(params.min_saps));
+      const qs = query.toString();
+      return fetchApi<SapSkuListResult>(
+        `/api/accelerators/sap/skus${qs ? `?${qs}` : ""}`,
+      );
+    },
+    estimateSizing: (data: {
+      saps: number;
+      data_volume: string;
+      concurrent_users: number;
+    }) =>
+      fetchApi<SapSizingResult>("/api/accelerators/sap/sizing", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getBestPractices: () =>
+      fetchApi<SapBestPracticeListResult>("/api/accelerators/sap/best-practices"),
+    generateBicep: (data: {
+      template_type: string;
+      config: Record<string, unknown>;
+    }) =>
+      fetchApi<SapBicepResult>("/api/accelerators/sap/bicep", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getReferenceArchitectures: () =>
+      fetchApi<SapReferenceArchListResult>(
+        "/api/accelerators/sap/reference-architectures",
+      ),
+    validate: (data: { architecture: Record<string, unknown> }) =>
+      fetchApi<SapValidateResult>("/api/accelerators/sap/validate", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
 };
 
 export interface Category {
@@ -1717,4 +2121,699 @@ export interface TemplateListResponse {
   total: number;
   page: number;
   page_size: number;
+}
+
+// ── Cloud Environment Types ─────────────────────────────────────────────
+
+export interface CloudEnvironmentItem {
+  name: string;
+  display_name: string;
+  description: string;
+  available_regions: string[];
+}
+
+export interface CloudEndpointsItem {
+  resource_manager: string;
+  authentication: string;
+  portal: string;
+  graph: string;
+  storage_suffix: string;
+  sql_suffix: string;
+  keyvault_suffix: string;
+  ai_foundry: string | null;
+}
+
+export interface CloudValidationResult {
+  supported: boolean;
+  missing_services: string[];
+  warnings: string[];
+}
+
+// ── Sovereign Compliance Types ──────────────────────────────────────────
+
+export interface SovereignControl {
+  id: string;
+  name: string;
+  description: string;
+  control_count: number;
+}
+
+export interface SovereignFrameworkSummary {
+  short_name: string;
+  name: string;
+  description: string;
+  version: string;
+  cloud_environments: string[];
+  control_family_count: number;
+}
+
+export interface SovereignFrameworkListResponse {
+  frameworks: SovereignFrameworkSummary[];
+  total: number;
+}
+
+export interface SovereignFrameworkDetail {
+  short_name: string;
+  name: string;
+  description: string;
+  version: string;
+  cloud_environments: string[];
+  control_families: SovereignControl[];
+  total_controls: number;
+}
+
+export interface FamilyScoreResult {
+  family_id: string;
+  family_name: string;
+  score: number | null;
+  status: string;
+  controls_evaluated: number;
+  controls_met: number;
+}
+
+export interface SovereignComplianceResult {
+  framework: string;
+  framework_name: string;
+  overall_score: number;
+  status: string;
+  total_controls_evaluated: number;
+  total_controls_met: number;
+  family_scores: FamilyScoreResult[];
+  recommendations: string[];
+  message?: string;
+}
+
+export interface ServiceAvailabilityItem {
+  service_name: string;
+  category: string;
+  commercial: boolean;
+  government: boolean;
+  china: boolean;
+  notes: string;
+}
+
+export interface ServiceAvailabilityMatrix {
+  environments: string[];
+  services: ServiceAvailabilityItem[];
+  by_category: Record<string, ServiceAvailabilityItem[]>;
+  total_services: number;
+}
+
+export interface ArchitectureCompatibilityResult {
+  compatible: boolean;
+  target_environment: string;
+  services_checked: number;
+  missing_services: string[];
+  warnings: string[];
+  alternatives: Record<string, string>;
+}
+
+// ── China Types ─────────────────────────────────────────────────────────────
+
+// ── Government Cloud Types ───────────────────────────────────────────────────
+
+export interface GovernmentRegionResponse {
+  name: string;
+  display_name: string;
+  paired_region: string;
+  geography: string;
+  available_zones: string[];
+  restricted: boolean;
+}
+
+export interface GovernmentRegionListResponse {
+  regions: GovernmentRegionResponse[];
+  total: number;
+}
+
+export interface GovernmentBicepResponse {
+  customized_content: string;
+  changes_applied: string[];
+}
+
+export interface GovernmentQuestionResponse {
+  id: string;
+  text: string;
+  type: string;
+  options: { value: string; label: string; group?: string }[];
+  required: boolean;
+  category: string;
+  help_text: string;
+}
+
+export interface GovernmentConstraintsResponse {
+  architecture: Record<string, unknown>;
+  warnings: string[];
+}
+
+// ── China Cloud Types ───────────────────────────────────────────────────────
+
+export interface ChinaRegionResponse {
+  name: string;
+  display_name: string;
+  paired_region: string;
+  geography: string;
+  available_zones: string[];
+}
+
+export interface ChinaRegionListResponse {
+  regions: ChinaRegionResponse[];
+  total: number;
+}
+
+export interface ChinaBicepResponse {
+  customized_content: string;
+  region: string;
+  compliance_level: string;
+  endpoints_replaced: number;
+}
+
+export interface ChinaQuestionResponse {
+  id: string;
+  text: string;
+  description: string;
+  type: string;
+  options: { value: string; label: string }[];
+  required: boolean;
+  category: string;
+}
+
+export interface ChinaConstraintsResponse {
+  architecture: Record<string, unknown>;
+  region: string;
+  compliance_level: string;
+  cloud_environment: string;
+}
+
+export interface DataResidencyResponse {
+  jurisdiction: string;
+  data_boundary: string;
+  cross_border_transfer: boolean;
+  regulations: string[];
+  requirements: string[];
+  operator: string;
+  operator_relationship: string;
+}
+
+export interface ICPRequirementsResponse {
+  requires_icp: boolean;
+  affected_resources: string[];
+  resource_types_checked: number;
+  guidance: string;
+  icp_types: { type: string; description: string; applies_to: string }[];
+}
+
+// ── Confidential Computing Types ────────────────────────────────────────
+
+export interface ConfidentialOption {
+  id: string;
+  name: string;
+  category: string;
+  tee_types: string[];
+  description: string;
+  use_cases: string[];
+  vm_series: string[];
+  attestation_supported: boolean;
+}
+
+export interface ConfidentialOptionsListResponse {
+  options: ConfidentialOption[];
+  total: number;
+}
+
+export interface ConfidentialVmSku {
+  name: string;
+  series: string;
+  vcpus: number;
+  memory_gb: number;
+  tee_type: string;
+  vendor: string;
+  max_data_disks: number;
+  enclave_memory_mb: number | null;
+  description: string;
+}
+
+export interface ConfidentialVmSkuListResponse {
+  skus: ConfidentialVmSku[];
+  total: number;
+}
+
+export interface ConfidentialRegion {
+  name: string;
+  display_name: string;
+  tee_types: string[];
+  services: string[];
+}
+
+export interface ConfidentialRegionListResponse {
+  regions: ConfidentialRegion[];
+  total: number;
+}
+
+export interface ConfidentialRecommendResponse {
+  workload_type: string;
+  recommended_option: Record<string, unknown>;
+  recommended_skus: Record<string, unknown>[];
+  region_options: Record<string, unknown>[];
+  attestation: Record<string, unknown> | null;
+  rationale: string;
+}
+
+export interface ConfidentialArchitectureResponse {
+  architecture: Record<string, unknown>;
+  cc_enabled: boolean;
+}
+
+export interface ConfidentialBicepResponse {
+  template_type: string;
+  bicep_template: string;
+  description: string;
+}
+
+export interface AttestationConfigResponse {
+  cc_type: string;
+  attestation_provider: string;
+  protocol: string;
+  evidence_type: string;
+  key_release_policy: string;
+  steps: string[];
+}
+
+// ── AVD Types ─────────────────────────────────────────────────────────
+
+export interface AvdQuestionOption {
+  value: string;
+  label: string;
+}
+
+export interface AvdQuestionResponse {
+  id: string;
+  category: string;
+  text: string;
+  type: string;
+  options: AvdQuestionOption[];
+  required: boolean;
+  order: number;
+}
+
+export interface AvdSkuResponse {
+  name: string;
+  series: string;
+  family: string;
+  vcpus: number;
+  memory_gb: number;
+  gpu: boolean;
+  users_per_vm: Record<string, number>;
+  recommended_users: number | null;
+  description: string;
+}
+
+export interface AvdSkuListResponse {
+  skus: AvdSkuResponse[];
+  total: number;
+}
+
+export interface AvdArchitectureResponse {
+  architecture: Record<string, unknown>;
+}
+
+export interface AvdBestPracticeResponse {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  severity: string;
+}
+
+export interface AvdSizingResponse {
+  session_host_count: number;
+  users_per_host: number;
+  recommended_sku: string;
+  total_users: number;
+  storage_gb: number;
+}
+
+export interface AvdValidationResponse {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface AvdReferenceArchResponse {
+  id: string;
+  name: string;
+  description: string;
+  user_count: string;
+  host_pool_type: string;
+  session_host_count: number;
+  vm_sku: string;
+  fslogix_storage: string;
+  regions: number;
+  scaling: string;
+  components: string[];
+}
+
+export interface AvdBicepResponse {
+  template_type: string;
+  bicep_template: string;
+  description: string;
+}
+
+// ── Workload Extensions Types ─────────────────────────────────────────
+
+export interface WorkloadExtensionItem {
+  workload_type: string;
+  display_name: string;
+  description: string;
+}
+
+export interface WorkloadQuestion {
+  id: string;
+  category: string;
+  text: string;
+  type: string;
+  options?: { value: string; label: string }[];
+  required: boolean;
+  order: number;
+}
+
+export interface BestPractice {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  severity: string;
+}
+
+export interface WorkloadExtensionDetail {
+  workload_type: string;
+  display_name: string;
+  description: string;
+  questions: WorkloadQuestion[];
+  best_practices: BestPractice[];
+}
+
+export interface WorkloadValidationResult {
+  workload_type: string;
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  suggestions: string[];
+}
+
+// ── SKU Types ─────────────────────────────────────────────────────────
+
+export interface SkuListResult {
+  skus: Record<string, unknown>[];
+  count: number;
+}
+
+export interface SkuRecommendResult {
+  recommended_sku: Record<string, unknown>;
+  reason: string;
+  alternatives: Record<string, unknown>[];
+}
+
+export interface SkuAvailabilityResult {
+  available: boolean;
+  sku: string;
+  region: string;
+  cloud_env: string;
+  reason?: string;
+}
+
+// ── Architecture Validation Types ─────────────────────────────────────
+
+export interface ArchValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  suggestions?: string[];
+  framework?: string;
+}
+
+export interface ValidationRule {
+  id: string;
+  category: string;
+  description: string;
+  severity: string;
+}
+
+// ── IoT Accelerator Types ─────────────────────────────────────────────
+
+export interface IoTQuestion {
+  id: string;
+  text: string;
+  type: string;
+  options: string[];
+  default: string;
+  category: string;
+  help_text: string;
+}
+
+export interface IoTQuestionsListResponse {
+  questions: IoTQuestion[];
+  total: number;
+}
+
+export interface IoTSkuRecommendationResponse {
+  recommended_tier: Record<string, unknown>;
+  units: number;
+  estimated_daily_messages: number;
+  device_count: number;
+  rationale: string;
+  alternatives: Record<string, unknown>[];
+}
+
+export interface IoTArchitectureResponse {
+  components: Record<string, unknown>[];
+  connections: Record<string, unknown>[];
+  iot_hub_tier: Record<string, unknown>;
+  iot_hub_units: number;
+  estimated_daily_messages: number;
+  description: string;
+}
+
+export interface IoTBestPractice {
+  id: string;
+  category: string;
+  title: string;
+  description: string;
+  priority: string;
+}
+
+export interface IoTBestPracticesListResponse {
+  best_practices: IoTBestPractice[];
+  total: number;
+}
+
+export interface IoTSizingResponse {
+  iot_hub: Record<string, unknown>;
+  storage: Record<string, unknown>;
+  edge: Record<string, unknown>;
+  event_hubs: Record<string, unknown>;
+  stream_analytics: Record<string, unknown>;
+}
+
+export interface IoTValidationResponse {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface IoTReferenceArchitecture {
+  id: string;
+  name: string;
+  description: string;
+  components: string[];
+  device_types: string[];
+  protocols: string[];
+  scale: string;
+  use_cases: string[];
+}
+
+export interface IoTReferenceArchitecturesListResponse {
+  architectures: IoTReferenceArchitecture[];
+  total: number;
+}
+
+export interface IoTBicepResponse {
+  template_type: string;
+  bicep_template: string;
+  description: string;
+}
+
+// ── AI/ML Accelerator Types ─────────────────────────────────────────────
+
+export interface AiMlQuestionOption {
+  value: string;
+  label: string;
+}
+
+export interface AiMlQuestion {
+  id: string;
+  text: string;
+  type: string;
+  options?: AiMlQuestionOption[];
+  required: boolean;
+  category: string;
+  help_text: string;
+}
+
+export interface AiMlQuestionsListResponse {
+  questions: AiMlQuestion[];
+}
+
+export interface AiMlGpuSku {
+  id: string;
+  name: string;
+  family: string;
+  gpu_type: string;
+  gpu_count: number;
+  gpu_memory_gb: number;
+  vcpus: number;
+  ram_gb: number;
+  use_case: string;
+  price_tier: string;
+}
+
+export interface AiMlSkuListResponse {
+  skus: AiMlGpuSku[];
+  count: number;
+}
+
+export interface AiMlArchitectureResponse {
+  architecture: Record<string, unknown>;
+}
+
+export interface AiMlBestPractice {
+  id: string;
+  title: string;
+  category: string;
+  priority: string;
+  description: string;
+}
+
+export interface AiMlBestPracticesListResponse {
+  best_practices: AiMlBestPractice[];
+}
+
+export interface AiMlSizingResponse {
+  sizing: Record<string, unknown>;
+}
+
+export interface AiMlValidationResponse {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  suggestions: string[];
+}
+
+export interface AiMlReferenceArchitecture {
+  id: string;
+  name: string;
+  description: string;
+  team_size: string;
+  use_case: string;
+  services: string[];
+  estimated_monthly_cost_usd: number;
+  gpu_type: string;
+  mlops_level: string;
+}
+
+export interface AiMlReferenceArchitecturesListResponse {
+  reference_architectures: AiMlReferenceArchitecture[];
+}
+
+export interface AiMlBicepResponse {
+  bicep: string;
+  template_type: string;
+}
+
+// ── SAP Accelerator Types ─────────────────────────────────────────────
+
+export interface SapQuestion {
+  id: string;
+  text: string;
+  type: string;
+  options: { value: string; label: string }[];
+  required: boolean;
+  category: string;
+  help_text: string;
+}
+
+export interface SapQuestionListResult {
+  questions: SapQuestion[];
+  total: number;
+}
+
+export interface SapArchitectureResult {
+  architecture: Record<string, unknown>;
+}
+
+export interface SapCertifiedSku {
+  name: string;
+  series: string;
+  vcpus: number;
+  memory_gb: number;
+  saps_rating: number;
+  max_hana_memory_gb: number;
+  tier: string;
+  description: string;
+}
+
+export interface SapSkuListResult {
+  skus: SapCertifiedSku[];
+  total: number;
+}
+
+export interface SapSizingResult {
+  database_sku: Record<string, unknown>;
+  app_server_sku: Record<string, unknown>;
+  app_server_count: number;
+  total_saps: number;
+  estimated_memory_gb: number;
+}
+
+export interface SapBestPractice {
+  id: string;
+  category: string;
+  title: string;
+  description: string;
+  severity: string;
+  link: string;
+}
+
+export interface SapBestPracticeListResult {
+  best_practices: SapBestPractice[];
+  total: number;
+}
+
+export interface SapBicepResult {
+  template_type: string;
+  bicep_template: string;
+  description: string;
+}
+
+export interface SapReferenceArch {
+  id: string;
+  name: string;
+  description: string;
+  product: string;
+  database: string;
+  ha_enabled: boolean;
+  dr_enabled: boolean;
+  components: string[];
+  link: string;
+}
+
+export interface SapReferenceArchListResult {
+  reference_architectures: SapReferenceArch[];
+  total: number;
+}
+
+export interface SapValidateResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
 }

@@ -876,3 +876,1061 @@ describe("api.templates", () => {
     );
   });
 });
+
+describe("api.sovereign", () => {
+  it("getFrameworks calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ frameworks: [], total: 0 }),
+    }));
+    const result = await api.sovereign.getFrameworks();
+    expect(result.total).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/sovereign/frameworks",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getFramework calls correct endpoint with name", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ short_name: "FedRAMP_High", name: "FedRAMP High" }),
+    }));
+    await api.sovereign.getFramework("FedRAMP_High");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/sovereign/frameworks/FedRAMP_High",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getControls calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ framework: "CMMC_L2", controls: [] }),
+    }));
+    await api.sovereign.getControls("CMMC_L2");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/sovereign/frameworks/CMMC_L2/controls",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("evaluateCompliance sends POST with architecture", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ overall_score: 50, status: "partial" }),
+    }));
+    await api.sovereign.evaluateCompliance("FedRAMP_High", { security: {} });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/sovereign/frameworks/FedRAMP_High/evaluate");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.architecture).toBeDefined();
+  });
+
+  it("getServices calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([]),
+    }));
+    await api.sovereign.getServices();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/sovereign/services",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getAvailabilityMatrix calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ environments: [], services: [], total_services: 0 }),
+    }));
+    await api.sovereign.getAvailabilityMatrix();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/sovereign/services/matrix",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("checkCompatibility sends POST with architecture and target", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ compatible: true, missing_services: [] }),
+    }));
+    await api.sovereign.checkCompatibility({
+      architecture: { services: ["Key Vault"] },
+      target_environment: "commercial",
+    });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/sovereign/services/check-compatibility");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.target_environment).toBe("commercial");
+  });
+});
+
+describe("api.cloud", () => {
+  it("getEnvironments calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([{ name: "commercial" }]),
+    }));
+    const result = await api.cloud.getEnvironments();
+    expect(result).toHaveLength(1);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/cloud/environments",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getEnvironment calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ name: "government", display_name: "Azure Government" }),
+    }));
+    const result = await api.cloud.getEnvironment("government");
+    expect(result.name).toBe("government");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/cloud/environments/government",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getEndpoints calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ resource_manager: "https://management.azure.com" }),
+    }));
+    const result = await api.cloud.getEndpoints("commercial");
+    expect(result.resource_manager).toBe("https://management.azure.com");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/cloud/environments/commercial/endpoints",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("validateEnvironment sends POST with body", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ supported: true, missing_services: [], warnings: [] }),
+    }));
+    await api.cloud.validateEnvironment({
+      environment: "commercial",
+      required_services: ["compute"],
+    });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/cloud/environments/validate",
+      expect.objectContaining({ method: "POST" })
+    );
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    const body = JSON.parse(call[1].body);
+    expect(body.environment).toBe("commercial");
+    expect(body.required_services).toEqual(["compute"]);
+  });
+});
+
+// ── Workload Extensions API Tests ────────────────────────────────────
+
+describe("api.workloadExtensions", () => {
+  it("list calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ extensions: [{ workload_type: "ai_ml" }] }),
+    }));
+    const result = await api.workloadExtensions.list();
+    expect(result.extensions).toHaveLength(1);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/workloads/extensions/",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("get calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ workload_type: "ai_ml", display_name: "AI/ML" }),
+    }));
+    const result = await api.workloadExtensions.get("ai_ml");
+    expect(result.workload_type).toBe("ai_ml");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/workloads/extensions/ai_ml",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getQuestions calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ workload_type: "sap", questions: [] }),
+    }));
+    await api.workloadExtensions.getQuestions("sap");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/workloads/extensions/sap/questions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getBestPractices calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ workload_type: "avd", best_practices: [] }),
+    }));
+    await api.workloadExtensions.getBestPractices("avd");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/workloads/extensions/avd/best-practices",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("validate sends POST with architecture", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ valid: true, errors: [], warnings: [], suggestions: [] }),
+    }));
+    await api.workloadExtensions.validate("ai_ml", { services: [] });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/workloads/extensions/ai_ml/validate");
+    expect(call[1].method).toBe("POST");
+  });
+
+  it("estimateSizing sends POST with requirements", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ workload_type: "iot", sizing: {} }),
+    }));
+    await api.workloadExtensions.estimateSizing("iot", { device_count: "large" });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/workloads/extensions/iot/sizing");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.requirements.device_count).toBe("large");
+  });
+});
+
+// ── SKU API Tests ────────────────────────────────────────────────────
+
+describe("api.skus", () => {
+  it("getCompute calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [], count: 0 }),
+    }));
+    await api.skus.getCompute();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/skus/compute",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getCompute passes filters as query params", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [], count: 0 }),
+    }));
+    await api.skus.getCompute({ family: "N", min_vcpus: 8 });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toContain("family=N");
+    expect(call[0]).toContain("min_vcpus=8");
+  });
+
+  it("getStorage calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [], count: 0 }),
+    }));
+    await api.skus.getStorage();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/skus/storage",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getDatabase calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [], count: 0 }),
+    }));
+    await api.skus.getDatabase();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/skus/database",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getNetworking calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [], count: 0 }),
+    }));
+    await api.skus.getNetworking();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/skus/networking",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("recommend sends POST with workload_type", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ recommended_sku: {}, reason: "best fit", alternatives: [] }),
+    }));
+    await api.skus.recommend("ai_ml", { gpu: true });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.workload_type).toBe("ai_ml");
+  });
+
+  it("compare sends POST with sku_ids", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [{}, {}] }),
+    }));
+    await api.skus.compare(["b2s", "d4s_v5"]);
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    const body = JSON.parse(call[1].body);
+    expect(body.sku_ids).toEqual(["b2s", "d4s_v5"]);
+  });
+});
+
+// ── Validation API Tests ─────────────────────────────────────────────
+
+describe("api.validation", () => {
+  it("validateArchitecture sends POST with architecture", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ valid: true, errors: [], warnings: [] }),
+    }));
+    await api.validation.validateArchitecture({ architecture: { resources: [] } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/validation/architecture");
+    expect(call[1].method).toBe("POST");
+  });
+
+  it("validateSkus sends POST with architecture and region", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ valid: true, errors: [], warnings: [] }),
+    }));
+    await api.validation.validateSkus({ architecture: { resources: [] }, region: "eastus" });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/validation/skus");
+    expect(call[1].method).toBe("POST");
+  });
+
+  it("validateCompliance sends POST with framework", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ valid: true, errors: [], warnings: [], framework: "soc2" }),
+    }));
+    await api.validation.validateCompliance({
+      architecture: { security: {} },
+      framework: "soc2",
+    });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    const body = JSON.parse(call[1].body);
+    expect(body.framework).toBe("soc2");
+  });
+
+  it("validateNetworking sends POST with architecture", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ valid: true, errors: [], warnings: [] }),
+    }));
+    await api.validation.validateNetworking({ architecture: {} });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/validation/networking");
+  });
+
+  it("getRules calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ rules: [{ id: "rule1" }] }),
+    }));
+    const result = await api.validation.getRules();
+    expect(result.rules).toHaveLength(1);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/validation/rules",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});
+
+describe("api.government", () => {
+  it("getRegions calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ regions: [], total: 0 }),
+    }));
+    const result = await api.government.getRegions();
+    expect(result.total).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/government/regions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getRegion calls correct endpoint with name", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ name: "usgovvirginia", display_name: "US Gov Virginia" }),
+    }));
+    await api.government.getRegion("usgovvirginia");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/government/regions/usgovvirginia",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getDodRegions calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ regions: [], total: 0 }),
+    }));
+    await api.government.getDodRegions();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/government/regions/dod",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("customizeBicep sends POST with bicep content", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ customized_content: "test", changes_applied: [] }),
+    }));
+    await api.government.customizeBicep({
+      bicep_content: "param location string = 'eastus'",
+      region: "usgovvirginia",
+      compliance_level: "high",
+    });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/government/bicep/customize");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.bicep_content).toBeDefined();
+    expect(body.region).toBe("usgovvirginia");
+  });
+
+  it("getQuestions calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([]),
+    }));
+    await api.government.getQuestions();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/government/questions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("applyConstraints sends POST with architecture and gov_answers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ architecture: {}, warnings: [] }),
+    }));
+    await api.government.applyConstraints({
+      architecture: { name: "test" },
+      gov_answers: { gov_impact_level: "IL4" },
+    });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/government/constraints");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.architecture).toBeDefined();
+    expect(body.gov_answers.gov_impact_level).toBe("IL4");
+  });
+});
+
+describe("api.china", () => {
+  it("getRegions calls GET /api/china/regions", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ regions: [], total: 0 }),
+    }));
+    const result = await api.china.getRegions();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/china/regions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+    expect(result.total).toBe(0);
+  });
+
+  it("getRegion calls GET /api/china/regions/{name}", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ name: "chinanorth2", display_name: "China North 2" }),
+    }));
+    await api.china.getRegion("chinanorth2");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/china/regions/chinanorth2",
+      expect.any(Object)
+    );
+  });
+
+  it("customizeBicep sends POST with bicep content", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ customized_content: "", region: "chinanorth2", compliance_level: "mlps3", endpoints_replaced: 0 }),
+    }));
+    await api.china.customizeBicep({ bicep_content: "param location string", region: "chinanorth2" });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/china/bicep/customize");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.region).toBe("chinanorth2");
+  });
+
+  it("getQuestions calls GET /api/china/questions", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([]),
+    }));
+    await api.china.getQuestions();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/china/questions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("applyConstraints sends POST with architecture and answers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ architecture: {}, region: "chinanorth2", compliance_level: "level3", cloud_environment: "china" }),
+    }));
+    await api.china.applyConstraints({ architecture: { mg: {} }, china_answers: { china_region: "chinanorth2" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/china/constraints");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.china_answers.china_region).toBe("chinanorth2");
+  });
+
+  it("getDataResidency calls GET /api/china/data-residency", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ jurisdiction: "PRC", cross_border_transfer: false }),
+    }));
+    await api.china.getDataResidency();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/china/data-residency",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getIcpRequirements calls GET /api/china/icp-requirements", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ requires_icp: false, affected_resources: [] }),
+    }));
+    await api.china.getIcpRequirements();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/china/icp-requirements",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});
+
+describe("api.confidential", () => {
+  it("getOptions calls GET /api/confidential/options", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ options: [], total: 0 }),
+    }));
+    const result = await api.confidential.getOptions();
+    expect(result.total).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/confidential/options",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getVmSkus calls GET /api/confidential/vm-skus", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [], total: 0 }),
+    }));
+    const result = await api.confidential.getVmSkus();
+    expect(result.total).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/confidential/vm-skus",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getRegions calls GET /api/confidential/regions", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ regions: [], total: 0 }),
+    }));
+    const result = await api.confidential.getRegions();
+    expect(result.total).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/confidential/regions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("recommend sends POST with workload_type", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ workload_type: "web_app", recommended_option: {} }),
+    }));
+    await api.confidential.recommend({ workload_type: "web_app", requirements: {} });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/confidential/recommend");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.workload_type).toBe("web_app");
+  });
+
+  it("generateArchitecture sends POST with architecture and cc_options", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ architecture: {}, cc_enabled: true }),
+    }));
+    await api.confidential.generateArchitecture({
+      base_architecture: { network: {} },
+      cc_options: { cc_type: "confidential_vms" },
+    });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/confidential/architecture");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.cc_options.cc_type).toBe("confidential_vms");
+  });
+
+  it("generateBicep sends POST with template_type and config", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ template_type: "confidential_vm", bicep_template: "" }),
+    }));
+    await api.confidential.generateBicep({
+      template_type: "confidential_vm",
+      config: { name: "myVm" },
+    });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/confidential/bicep");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.template_type).toBe("confidential_vm");
+  });
+
+  it("getAttestationConfig calls GET with cc_type path param", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ cc_type: "confidential_vms", steps: [] }),
+    }));
+    await api.confidential.getAttestationConfig("confidential_vms");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/confidential/attestation/confidential_vms",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});
+
+describe("api.iot", () => {
+  it("getQuestions calls GET /api/accelerators/iot/questions", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ questions: [], total: 0 }),
+    }));
+    const result = await api.iot.getQuestions();
+    expect(result.total).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/iot/questions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getSkuRecommendations sends POST with answers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ recommended_tier: {}, units: 1, rationale: "" }),
+    }));
+    await api.iot.getSkuRecommendations({ answers: { device_count: "10K" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/iot/sku-recommendations");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.answers.device_count).toBe("10K");
+  });
+
+  it("generateArchitecture sends POST with answers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ components: [], connections: [] }),
+    }));
+    await api.iot.generateArchitecture({ answers: { edge_computing: "Yes" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/iot/architecture");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.answers.edge_computing).toBe("Yes");
+  });
+
+  it("getBestPractices calls GET /api/accelerators/iot/best-practices", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ best_practices: [], total: 0 }),
+    }));
+    const result = await api.iot.getBestPractices();
+    expect(result.total).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/iot/best-practices",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("estimateSizing sends POST with requirements", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ iot_hub: {}, storage: {} }),
+    }));
+    await api.iot.estimateSizing({ requirements: { device_count: 5000 } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/iot/sizing");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.requirements.device_count).toBe(5000);
+  });
+
+  it("validateArchitecture sends POST with architecture", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ valid: true, errors: [], warnings: [] }),
+    }));
+    await api.iot.validateArchitecture({ architecture: { components: [] } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/iot/validate");
+    expect(call[1].method).toBe("POST");
+  });
+
+  it("getReferenceArchitectures calls GET /api/accelerators/iot/reference-architectures", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ architectures: [], total: 0 }),
+    }));
+    const result = await api.iot.getReferenceArchitectures();
+    expect(result.total).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/iot/reference-architectures",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("generateBicep sends POST with template_type and config", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ template_type: "iot_hub", bicep_template: "", description: "" }),
+    }));
+    await api.iot.generateBicep({ template_type: "iot_hub", config: { name: "myHub" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/iot/bicep");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.template_type).toBe("iot_hub");
+  });
+});
+
+describe("api.avd", () => {
+  it("getQuestions calls GET /api/accelerators/avd/questions", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([{ id: "avd_user_count", text: "User count" }]),
+    }));
+    const result = await api.avd.getQuestions();
+    expect(result).toHaveLength(1);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/avd/questions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getSkuRecommendations sends POST with user_type", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [], total: 0 }),
+    }));
+    await api.avd.getSkuRecommendations({ user_type: "developer", application_type: "cad_3d" });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/avd/sku-recommendations");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.user_type).toBe("developer");
+  });
+
+  it("generateArchitecture sends POST with answers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ architecture: {} }),
+    }));
+    await api.avd.generateArchitecture({ answers: { avd_desktop_type: "personal" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/avd/architecture");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.answers.avd_desktop_type).toBe("personal");
+  });
+
+  it("getBestPractices calls GET /api/accelerators/avd/best-practices", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([{ id: "bp1", title: "Practice" }]),
+    }));
+    const result = await api.avd.getBestPractices();
+    expect(result).toHaveLength(1);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/avd/best-practices",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("estimateSizing sends POST with requirements", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ session_host_count: 10, users_per_host: 8 }),
+    }));
+    await api.avd.estimateSizing({ requirements: { user_count: "200-1000" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/avd/sizing");
+    expect(call[1].method).toBe("POST");
+  });
+
+  it("validateArchitecture sends POST with architecture", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ valid: true, errors: [], warnings: [] }),
+    }));
+    await api.avd.validateArchitecture({ architecture: { host_pool: {} } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/avd/validate");
+    expect(call[1].method).toBe("POST");
+  });
+
+  it("getReferenceArchitectures calls GET /api/accelerators/avd/reference-architectures", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([{ id: "small_team", name: "Small Team" }]),
+    }));
+    const result = await api.avd.getReferenceArchitectures();
+    expect(result).toHaveLength(1);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/avd/reference-architectures",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("generateBicep sends POST with template_type and config", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ template_type: "host_pool", bicep_template: "" }),
+    }));
+    await api.avd.generateBicep({ template_type: "host_pool", config: {} });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/avd/bicep");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.template_type).toBe("host_pool");
+  });
+});
+
+describe("api.aiml", () => {
+  it("getQuestions calls GET /api/accelerators/aiml/questions", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ questions: [] }),
+    }));
+    await api.aiml.getQuestions();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/aiml/questions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getSkuRecommendations calls GET with filters", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [], count: 0 }),
+    }));
+    await api.aiml.getSkuRecommendations({ gpu_type: "A100" });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toContain("/api/accelerators/aiml/skus");
+    expect(call[0]).toContain("gpu_type=A100");
+  });
+
+  it("generateArchitecture sends POST with answers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ architecture: {} }),
+    }));
+    await api.aiml.generateArchitecture({ answers: { ml_workload_type: "training" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/aiml/architecture");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.answers.ml_workload_type).toBe("training");
+  });
+
+  it("getBestPractices calls GET /api/accelerators/aiml/best-practices", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ best_practices: [] }),
+    }));
+    await api.aiml.getBestPractices();
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/aiml/best-practices");
+  });
+
+  it("estimateSizing sends POST with requirements", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ sizing: {} }),
+    }));
+    await api.aiml.estimateSizing({ requirements: { gpu_requirements: "single" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/aiml/sizing");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.requirements.gpu_requirements).toBe("single");
+  });
+
+  it("validateArchitecture sends POST with architecture", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ valid: true, errors: [], warnings: [], suggestions: [] }),
+    }));
+    await api.aiml.validateArchitecture({ architecture: { services: [] } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/aiml/validate");
+    expect(call[1].method).toBe("POST");
+  });
+
+  it("getReferenceArchitectures calls GET endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ reference_architectures: [] }),
+    }));
+    await api.aiml.getReferenceArchitectures();
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/aiml/reference-architectures");
+  });
+
+  it("generateBicep sends POST with template_type and config", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ bicep: "", template_type: "full_stack" }),
+    }));
+    await api.aiml.generateBicep({ template_type: "full_stack", config: {} });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/aiml/bicep");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.template_type).toBe("full_stack");
+  });
+});
+
+describe("api.sap", () => {
+  it("getQuestions calls GET /api/accelerators/sap/questions", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ questions: [], total: 0 }),
+    }));
+    await api.sap.getQuestions();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/sap/questions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("generateArchitecture sends POST with answers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ architecture: {} }),
+    }));
+    await api.sap.generateArchitecture({ answers: { sap_product: "s4hana" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/sap/architecture");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.answers.sap_product).toBe("s4hana");
+  });
+
+  it("getSkus calls GET /api/accelerators/sap/skus with query params", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [], total: 0 }),
+    }));
+    await api.sap.getSkus({ tier: "hana", min_memory_gb: 512 });
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/accelerators/sap/skus"),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+    const url = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    expect(url).toContain("tier=hana");
+    expect(url).toContain("min_memory_gb=512");
+  });
+
+  it("estimateSizing sends POST with sizing data", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ database_sku: {}, app_server_sku: {}, app_server_count: 2, total_saps: 30000, estimated_memory_gb: 2048 }),
+    }));
+    await api.sap.estimateSizing({ saps: 30000, data_volume: "medium", concurrent_users: 500 });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/sap/sizing");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.saps).toBe(30000);
+  });
+
+  it("getBestPractices calls GET /api/accelerators/sap/best-practices", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ best_practices: [], total: 0 }),
+    }));
+    await api.sap.getBestPractices();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/sap/best-practices",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("generateBicep sends POST with template_type and config", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ template_type: "hana_vm", bicep_template: "", description: "" }),
+    }));
+    await api.sap.generateBicep({ template_type: "hana_vm", config: { name: "myHana" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/sap/bicep");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.template_type).toBe("hana_vm");
+  });
+
+  it("getReferenceArchitectures calls GET /api/accelerators/sap/reference-architectures", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ reference_architectures: [], total: 0 }),
+    }));
+    await api.sap.getReferenceArchitectures();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/sap/reference-architectures",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("validate sends POST with architecture data", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ valid: true, errors: [], warnings: [] }),
+    }));
+    await api.sap.validate({ architecture: { tiers: {} } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/sap/validate");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.architecture).toBeDefined();
+  });
+});
