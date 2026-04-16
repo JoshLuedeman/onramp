@@ -58,7 +58,7 @@ flowchart TB
 ```
 
 ```
-Frontend (React + Fluent UI v9)
+Frontend (React 19 + Fluent UI v9)
   ↓ REST API
 Backend (Python FastAPI)
   ↓
@@ -70,7 +70,7 @@ Customer Azure Subscriptions (Bicep deployments)
 ## Components
 
 ### Frontend
-- **React 18** with TypeScript and Vite
+- **React 19** with TypeScript and Vite
 - **Fluent UI v9** for Microsoft-standard UI components
 - **MSAL.js** for Entra ID authentication
 - Pages: Home, Wizard (questionnaire), Architecture (visualization), Deploy
@@ -78,7 +78,7 @@ Customer Azure Subscriptions (Bicep deployments)
 ### Backend
 - **FastAPI** (Python 3.12+) with async support
 - **SQLAlchemy 2.0** ORM with Azure SQL
-- **MSAL Python** for token validation
+- **PyJWT + JWKS** for Entra ID token validation
 - Services: Questionnaire, AI Foundry, Archetypes, Bicep Generator, Compliance Scoring, Deployment Orchestrator
 
 ### AI Integration
