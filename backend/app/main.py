@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.adr import router as adr_router
+from app.api.routes.ai_eval import router as ai_eval_router
 from app.api.routes.ai_quality import router as ai_quality_router
 from app.api.routes.ai_validation import router as ai_validation_router
 from app.api.routes.approvals import router as approvals_router
@@ -11,6 +12,7 @@ from app.api.routes.architecture import router as architecture_router
 from app.api.routes.bicep import router as bicep_router
 from app.api.routes.chat import router as chat_router
 from app.api.routes.compliance import router as compliance_router
+from app.api.routes.content_safety import router as content_safety_router
 from app.api.routes.cost import router as cost_router
 from app.api.routes.deployment import router as deployment_router
 from app.api.routes.discovery import router as discovery_router
@@ -134,11 +136,13 @@ app.include_router(approvals_router)
 app.include_router(governance_audit_router)
 app.include_router(scan_operations_router)
 app.include_router(ai_quality_router)
+app.include_router(ai_eval_router)
 app.include_router(ai_validation_router)
 app.include_router(chat_router)
 app.include_router(regulatory_router)
 app.include_router(security_router)
 app.include_router(sizing_router)
+app.include_router(content_safety_router)
 
 
 @app.get("/health")
