@@ -8,7 +8,6 @@ import {
   DialogContent,
   DialogSurface,
   DialogTitle,
-  DialogTrigger,
   Divider,
   makeStyles,
   MessageBar,
@@ -147,16 +146,14 @@ export default function ConflictDialog({
             </ul>
           </DialogContent>
           <DialogActions className={styles.actions}>
-            <DialogTrigger disableButtonEnhancement>
-              <Button
-                appearance="secondary"
-                icon={<DismissRegular />}
-                onClick={onCancel}
-                data-testid="conflict-cancel"
-              >
-                Cancel
-              </Button>
-            </DialogTrigger>
+            <Button
+              appearance="secondary"
+              icon={<DismissRegular />}
+              onClick={onCancel}
+              data-testid="conflict-cancel"
+            >
+              Cancel
+            </Button>
             <Button
               appearance="secondary"
               icon={<ArrowSyncRegular />}

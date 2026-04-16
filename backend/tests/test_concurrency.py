@@ -120,74 +120,79 @@ class TestCheckVersion:
         db = AsyncMock()
         return db
 
-    @pytest.fixture()
-    def mock_model(self):
-        model = MagicMock()
-        model.__name__ = "Architecture"
-        model.id = "arch-1"
-        return model
-
-    async def test_raises_404_when_not_found(
-        self, mock_db, mock_model,
-    ):
+    async def test_raises_404_when_not_found(self, mock_db):
         result_mock = MagicMock()
         result_mock.scalars.return_value.first.return_value = None
         mock_db.execute.return_value = result_mock
 
-        with pytest.raises(HTTPException) as exc_info:
-            await check_version(mock_db, mock_model, "x", 1)
+        with patch("app.api.concurrency.select") as mock_sel:
+            mock_sel.return_value.where.return_value = "query"
+            with pytest.raises(HTTPException) as exc_info:
+                await check_version(
+                    mock_db, FakeModel, "x", 1,
+                )
         assert exc_info.value.status_code == 404
 
-    async def test_raises_409_when_versions_mismatch(
-        self, mock_db, mock_model,
-    ):
-        instance = MagicMock(version=5, architecture_data={"a": 1})
+    async def test_raises_409_when_versions_mismatch(self, mock_db):
+        instance = MagicMock(
+            version=5, architecture_data={"a": 1},
+        )
         result_mock = MagicMock()
         result_mock.scalars.return_value.first.return_value = instance
         mock_db.execute.return_value = result_mock
 
-        with pytest.raises(ConflictError) as exc_info:
-            await check_version(mock_db, mock_model, "arch-1", 2)
+        with patch("app.api.concurrency.select") as mock_sel:
+            mock_sel.return_value.where.return_value = "query"
+            with pytest.raises(ConflictError) as exc_info:
+                await check_version(
+                    mock_db, FakeModel, "arch-1", 2,
+                )
         assert exc_info.value.status_code == 409
         assert exc_info.value.detail["current_version"] == 5
 
     async def test_returns_instance_when_versions_match(
-        self, mock_db, mock_model,
+        self, mock_db,
     ):
         instance = MagicMock(version=3)
         result_mock = MagicMock()
         result_mock.scalars.return_value.first.return_value = instance
         mock_db.execute.return_value = result_mock
 
-        result = await check_version(
-            mock_db, mock_model, "arch-1", 3,
-        )
+        with patch("app.api.concurrency.select") as mock_sel:
+            mock_sel.return_value.where.return_value = "query"
+            result = await check_version(
+                mock_db, FakeModel, "arch-1", 3,
+            )
         assert result is instance
 
-    async def test_conflict_includes_current_data(
-        self, mock_db, mock_model,
-    ):
+    async def test_conflict_includes_current_data(self, mock_db):
         data = {"policies": {"tls": True}}
         instance = MagicMock(version=4, architecture_data=data)
         result_mock = MagicMock()
         result_mock.scalars.return_value.first.return_value = instance
         mock_db.execute.return_value = result_mock
 
-        with pytest.raises(ConflictError) as exc_info:
-            await check_version(mock_db, mock_model, "arch-1", 1)
+        with patch("app.api.concurrency.select") as mock_sel:
+            mock_sel.return_value.where.return_value = "query"
+            with pytest.raises(ConflictError) as exc_info:
+                await check_version(
+                    mock_db, FakeModel, "arch-1", 1,
+                )
         assert exc_info.value.detail["current_data"] == data
 
-    async def test_conflict_with_no_architecture_data(
-        self, mock_db, mock_model,
-    ):
+    async def test_conflict_with_no_architecture_data(self, mock_db):
         instance = MagicMock(version=4, spec=["version", "id"])
         del instance.architecture_data
         result_mock = MagicMock()
         result_mock.scalars.return_value.first.return_value = instance
         mock_db.execute.return_value = result_mock
 
-        with pytest.raises(ConflictError) as exc_info:
-            await check_version(mock_db, mock_model, "arch-1", 1)
+        with patch("app.api.concurrency.select") as mock_sel:
+            mock_sel.return_value.where.return_value = "query"
+            with pytest.raises(ConflictError) as exc_info:
+                await check_version(
+                    mock_db, FakeModel, "arch-1", 1,
+                )
         assert exc_info.value.detail["current_data"] == {}
 
 
@@ -671,21 +676,20 @@ class TestConcurrentUpdates:
 
     async def test_first_update_succeeds(self):
         db = AsyncMock()
-        model = MagicMock()
-        model.__name__ = "Architecture"
         instance = MagicMock(version=1, architecture_data={})
         result_mock = MagicMock()
         result_mock.scalars.return_value.first.return_value = instance
         db.execute.return_value = result_mock
 
-        # First update matches version 1
-        result = await check_version(db, model, "arch-1", 1)
+        with patch("app.api.concurrency.select") as mock_sel:
+            mock_sel.return_value.where.return_value = "query"
+            result = await check_version(
+                db, FakeModel, "arch-1", 1,
+            )
         assert result is instance
 
     async def test_second_update_fails_after_increment(self):
         db = AsyncMock()
-        model = MagicMock()
-        model.__name__ = "Architecture"
 
         # After first update, version is now 2
         instance = MagicMock(version=2, architecture_data={})
@@ -693,14 +697,15 @@ class TestConcurrentUpdates:
         result_mock.scalars.return_value.first.return_value = instance
         db.execute.return_value = result_mock
 
-        # Second update still submits version 1 — should fail
-        with pytest.raises(ConflictError):
-            await check_version(db, model, "arch-1", 1)
+        with patch("app.api.concurrency.select") as mock_sel:
+            mock_sel.return_value.where.return_value = "query"
+            with pytest.raises(ConflictError):
+                await check_version(
+                    db, FakeModel, "arch-1", 1,
+                )
 
     async def test_sequential_updates_with_increments(self):
         db = AsyncMock()
-        model = MagicMock()
-        model.__name__ = "Architecture"
 
         # Version starts at 1
         instance = MagicMock(version=1, architecture_data={})
@@ -708,7 +713,9 @@ class TestConcurrentUpdates:
         result_mock.scalars.return_value.first.return_value = instance
         db.execute.return_value = result_mock
 
-        await check_version(db, model, "arch-1", 1)
+        with patch("app.api.concurrency.select") as mock_sel:
+            mock_sel.return_value.where.return_value = "query"
+            await check_version(db, FakeModel, "arch-1", 1)
         new_ver = increment_version(instance)
         assert new_ver == 2
 
@@ -718,7 +725,9 @@ class TestConcurrentUpdates:
         result_mock2.scalars.return_value.first.return_value = instance2
         db.execute.return_value = result_mock2
 
-        await check_version(db, model, "arch-1", 2)
+        with patch("app.api.concurrency.select") as mock_sel:
+            mock_sel.return_value.where.return_value = "query"
+            await check_version(db, FakeModel, "arch-1", 2)
         new_ver2 = increment_version(instance2)
         assert new_ver2 == 3
 
