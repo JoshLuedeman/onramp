@@ -1829,3 +1829,108 @@ describe("api.aiml", () => {
     expect(body.template_type).toBe("full_stack");
   });
 });
+
+describe("api.sap", () => {
+  it("getQuestions calls GET /api/accelerators/sap/questions", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ questions: [], total: 0 }),
+    }));
+    await api.sap.getQuestions();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/sap/questions",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("generateArchitecture sends POST with answers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ architecture: {} }),
+    }));
+    await api.sap.generateArchitecture({ answers: { sap_product: "s4hana" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/sap/architecture");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.answers.sap_product).toBe("s4hana");
+  });
+
+  it("getSkus calls GET /api/accelerators/sap/skus with query params", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ skus: [], total: 0 }),
+    }));
+    await api.sap.getSkus({ tier: "hana", min_memory_gb: 512 });
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/accelerators/sap/skus"),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+    const url = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    expect(url).toContain("tier=hana");
+    expect(url).toContain("min_memory_gb=512");
+  });
+
+  it("estimateSizing sends POST with sizing data", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ database_sku: {}, app_server_sku: {}, app_server_count: 2, total_saps: 30000, estimated_memory_gb: 2048 }),
+    }));
+    await api.sap.estimateSizing({ saps: 30000, data_volume: "medium", concurrent_users: 500 });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/sap/sizing");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.saps).toBe(30000);
+  });
+
+  it("getBestPractices calls GET /api/accelerators/sap/best-practices", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ best_practices: [], total: 0 }),
+    }));
+    await api.sap.getBestPractices();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/sap/best-practices",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("generateBicep sends POST with template_type and config", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ template_type: "hana_vm", bicep_template: "", description: "" }),
+    }));
+    await api.sap.generateBicep({ template_type: "hana_vm", config: { name: "myHana" } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/sap/bicep");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.template_type).toBe("hana_vm");
+  });
+
+  it("getReferenceArchitectures calls GET /api/accelerators/sap/reference-architectures", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ reference_architectures: [], total: 0 }),
+    }));
+    await api.sap.getReferenceArchitectures();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/accelerators/sap/reference-architectures",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("validate sends POST with architecture data", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ valid: true, errors: [], warnings: [] }),
+    }));
+    await api.sap.validate({ architecture: { tiers: {} } });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/accelerators/sap/validate");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.architecture).toBeDefined();
+  });
+});
