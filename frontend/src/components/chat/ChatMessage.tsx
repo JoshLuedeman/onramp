@@ -147,10 +147,16 @@ export default function ChatMessage({ role, content, timestamp }: ChatMessagePro
   const styles = useStyles();
   const isUser = role === "user";
 
+  const timeStr = timestamp ? new Date(timestamp).toLocaleTimeString() : undefined;
+  const ariaLabel = `${isUser ? "You" : "AI assistant"}, message${timeStr ? ` at ${timeStr}` : ""}`;
+
   return (
     <div
       className={`${styles.wrapper} ${isUser ? styles.wrapperUser : styles.wrapperAssistant}`}
       data-testid={`chat-message-${role}`}
+      role="article"
+      aria-label={ariaLabel}
+      tabIndex={0}
     >
       {!isUser && (
         <Avatar
@@ -164,7 +170,7 @@ export default function ChatMessage({ role, content, timestamp }: ChatMessagePro
         <Text>{renderMarkdown(content, styles)}</Text>
         {timestamp && (
           <Text className={styles.timestamp}>
-            {new Date(timestamp).toLocaleTimeString()}
+            {timeStr}
           </Text>
         )}
       </div>

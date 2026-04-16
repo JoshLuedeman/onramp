@@ -68,7 +68,7 @@ class TestStreamEndpointDevMode:
             json={"content": "Add disaster recovery"},
         )
         body = response.text
-        assert "data: " in body
+        assert "event: data" in body
 
     def test_stream_ends_with_done(self):
         conv_id = str(uuid.uuid4())
@@ -77,7 +77,7 @@ class TestStreamEndpointDevMode:
             json={"content": "Optimize for cost"},
         )
         body = response.text
-        assert "data: [DONE]" in body
+        assert "event: done" in body
 
     def test_stream_echoes_user_content(self):
         conv_id = str(uuid.uuid4())
@@ -115,9 +115,29 @@ class TestStreamEndpointDevMode:
             json={"content": "Right-size my VMs"},
         )
         body = response.text
-        data_count = body.count("data: ")
-        # Should have multiple tokens + [DONE]
+        data_count = body.count("event: data")
+        # Should have multiple tokens
         assert data_count >= 3
+
+    def test_stream_starts_with_status_event(self):
+        conv_id = str(uuid.uuid4())
+        response = client.post(
+            f"/api/chat/{conv_id}/stream",
+            json={"content": "Test status event"},
+        )
+        body = response.text
+        assert "event: status" in body
+        assert '"started"' in body
+
+    def test_stream_done_contains_full_text(self):
+        conv_id = str(uuid.uuid4())
+        response = client.post(
+            f"/api/chat/{conv_id}/stream",
+            json={"content": "Full text test"},
+        )
+        body = response.text
+        assert "event: done" in body
+        assert "full_text" in body
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -236,18 +256,44 @@ class TestMockStreamTokens:
         async for token in _mock_stream_tokens("hello world test"):
             tokens.append(token)
 
-        # Should have word tokens + [DONE]
-        assert len(tokens) >= 4  # 3 words + DONE
-        assert tokens[-1] == "data: [DONE]\n\n"
+        # Should have status + word tokens + done
+        assert len(tokens) >= 5  # status + 3 words + done
+        assert "event: done" in tokens[-1]
 
     @pytest.mark.asyncio
     async def test_mock_stream_data_format(self):
         from app.api.routes.chat import _mock_stream_tokens
 
+        tokens = []
         async for token in _mock_stream_tokens("a b"):
-            assert token.startswith("data: ")
-            assert token.endswith("\n\n")
-            break  # Just check first token
+            tokens.append(token)
+
+        # First event is status
+        assert tokens[0].startswith("event: status")
+        # Data events contain token
+        assert "event: data" in tokens[1]
+        assert tokens[1].endswith("\n\n")
+
+    @pytest.mark.asyncio
+    async def test_mock_stream_starts_with_status(self):
+        from app.api.routes.chat import _mock_stream_tokens
+
+        tokens = []
+        async for token in _mock_stream_tokens("test"):
+            tokens.append(token)
+        assert "event: status" in tokens[0]
+        assert '"started"' in tokens[0]
+
+    @pytest.mark.asyncio
+    async def test_mock_stream_done_has_full_text(self):
+        from app.api.routes.chat import _mock_stream_tokens
+
+        tokens = []
+        async for token in _mock_stream_tokens("hello world"):
+            tokens.append(token)
+        last = tokens[-1]
+        assert "event: done" in last
+        assert "full_text" in last
 
 
 # ════════════════════════════════════════════════════════════════════

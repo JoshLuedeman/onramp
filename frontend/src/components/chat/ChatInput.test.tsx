@@ -11,7 +11,7 @@ function renderWithTheme(ui: React.ReactElement) {
 describe("ChatInput", () => {
   it("renders input and send button", () => {
     renderWithTheme(<ChatInput onSend={vi.fn()} />);
-    expect(screen.getByLabelText("Chat message input")).toBeInTheDocument();
+    expect(screen.getByLabelText("Type a message")).toBeInTheDocument();
     expect(screen.getByLabelText("Send message")).toBeInTheDocument();
   });
 
@@ -24,7 +24,7 @@ describe("ChatInput", () => {
     const user = userEvent.setup();
     renderWithTheme(<ChatInput onSend={vi.fn()} />);
 
-    await user.type(screen.getByLabelText("Chat message input"), "Hello");
+    await user.type(screen.getByLabelText("Type a message"), "Hello");
     expect(screen.getByLabelText("Send message")).toBeEnabled();
   });
 
@@ -33,7 +33,7 @@ describe("ChatInput", () => {
     const user = userEvent.setup();
     renderWithTheme(<ChatInput onSend={onSend} />);
 
-    await user.type(screen.getByLabelText("Chat message input"), "Test message");
+    await user.type(screen.getByLabelText("Type a message"), "Test message");
     await user.click(screen.getByLabelText("Send message"));
 
     expect(onSend).toHaveBeenCalledWith("Test message");
@@ -43,7 +43,7 @@ describe("ChatInput", () => {
     const user = userEvent.setup();
     renderWithTheme(<ChatInput onSend={vi.fn()} />);
 
-    const input = screen.getByLabelText("Chat message input");
+    const input = screen.getByLabelText("Type a message");
     await user.type(input, "Test message");
     await user.click(screen.getByLabelText("Send message"));
 
@@ -55,13 +55,13 @@ describe("ChatInput", () => {
     const user = userEvent.setup();
     renderWithTheme(<ChatInput onSend={onSend} />);
 
-    await user.type(screen.getByLabelText("Chat message input"), "Enter test{enter}");
+    await user.type(screen.getByLabelText("Type a message"), "Enter test{enter}");
     expect(onSend).toHaveBeenCalledWith("Enter test");
   });
 
   it("is disabled when disabled prop is true", () => {
     renderWithTheme(<ChatInput onSend={vi.fn()} disabled />);
-    expect(screen.getByLabelText("Chat message input")).toBeDisabled();
+    expect(screen.getByLabelText("Type a message")).toBeDisabled();
     expect(screen.getByLabelText("Send message")).toBeDisabled();
   });
 
@@ -75,7 +75,7 @@ describe("ChatInput", () => {
     const user = userEvent.setup();
     renderWithTheme(<ChatInput onSend={onSend} />);
 
-    await user.type(screen.getByLabelText("Chat message input"), "   ");
+    await user.type(screen.getByLabelText("Type a message"), "   ");
     expect(screen.getByLabelText("Send message")).toBeDisabled();
   });
 });

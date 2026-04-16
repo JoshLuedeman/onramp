@@ -6,6 +6,8 @@
  * and a "Use this architecture" action.  The balanced variant is annotated
  * with a "Recommended" badge.  A trade-off analysis paragraph is shown
  * beneath the grid.
+ *
+ * Uses proper table semantics for WCAG 2.1 AA compliance.
  */
 
 import {
@@ -16,7 +18,6 @@ import {
   Spinner,
   Text,
   makeStyles,
-  mergeClasses,
   tokens,
 } from "@fluentui/react-components";
 import {
@@ -32,51 +33,64 @@ const useStyles = makeStyles({
   root: {
     marginTop: "24px",
   },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: "16px",
-    marginTop: "16px",
-  },
-  card: {
-    padding: "20px",
+  loading: {
     display: "flex",
-    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "48px 0",
     gap: "12px",
   },
-  recommended: {
-    borderTopColor: tokens.colorBrandStroke1,
-    borderRightColor: tokens.colorBrandStroke1,
-    borderBottomColor: tokens.colorBrandStroke1,
-    borderLeftColor: tokens.colorBrandStroke1,
-    borderTopWidth: "2px",
-    borderRightWidth: "2px",
-    borderBottomWidth: "2px",
-    borderLeftWidth: "2px",
-    borderTopStyle: "solid",
-    borderRightStyle: "solid",
-    borderBottomStyle: "solid",
-    borderLeftStyle: "solid",
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    marginTop: "16px",
   },
-  cardHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-  },
-  variantName: {
+  th: {
+    padding: "12px 16px",
+    textAlign: "left",
     fontWeight: tokens.fontWeightSemibold,
     fontSize: tokens.fontSizeBase400,
+    borderBottomColor: tokens.colorNeutralStroke1,
+    borderBottomWidth: "2px",
+    borderBottomStyle: "solid",
+    verticalAlign: "top",
   },
-  metricRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
+  thSelected: {
+    backgroundColor: tokens.colorBrandBackground2,
+    borderTopColor: tokens.colorBrandStroke1,
+    borderTopWidth: "2px",
+    borderTopStyle: "solid",
+    borderLeftColor: tokens.colorBrandStroke1,
+    borderLeftWidth: "2px",
+    borderLeftStyle: "solid",
+    borderRightColor: tokens.colorBrandStroke1,
+    borderRightWidth: "2px",
+    borderRightStyle: "solid",
+  },
+  td: {
+    padding: "10px 16px",
+    borderBottomColor: tokens.colorNeutralStroke2,
+    borderBottomWidth: "1px",
+    borderBottomStyle: "solid",
+    verticalAlign: "top",
+  },
+  tdSelected: {
+    backgroundColor: tokens.colorBrandBackground2,
+    borderLeftColor: tokens.colorBrandStroke1,
+    borderLeftWidth: "2px",
+    borderLeftStyle: "solid",
+    borderRightColor: tokens.colorBrandStroke1,
+    borderRightWidth: "2px",
+    borderRightStyle: "solid",
   },
   metricLabel: {
     color: tokens.colorNeutralForeground3,
-  },
-  metricValue: {
     fontWeight: tokens.fontWeightSemibold,
+    padding: "10px 16px",
+    borderBottomColor: tokens.colorNeutralStroke2,
+    borderBottomWidth: "1px",
+    borderBottomStyle: "solid",
+    minWidth: "120px",
   },
   tradeoffSection: {
     marginTop: "24px",
@@ -86,12 +100,10 @@ const useStyles = makeStyles({
     fontWeight: tokens.fontWeightSemibold,
     marginBottom: "8px",
   },
-  loading: {
+  badgeContainer: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
-    padding: "48px 0",
-    gap: "12px",
+    gap: "8px",
   },
   complianceList: {
     listStyle: "none",
@@ -121,6 +133,8 @@ export interface ArchitectureCompareProps {
   loading?: boolean;
   /** Callback when the user selects a variant. */
   onSelectVariant?: (variant: ArchitectureVariant, index: number) => void;
+  /** Currently selected variant index (-1 or undefined = none). */
+  selectedIndex?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -131,6 +145,7 @@ export default function ArchitectureCompare({
   comparison,
   loading = false,
   onSelectVariant,
+  selectedIndex = -1,
 }: ArchitectureCompareProps) {
   const styles = useStyles();
 
@@ -147,83 +162,150 @@ export default function ArchitectureCompare({
     return null;
   }
 
+  // Gather all compliance frameworks across variants
+  const allFrameworks = Array.from(
+    new Set(
+      comparison.variants.flatMap((v) => Object.keys(v.compliance_scores)),
+    ),
+  );
+
   return (
-    <div className={styles.root} data-testid="architecture-compare">
-      <div className={styles.grid}>
-        {comparison.variants.map((variant, idx) => {
-          const isRecommended = idx === comparison.recommended_index;
-          return (
-            <Card
-              key={variant.name}
-              className={mergeClasses(styles.card, isRecommended ? styles.recommended : undefined)}
-              data-testid={`variant-card-${idx}`}
-            >
-              {/* Header */}
-              <div className={styles.cardHeader}>
-                <Text className={styles.variantName}>{variant.name}</Text>
-                {isRecommended && (
-                  <Badge
-                    appearance="filled"
-                    color="brand"
-                    icon={<CheckmarkCircleRegular />}
-                    data-testid="recommended-badge"
-                  >
-                    Recommended
-                  </Badge>
-                )}
-              </div>
+    <div className={styles.root} data-testid="architecture-compare" aria-label="Architecture comparison">
+      <table className={styles.table} aria-label="Architecture variant comparison">
+        <thead>
+          <tr>
+            <th scope="col" className={styles.metricLabel}>Metric</th>
+            {comparison.variants.map((variant, idx) => {
+              const isRecommended = idx === comparison.recommended_index;
+              const isSelected = idx === selectedIndex;
+              return (
+                <th
+                  key={variant.name}
+                  scope="col"
+                  className={`${styles.th} ${isSelected ? styles.thSelected : ""}`}
+                  aria-selected={isSelected}
+                  data-testid={`variant-header-${idx}`}
+                >
+                  <div className={styles.badgeContainer}>
+                    <span>{variant.name}</span>
+                    {isRecommended && (
+                      <Badge
+                        appearance="filled"
+                        color="brand"
+                        icon={<CheckmarkCircleRegular />}
+                        data-testid="recommended-badge"
+                      >
+                        Recommended
+                      </Badge>
+                    )}
+                  </div>
+                </th>
+              );
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {/* Description row */}
+          <tr>
+            <td className={styles.metricLabel}>Description</td>
+            {comparison.variants.map((variant, idx) => (
+              <td
+                key={variant.name}
+                className={`${styles.td} ${idx === selectedIndex ? styles.tdSelected : ""}`}
+                data-testid={`variant-card-${idx}`}
+              >
+                <Body1>{variant.description}</Body1>
+              </td>
+            ))}
+          </tr>
 
-              <Body1>{variant.description}</Body1>
+          {/* Resources row */}
+          <tr>
+            <td className={styles.metricLabel}>Resources</td>
+            {comparison.variants.map((variant, idx) => (
+              <td
+                key={variant.name}
+                className={`${styles.td} ${idx === selectedIndex ? styles.tdSelected : ""}`}
+              >
+                <Text>{variant.resource_count}</Text>
+              </td>
+            ))}
+          </tr>
 
-              {/* Metrics */}
-              <div className={styles.metricRow}>
-                <Text className={styles.metricLabel}>Resources</Text>
-                <Text className={styles.metricValue}>{variant.resource_count}</Text>
-              </div>
-
-              <div className={styles.metricRow}>
-                <Text className={styles.metricLabel}>Est. Cost</Text>
-                <Text className={styles.metricValue}>
+          {/* Cost row */}
+          <tr>
+            <td className={styles.metricLabel}>Est. Cost</td>
+            {comparison.variants.map((variant, idx) => (
+              <td
+                key={variant.name}
+                className={`${styles.td} ${idx === selectedIndex ? styles.tdSelected : ""}`}
+              >
+                <Text>
                   ${variant.estimated_monthly_cost_min.toLocaleString()}–$
                   {variant.estimated_monthly_cost_max.toLocaleString()}/mo
                 </Text>
-              </div>
+              </td>
+            ))}
+          </tr>
 
-              <div className={styles.metricRow}>
-                <Text className={styles.metricLabel}>Complexity</Text>
+          {/* Complexity row */}
+          <tr>
+            <td className={styles.metricLabel}>Complexity</td>
+            {comparison.variants.map((variant, idx) => (
+              <td
+                key={variant.name}
+                className={`${styles.td} ${idx === selectedIndex ? styles.tdSelected : ""}`}
+              >
                 <Badge appearance="tint" color={complexityColor(variant.complexity)}>
                   {variant.complexity}
                 </Badge>
-              </div>
+              </td>
+            ))}
+          </tr>
 
-              {/* Compliance scores */}
-              {Object.keys(variant.compliance_scores).length > 0 && (
-                <div>
-                  <Text className={styles.metricLabel}>Compliance</Text>
-                  <ul className={styles.complianceList}>
-                    {Object.entries(variant.compliance_scores).map(([fw, score]) => (
-                      <li key={fw}>
-                        <Text>
-                          {fw}: {score}%
-                        </Text>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+          {/* Compliance rows */}
+          {allFrameworks.map((fw) => (
+            <tr key={fw}>
+              <td className={styles.metricLabel}>{fw}</td>
+              {comparison.variants.map((variant, idx) => (
+                <td
+                  key={variant.name}
+                  className={`${styles.td} ${idx === selectedIndex ? styles.tdSelected : ""}`}
+                >
+                  <Text>
+                    {variant.compliance_scores[fw] != null
+                      ? `${variant.compliance_scores[fw]}%`
+                      : "—"}
+                  </Text>
+                </td>
+              ))}
+            </tr>
+          ))}
 
-              {/* Action */}
-              <Button
-                appearance={isRecommended ? "primary" : "secondary"}
-                onClick={() => onSelectVariant?.(variant, idx)}
-                data-testid={`select-variant-${idx}`}
-              >
-                Use this architecture
-              </Button>
-            </Card>
-          );
-        })}
-      </div>
+          {/* Action row */}
+          <tr>
+            <td className={styles.metricLabel}>Action</td>
+            {comparison.variants.map((variant, idx) => {
+              const isRecommended = idx === comparison.recommended_index;
+              return (
+                <td
+                  key={variant.name}
+                  className={`${styles.td} ${idx === selectedIndex ? styles.tdSelected : ""}`}
+                >
+                  <Button
+                    appearance={isRecommended ? "primary" : "secondary"}
+                    onClick={() => onSelectVariant?.(variant, idx)}
+                    data-testid={`select-variant-${idx}`}
+                    aria-label={`Use ${variant.name} architecture`}
+                  >
+                    Use this architecture
+                  </Button>
+                </td>
+              );
+            })}
+          </tr>
+        </tbody>
+      </table>
 
       {/* Trade-off analysis */}
       {comparison.tradeoff_analysis && (

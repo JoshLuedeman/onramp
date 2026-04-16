@@ -76,6 +76,7 @@ describe("ChatMessage", () => {
     renderWithTheme(
       <ChatMessage role="assistant" content="AI response" />,
     );
-    expect(screen.getByLabelText("AI assistant")).toBeInTheDocument();
+    // The Avatar element has role="img" with aria-label
+    expect(screen.getByRole("img", { name: "AI assistant" })).toBeInTheDocument();
   });
 });

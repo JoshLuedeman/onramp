@@ -108,13 +108,13 @@ export default function SuggestedPrompts({ onSelect }: SuggestedPromptsProps) {
       <Subtitle2 className={styles.title}>
         What would you like to explore?
       </Subtitle2>
-      <div className={styles.grid}>
+      <div className={styles.grid} role="list" aria-label="Suggested prompts">
         {PROMPTS.map((prompt) => (
           <Card
             key={prompt.text}
             className={styles.card}
             onClick={() => onSelect(prompt.text)}
-            role="button"
+            role="listitem"
             aria-label={prompt.text}
           >
             <div className={styles.cardHeader}>

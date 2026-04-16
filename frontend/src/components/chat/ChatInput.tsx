@@ -58,8 +58,13 @@ export default function ChatInput({ onSend, disabled = false, placeholder }: Cha
         onKeyDown={handleKeyDown}
         placeholder={placeholder ?? "Ask the AI architect..."}
         disabled={disabled}
-        aria-label="Chat message input"
+        aria-label="Type a message"
+        aria-disabled={disabled}
+        aria-describedby="chat-input-hint"
       />
+      <span id="chat-input-hint" style={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap" }}>
+        Press Enter to send, Shift+Enter for new line
+      </span>
       <Button
         appearance="primary"
         icon={<SendRegular />}

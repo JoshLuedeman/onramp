@@ -126,9 +126,9 @@ describe("ArchitectureCompare", () => {
 
   it("displays compliance scores when present", () => {
     renderCompare();
-    expect(screen.getByText("NIST: 75%")).toBeInTheDocument();
-    expect(screen.getByText("NIST: 95%")).toBeInTheDocument();
-    expect(screen.getByText("ISO 27001: 88%")).toBeInTheDocument();
+    expect(screen.getByText("75%")).toBeInTheDocument();
+    expect(screen.getByText("95%")).toBeInTheDocument();
+    expect(screen.getByText("88%")).toBeInTheDocument();
   });
 
   it("calls onSelectVariant when button is clicked", async () => {

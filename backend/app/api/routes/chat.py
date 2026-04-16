@@ -242,13 +242,26 @@ async def delete_conversation(
 
 
 async def _mock_stream_tokens(content: str):
-    """Yield mock tokens with small delays for dev mode streaming."""
+    """Yield typed SSE events with small delays for dev mode streaming.
+
+    Event types:
+    - ``event: status``  – streaming state changes (started, processing)
+    - ``event: data``    – content chunk
+    - ``event: error``   – error with code and message
+    - ``event: done``    – stream complete, includes full response text
+    """
+    import json as _json
+
+    yield f"event: status\ndata: {_json.dumps({'status': 'started'})}\n\n"
+    await asyncio.sleep(0.02)
+
     words = content.split()
     for i, word in enumerate(words):
         token = word if i == len(words) - 1 else word + " "
-        yield f"data: {token}\n\n"
+        yield f"event: data\ndata: {_json.dumps({'token': token})}\n\n"
         await asyncio.sleep(0.05)
-    yield "data: [DONE]\n\n"
+
+    yield f"event: done\ndata: {_json.dumps({'full_text': content})}\n\n"
 
 
 @router.post("/{conversation_id}/stream")
@@ -263,6 +276,8 @@ async def stream_message(
     Sends Server-Sent Events where each ``data:`` frame contains a token.
     The final frame is ``data: [DONE]`` to signal completion.
     """
+    import json as _json
+
     if db is None:
         # Dev mode: stream a mock response
         mock_content = (
@@ -317,16 +332,26 @@ async def stream_message(
         )
 
         async def generate():
-            full_response = []
+            full_response: list[str] = []
             try:
+                # Signal that streaming has started
+                yield f"event: status\ndata: {_json.dumps({'status': 'started'})}\n\n"
+
                 async for token in ai_client.stream_completion(
                     system_prompt=CHAT_SYSTEM_PROMPT,
                     user_prompt=user_prompt,
                 ):
                     full_response.append(token)
-                    yield f"data: {token}\n\n"
+                    yield f"event: data\ndata: {_json.dumps({'token': token})}\n\n"
             except Exception as e:
-                yield f"data: Error: {str(e)}\n\n"
+                # Send typed error event with code and retry hint
+                is_transient = "timeout" in str(e).lower() or "connection" in str(e).lower()
+                error_payload = _json.dumps({
+                    "code": "STREAM_ERROR",
+                    "message": str(e),
+                    "retryable": is_transient,
+                })
+                yield f"event: error\ndata: {error_payload}\n\n"
 
             # Store the assistant response
             assistant_content = "".join(full_response)
@@ -343,7 +368,7 @@ async def stream_message(
             conv.total_tokens += user_msg.token_count + assistant_msg.token_count
             await db.commit()
 
-            yield "data: [DONE]\n\n"
+            yield f"event: done\ndata: {_json.dumps({'full_text': assistant_content})}\n\n"
 
         return StreamingResponse(
             generate(),

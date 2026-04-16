@@ -105,6 +105,18 @@ const useStyles = makeStyles({
     display: "flex",
     gap: tokens.spacingHorizontalXS,
   },
+  srOnly: {
+    position: "absolute",
+    width: "1px",
+    height: "1px",
+    padding: "0",
+    margin: "-1px",
+    overflow: "hidden",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    clip: "rect(0, 0, 0, 0)" as any,
+    whiteSpace: "nowrap",
+    borderWidth: "0",
+  },
 });
 
 export default function ChatPage() {
@@ -117,9 +129,11 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [streamingStatus, setStreamingStatus] = useState<string>("");
   const messageListRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom on new messages
+  // Scroll to bottom on new messages while preserving focus on input
   useEffect(() => {
     if (messageListRef.current) {
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
@@ -201,12 +215,17 @@ export default function ChatPage() {
       setMessages((prev) => [...prev, userMsg]);
       setSending(true);
       setError(null);
+      setStreamingStatus("AI is thinking…");
 
       try {
         const response = await api.chat.sendMessage(conversationId, content);
         setMessages((prev) => [...prev, response.assistant_message]);
+        setStreamingStatus("Response complete");
+        // Clear the status after announcement
+        setTimeout(() => setStreamingStatus(""), 1000);
       } catch {
         setError("Failed to send message. Please try again.");
+        setStreamingStatus("");
       } finally {
         setSending(false);
       }
@@ -321,7 +340,7 @@ export default function ChatPage() {
       </div>
 
       {/* Chat area */}
-      <div className={styles.chatArea} data-testid="chat-area">
+      <div className={styles.chatArea} data-testid="chat-area" role="region" aria-label="Chat conversation">
         {showSuggestedPrompts && !loading ? (
           <div className={styles.emptyState}>
             <ChatRegular style={{ fontSize: "48px", color: tokens.colorBrandForeground1, marginBottom: tokens.spacingVerticalM }} />
@@ -332,9 +351,17 @@ export default function ChatPage() {
             <SuggestedPrompts onSelect={handleSuggestedPrompt} />
           </div>
         ) : (
-          <div className={styles.messageList} ref={messageListRef} data-testid="message-list">
+          <div
+            className={styles.messageList}
+            ref={messageListRef}
+            data-testid="message-list"
+            role="log"
+            aria-label="Chat messages"
+            aria-live="polite"
+            aria-relevant="additions"
+          >
             {loading ? (
-              <div className={styles.loadingContainer}>
+              <div className={styles.loadingContainer} role="status">
                 <Spinner size="tiny" />
                 <Text>Loading messages...</Text>
               </div>
@@ -349,22 +376,36 @@ export default function ChatPage() {
               ))
             )}
             {sending && (
-              <div className={styles.loadingContainer} data-testid="sending-indicator">
+              <div className={styles.loadingContainer} data-testid="sending-indicator" role="status">
                 <Spinner size="tiny" />
                 <Text>AI is thinking...</Text>
               </div>
             )}
           </div>
         )}
+
+        {/* Screen reader announcements for streaming states */}
+        <div
+          aria-live="assertive"
+          aria-atomic="true"
+          className={styles.srOnly}
+          data-testid="sr-streaming-status"
+        >
+          {streamingStatus}
+        </div>
+
         {error && (
           <Text
             style={{ padding: tokens.spacingVerticalS, color: tokens.colorPaletteRedForeground1, textAlign: "center" }}
             data-testid="chat-error"
+            role="alert"
           >
             {error}
           </Text>
         )}
-        <ChatInput onSend={handleSendMessage} disabled={sending} />
+        <div ref={chatInputRef}>
+          <ChatInput onSend={handleSendMessage} disabled={sending} />
+        </div>
       </div>
     </div>
   );
