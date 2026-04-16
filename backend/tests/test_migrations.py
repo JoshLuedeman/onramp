@@ -23,7 +23,7 @@ async def test_migrations_run_cleanly():
     async with engine.connect() as conn:
         result = await conn.execute(text("SELECT version_num FROM alembic_version"))
         versions = [row[0] for row in result]
-        assert "007" in versions
+        assert "010" in versions
 
     await engine.dispose()
 
