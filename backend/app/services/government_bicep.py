@@ -163,10 +163,13 @@ class GovernmentBicepService:
         tag_block = f"  tags: {{\n{tag_lines}\n  }}"
 
         # If a tags: block exists, append our tags into it
-        pattern = re.compile(r"(  tags:\s*\{[^}]*)(})", re.DOTALL)
-        if pattern.search(bicep_content):
-            replacement = f"\\1\n{tag_lines}\n  }}"
-            return pattern.sub(replacement, bicep_content)
+        # Use a bounded match to avoid ReDoS: match tag key-value lines explicitly
+        pattern = re.compile(r"(  tags:\s*\{)((?:\n[^}]*?)*?)(\n  })", re.MULTILINE)
+        match = pattern.search(bicep_content)
+        if match:
+            return pattern.sub(
+                f"\\1\\2\n{tag_lines}\\3", bicep_content
+            )
 
         # Otherwise, append a tags block before the closing brace of each
         # resource

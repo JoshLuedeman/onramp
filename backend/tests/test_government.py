@@ -177,7 +177,7 @@ class TestEndpointReplacement:
         result = government_bicep_service.customize_for_government(
             bicep, "usgovvirginia"
         )
-        assert "management.usgovcloudapi.net" in result
+        assert result.count("management.usgovcloudapi.net") == 1
         assert "management.azure.com" not in result
 
     def test_replaces_login_endpoint(self):
@@ -192,14 +192,14 @@ class TestEndpointReplacement:
         result = government_bicep_service.customize_for_government(
             bicep, "usgovvirginia"
         )
-        assert ".blob.core.usgovcloudapi.net" in result
+        assert result.count(".blob.core.usgovcloudapi.net") == 1
 
     def test_replaces_keyvault_suffix(self):
         bicep = "var kv = 'myvault.vault.azure.net'"
         result = government_bicep_service.customize_for_government(
             bicep, "usgovvirginia"
         )
-        assert ".vault.usgovcloudapi.net" in result
+        assert result.count(".vault.usgovcloudapi.net") == 1
 
 
 class TestFedRAMPTags:
