@@ -404,6 +404,24 @@ class PolicyGenerator:
 
         In dev mode (AI not configured), returns a realistic mock policy.
         """
+        # Content safety — check for prompt injection in the description
+        from app.services.content_safety import content_safety_service
+
+        safety_result = content_safety_service.check_input(description)
+        if not safety_result.safe:
+            content_safety_service.log_security_event(
+                "policy_input_blocked",
+                user_id="unknown",
+                details={
+                    "patterns": safety_result.flagged_patterns,
+                    "risk_level": safety_result.risk_level,
+                },
+            )
+            raise ValueError(
+                "Policy description was flagged by content safety: "
+                + ", ".join(safety_result.flagged_patterns)
+            )
+
         if settings.is_dev_mode or not settings.ai_foundry_endpoint:
             logger.info("Dev mode — returning mock policy for: %s", description)
             data = _mock_policy(description, context)

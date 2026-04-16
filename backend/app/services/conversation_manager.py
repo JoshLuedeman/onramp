@@ -131,11 +131,13 @@ class ConversationManager:
         """Send a user message and get an AI response.
 
         1. Load conversation + history
-        2. Append user message
-        3. Apply context window management
-        4. Call AI (or mock in dev mode)
-        5. Store assistant response
-        6. Update token totals
+        2. Content safety check (prompt injection defense)
+        3. Rate limit check
+        4. Append user message
+        5. Apply context window management
+        6. Call AI (or mock in dev mode)
+        7. Store assistant response
+        8. Update token totals
         """
         from app.models.conversation import ConversationMessage
 
@@ -148,7 +150,54 @@ class ConversationManager:
         if conversation.user_id != user_id:
             raise PermissionError("Not your conversation")
 
-        # 2. Store user message
+        # 2. Content safety — check for prompt injection
+        from app.services.content_safety import content_safety_service
+
+        safety_result = content_safety_service.check_input(content)
+        if not safety_result.safe:
+            content_safety_service.log_security_event(
+                "chat_input_blocked",
+                user_id=user_id,
+                details={
+                    "conversation_id": conversation_id,
+                    "patterns": safety_result.flagged_patterns,
+                    "risk_level": safety_result.risk_level,
+                },
+            )
+            # Store user message so context isn't lost, but return safety msg
+            user_tokens = estimate_tokens(content)
+            user_msg = ConversationMessage(
+                id=generate_uuid(),
+                conversation_id=conversation_id,
+                role="user",
+                content=content,
+                token_count=user_tokens,
+            )
+            db.add(user_msg)
+
+            safety_text = (
+                "I'm unable to process that request because it was flagged "
+                "by our content safety system. Please rephrase your question "
+                "about Azure architecture or cloud infrastructure."
+            )
+            assistant_msg = ConversationMessage(
+                id=generate_uuid(),
+                conversation_id=conversation_id,
+                role="assistant",
+                content=safety_text,
+                token_count=estimate_tokens(safety_text),
+            )
+            db.add(assistant_msg)
+            conversation.total_tokens += user_tokens + assistant_msg.token_count
+            await db.flush()
+            return assistant_msg, conversation
+
+        # 3. Rate limit check
+        tenant_id = getattr(conversation, "tenant_id", None)
+        if not content_safety_service.check_rate_limit(user_id, tenant_id):
+            raise ValueError("AI rate limit exceeded. Please try again later.")
+
+        # 4. Store user message
         user_tokens = estimate_tokens(content)
         user_msg = ConversationMessage(
             id=generate_uuid(),
@@ -160,14 +209,14 @@ class ConversationManager:
         db.add(user_msg)
         await db.flush()
 
-        # 3. Build context-managed message history
+        # 5. Build context-managed message history
         messages = self._build_context_window(conversation.messages + [user_msg])
 
-        # 4. Get AI response
+        # 6. Get AI response
         assistant_content = await self._get_ai_response(messages)
         assistant_tokens = estimate_tokens(assistant_content)
 
-        # 5. Store assistant response
+        # 7. Store assistant response
         assistant_msg = ConversationMessage(
             id=generate_uuid(),
             conversation_id=conversation_id,
@@ -177,7 +226,7 @@ class ConversationManager:
         )
         db.add(assistant_msg)
 
-        # 6. Update token totals
+        # 8. Update token totals
         conversation.total_tokens += user_tokens + assistant_tokens
         await db.flush()
 
