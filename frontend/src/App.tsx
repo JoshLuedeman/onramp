@@ -18,6 +18,7 @@ const GapAnalysisPage = lazy(() => import("./pages/GapAnalysisPage"));
 const WorkloadsPage = lazy(() => import("./pages/WorkloadsPage"));
 const MigrationPage = lazy(() => import("./pages/MigrationPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
+const GovernancePage = lazy(() => import("./pages/GovernancePage"));
 
 function App() {
   return (
@@ -71,6 +72,12 @@ function App() {
 
                   {/* Admin */}
                   <Route path="/admin/plugins" element={<AdminPage />} />
+
+                  {/* Governance */}
+                  <Route path="/governance" element={<GovernancePage />} />
+                  <Route path="/projects/:projectId/governance" element={
+                    <ProjectProvider><GovernancePage /></ProjectProvider>
+                  } />
                 </Routes>
               </Suspense>
             </ErrorBoundary>

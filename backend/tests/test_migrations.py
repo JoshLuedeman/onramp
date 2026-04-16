@@ -19,11 +19,12 @@ async def test_migrations_run_cleanly():
     async with engine.begin() as conn:
         await conn.run_sync(_run_upgrade_head)
 
-    # Verify we can query alembic_version
+    # Verify we can query alembic_version (head revision present)
     async with engine.connect() as conn:
         result = await conn.execute(text("SELECT version_num FROM alembic_version"))
         versions = [row[0] for row in result]
-        assert "007" in versions
+        assert len(versions) >= 1, "Expected at least one alembic version"
+        assert "14ff8537f1ee" in versions, f"Expected merge head in {versions}"
 
     await engine.dispose()
 
@@ -138,7 +139,7 @@ def _run_upgrade_head(connection):
     migrations_dir = os.path.join(backend_dir, "app", "db", "migrations")
     cfg.set_main_option("script_location", migrations_dir)
     cfg.attributes["connection"] = connection
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, "heads")
 
 
 def _run_downgrade(connection, target):
