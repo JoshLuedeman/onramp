@@ -112,6 +112,39 @@ async def estimate_costs(
     return result
 
 
+class CompareRequest(BaseModel):
+    answers: dict[str, str | list[str]]
+    options: dict | None = None
+
+
+@router.post("/compare")
+async def compare_architectures(
+    request: CompareRequest, user: dict = Depends(get_current_user),
+):
+    """Generate and compare three architecture variants side-by-side."""
+    from app.services.architecture_comparator import architecture_comparator
+
+    variants = architecture_comparator.generate_variants(
+        request.answers, request.options,
+    )
+    result = architecture_comparator.compare_variants(variants)
+    return result.model_dump()
+
+
+@router.post("/compare/tradeoffs")
+async def compare_tradeoffs(
+    request: CompareRequest, user: dict = Depends(get_current_user),
+):
+    """Return an AI-generated trade-off analysis for architecture variants."""
+    from app.services.architecture_comparator import architecture_comparator
+
+    variants = architecture_comparator.generate_variants(
+        request.answers, request.options,
+    )
+    analysis = architecture_comparator.generate_tradeoff_analysis(variants)
+    return {"tradeoff_analysis": analysis}
+
+
 class RefineRequest(BaseModel):
     architecture: dict
     message: str
