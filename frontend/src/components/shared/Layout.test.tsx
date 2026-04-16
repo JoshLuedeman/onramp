@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { FluentProvider, teamsLightTheme } from "@fluentui/react-components";
 import Layout from "./Layout";
+import { TUTORIAL_STORAGE_KEY } from "../../hooks/useTutorial";
 
 // Mock useAuth used by AuthButton
 vi.mock("../../auth", () => ({
@@ -63,7 +64,7 @@ describe("Layout", () => {
     mockProjectsList.mockResolvedValue({ projects: [] });
     // Provide a functional localStorage mock and mark tutorial as completed
     storageMock = createStorageMock();
-    storageMock.setItem("onramp-tutorial-completed", "true");
+    storageMock.setItem(TUTORIAL_STORAGE_KEY, "true");
     vi.stubGlobal("localStorage", storageMock);
   });
 

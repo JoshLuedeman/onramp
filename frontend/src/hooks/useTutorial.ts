@@ -1,12 +1,12 @@
 import { useState, useCallback } from "react";
 
-const TUTORIAL_STORAGE_KEY = "onramp-tutorial-completed";
+export const TUTORIAL_STORAGE_KEY = "onramp-tutorial-completed";
 
 export interface TutorialStep {
   id: string;
   title: string;
   content: string;
-  targetSelector: string;
+  /** Informational: indicates which page this step describes (not used for routing) */
   page: string;
 }
 
@@ -28,7 +28,6 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     title: "Welcome to OnRamp!",
     content:
       "Start by creating a project for your Azure landing zone.",
-    targetSelector: "[data-tutorial='home']",
     page: "/",
   },
   {
@@ -36,7 +35,6 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     title: "Projects",
     content:
       "Each project guides you through designing and deploying a landing zone.",
-    targetSelector: "[data-tutorial='projects']",
     page: "/",
   },
   {
@@ -44,14 +42,12 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     title: "Wizard",
     content:
       "Answer questions about your organization. Recommended options are highlighted.",
-    targetSelector: "[data-tutorial='wizard']",
     page: "/wizard",
   },
   {
     id: "architecture",
     title: "Architecture",
     content: "Review your AI-generated landing zone architecture.",
-    targetSelector: "[data-tutorial='architecture']",
     page: "/architecture",
   },
   {
@@ -59,7 +55,6 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     title: "Compliance",
     content:
       "See how your architecture scores against compliance frameworks.",
-    targetSelector: "[data-tutorial='compliance']",
     page: "/compliance",
   },
   {
@@ -67,14 +62,12 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     title: "Bicep",
     content:
       "Download Infrastructure-as-Code templates for your landing zone.",
-    targetSelector: "[data-tutorial='bicep']",
     page: "/bicep",
   },
   {
     id: "deploy",
     title: "Deploy",
     content: "Deploy your landing zone directly to Azure subscriptions.",
-    targetSelector: "[data-tutorial='deploy']",
     page: "/deploy",
   },
 ];
@@ -104,13 +97,20 @@ function setCompleted(value: boolean): void {
   }
 }
 
-export function useTutorial(): UseTutorialReturn {
+export function useTutorial(currentPath?: string): UseTutorialReturn {
   const [isTutorialCompleted, setIsTutorialCompleted] = useState(getIsCompleted);
-  const [isActive, setIsActive] = useState(() => !getIsCompleted());
+  const [isActive, setIsActive] = useState(() => {
+    if (getIsCompleted()) return false;
+    // Only auto-start on the home page
+    const path = currentPath ?? "/";
+    return path === "/" || path === "";
+  });
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   const startTutorial = useCallback(() => {
     setCurrentStepIndex(0);
+    setIsTutorialCompleted(false);
+    setCompleted(false);
     setIsActive(true);
   }, []);
 

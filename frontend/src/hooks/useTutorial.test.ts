@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useTutorial } from "./useTutorial";
-
-const STORAGE_KEY = "onramp-tutorial-completed";
+import { useTutorial, TUTORIAL_STORAGE_KEY } from "./useTutorial";
 
 function createStorageMock(): Storage {
   let store: Record<string, string> = {};
@@ -41,7 +39,7 @@ describe("useTutorial", () => {
   });
 
   it("does not auto-start when tutorial has been completed", () => {
-    window.localStorage.setItem(STORAGE_KEY, "true");
+    window.localStorage.setItem(TUTORIAL_STORAGE_KEY, "true");
     const { result } = renderHook(() => useTutorial());
     expect(result.current.isActive).toBe(false);
     expect(result.current.isTutorialCompleted).toBe(true);
@@ -94,7 +92,7 @@ describe("useTutorial", () => {
 
     expect(result.current.isActive).toBe(false);
     expect(result.current.isTutorialCompleted).toBe(true);
-    expect(window.localStorage.getItem(STORAGE_KEY)).toBe("true");
+    expect(window.localStorage.getItem(TUTORIAL_STORAGE_KEY)).toBe("true");
   });
 
   it("completes tutorial when advancing past last step", () => {
@@ -133,6 +131,8 @@ describe("useTutorial", () => {
     });
     expect(result.current.isActive).toBe(true);
     expect(result.current.currentStepIndex).toBe(0);
+    expect(result.current.isTutorialCompleted).toBe(false);
+    expect(window.localStorage.getItem(TUTORIAL_STORAGE_KEY)).toBeNull();
   });
 
   it("provides the current step data when active", () => {

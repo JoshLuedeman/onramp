@@ -97,7 +97,7 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
-  const tutorial = useTutorial();
+  const tutorial = useTutorial(location.pathname);
 
   useEffect(() => {
     api.projects.list().then((res) => setProjects(res.projects)).catch(() => {});

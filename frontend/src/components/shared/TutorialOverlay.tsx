@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import {
   makeStyles,
   tokens,
@@ -91,6 +92,23 @@ export default function TutorialOverlay({
   onSkip,
 }: TutorialOverlayProps) {
   const styles = useStyles();
+  const primaryButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isActive || !currentStep) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onSkip();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isActive, currentStep, onSkip]);
+
+  useEffect(() => {
+    if (!isActive || !currentStep) return;
+    primaryButtonRef.current?.focus();
+  }, [isActive, currentStep, currentStepIndex]);
 
   if (!isActive || !currentStep) {
     return null;
@@ -102,7 +120,7 @@ export default function TutorialOverlay({
 
   return (
     <div className={styles.backdrop} data-testid="tutorial-overlay">
-      <Card className={styles.card} role="dialog" aria-label="Tutorial">
+      <Card className={styles.card} role="dialog" aria-label="Tutorial" aria-modal="true">
         <CardHeader
           header={
             <div className={styles.header}>
@@ -141,6 +159,7 @@ export default function TutorialOverlay({
                 Back
               </Button>
               <Button
+                ref={primaryButtonRef}
                 appearance="primary"
                 icon={<ChevronRightRegular />}
                 iconPosition="after"

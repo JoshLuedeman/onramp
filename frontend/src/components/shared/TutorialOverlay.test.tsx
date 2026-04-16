@@ -10,7 +10,6 @@ const sampleStep: TutorialStep = {
   id: "welcome",
   title: "Welcome to OnRamp!",
   content: "Start by creating a project for your Azure landing zone.",
-  targetSelector: "[data-tutorial='home']",
   page: "/",
 };
 
