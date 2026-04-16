@@ -7,6 +7,7 @@ from app.api.routes.adr import router as adr_router
 from app.api.routes.architecture import router as architecture_router
 from app.api.routes.bicep import router as bicep_router
 from app.api.routes.compliance import router as compliance_router
+from app.api.routes.cost import router as cost_router
 from app.api.routes.deployment import router as deployment_router
 from app.api.routes.discovery import router as discovery_router
 from app.api.routes.drift import router as drift_router
@@ -15,10 +16,13 @@ from app.api.routes.governance_tasks import router as governance_tasks_router
 from app.api.routes.migration import router as migration_router
 from app.api.routes.notifications import router as notifications_router
 from app.api.routes.plugins import router as plugins_router
+from app.api.routes.policy_compliance import router as policy_compliance_router
 from app.api.routes.projects import router as projects_router
 from app.api.routes.questionnaire import router as questionnaire_router
 from app.api.routes.questionnaire_state import router as questionnaire_state_router
+from app.api.routes.rbac_health import router as rbac_health_router
 from app.api.routes.scoring import router as scoring_router
+from app.api.routes.tagging import router as tagging_router
 from app.api.routes.users import router as users_router
 from app.api.routes.workloads import router as workloads_router
 from app.config import settings
@@ -45,6 +49,8 @@ async def lifespan(app):
     log_plugin_status()
 
     # Start the governance task scheduler
+    # Import monitors to register periodic tasks via @task_scheduler.periodic
+    import app.services.tagging_monitor  # noqa: F401
     from app.services.task_scheduler import task_scheduler
 
     await task_scheduler.start()
@@ -105,6 +111,10 @@ app.include_router(plugins_router)
 app.include_router(events_router)
 app.include_router(governance_tasks_router)
 app.include_router(drift_router)
+app.include_router(rbac_health_router)
+app.include_router(cost_router)
+app.include_router(policy_compliance_router)
+app.include_router(tagging_router)
 
 
 @app.get("/health")
