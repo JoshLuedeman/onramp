@@ -876,3 +876,155 @@ describe("api.templates", () => {
     );
   });
 });
+
+describe("api.sovereign", () => {
+  it("getFrameworks calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ frameworks: [], total: 0 }),
+    }));
+    const result = await api.sovereign.getFrameworks();
+    expect(result.total).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/sovereign/frameworks",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getFramework calls correct endpoint with name", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ short_name: "FedRAMP_High", name: "FedRAMP High" }),
+    }));
+    await api.sovereign.getFramework("FedRAMP_High");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/sovereign/frameworks/FedRAMP_High",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getControls calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ framework: "CMMC_L2", controls: [] }),
+    }));
+    await api.sovereign.getControls("CMMC_L2");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/sovereign/frameworks/CMMC_L2/controls",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("evaluateCompliance sends POST with architecture", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ overall_score: 50, status: "partial" }),
+    }));
+    await api.sovereign.evaluateCompliance("FedRAMP_High", { security: {} });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/sovereign/frameworks/FedRAMP_High/evaluate");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.architecture).toBeDefined();
+  });
+
+  it("getServices calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([]),
+    }));
+    await api.sovereign.getServices();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/sovereign/services",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getAvailabilityMatrix calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ environments: [], services: [], total_services: 0 }),
+    }));
+    await api.sovereign.getAvailabilityMatrix();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/sovereign/services/matrix",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("checkCompatibility sends POST with architecture and target", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ compatible: true, missing_services: [] }),
+    }));
+    await api.sovereign.checkCompatibility({
+      architecture: { services: ["Key Vault"] },
+      target_environment: "commercial",
+    });
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/sovereign/services/check-compatibility");
+    expect(call[1].method).toBe("POST");
+    const body = JSON.parse(call[1].body);
+    expect(body.target_environment).toBe("commercial");
+  });
+});
+
+describe("api.cloud", () => {
+  it("getEnvironments calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([{ name: "commercial" }]),
+    }));
+    const result = await api.cloud.getEnvironments();
+    expect(result).toHaveLength(1);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/cloud/environments",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getEnvironment calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ name: "government", display_name: "Azure Government" }),
+    }));
+    const result = await api.cloud.getEnvironment("government");
+    expect(result.name).toBe("government");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/cloud/environments/government",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("getEndpoints calls correct endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ resource_manager: "https://management.azure.com" }),
+    }));
+    const result = await api.cloud.getEndpoints("commercial");
+    expect(result.resource_manager).toBe("https://management.azure.com");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/cloud/environments/commercial/endpoints",
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  it("validateEnvironment sends POST with body", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ supported: true, missing_services: [], warnings: [] }),
+    }));
+    await api.cloud.validateEnvironment({
+      environment: "commercial",
+      required_services: ["compute"],
+    });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/cloud/environments/validate",
+      expect.objectContaining({ method: "POST" })
+    );
+    const call = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    const body = JSON.parse(call[1].body);
+    expect(body.environment).toBe("commercial");
+    expect(body.required_services).toEqual(["compute"]);
+  });
+});

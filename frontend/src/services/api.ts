@@ -874,6 +874,49 @@ export const api = {
         body: JSON.stringify({ rating }),
       }),
   },
+  cloud: {
+    getEnvironments: () =>
+      fetchApi<CloudEnvironmentItem[]>("/api/cloud/environments"),
+    getEnvironment: (name: string) =>
+      fetchApi<CloudEnvironmentItem>(`/api/cloud/environments/${name}`),
+    getEndpoints: (name: string) =>
+      fetchApi<CloudEndpointsItem>(`/api/cloud/environments/${name}/endpoints`),
+    validateEnvironment: (data: {
+      environment: string;
+      required_services: string[];
+    }) =>
+      fetchApi<CloudValidationResult>("/api/cloud/environments/validate", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
+  sovereign: {
+    getFrameworks: () =>
+      fetchApi<SovereignFrameworkListResponse>("/api/sovereign/frameworks"),
+    getFramework: (name: string) =>
+      fetchApi<SovereignFrameworkDetail>(`/api/sovereign/frameworks/${name}`),
+    getControls: (name: string) =>
+      fetchApi<{ framework: string; controls: SovereignControl[] }>(
+        `/api/sovereign/frameworks/${name}/controls`
+      ),
+    evaluateCompliance: (name: string, architecture: Record<string, unknown>) =>
+      fetchApi<SovereignComplianceResult>(
+        `/api/sovereign/frameworks/${name}/evaluate`,
+        { method: "POST", body: JSON.stringify({ architecture }) }
+      ),
+    getServices: () =>
+      fetchApi<ServiceAvailabilityItem[]>("/api/sovereign/services"),
+    getAvailabilityMatrix: () =>
+      fetchApi<ServiceAvailabilityMatrix>("/api/sovereign/services/matrix"),
+    checkCompatibility: (data: {
+      architecture: Record<string, unknown>;
+      target_environment: string;
+    }) =>
+      fetchApi<ArchitectureCompatibilityResult>(
+        "/api/sovereign/services/check-compatibility",
+        { method: "POST", body: JSON.stringify(data) }
+      ),
+  },
 };
 
 export interface Category {
@@ -1717,4 +1760,109 @@ export interface TemplateListResponse {
   total: number;
   page: number;
   page_size: number;
+}
+
+// ── Cloud Environment Types ─────────────────────────────────────────────
+
+export interface CloudEnvironmentItem {
+  name: string;
+  display_name: string;
+  description: string;
+  available_regions: string[];
+}
+
+export interface CloudEndpointsItem {
+  resource_manager: string;
+  authentication: string;
+  portal: string;
+  graph: string;
+  storage_suffix: string;
+  sql_suffix: string;
+  keyvault_suffix: string;
+  ai_foundry: string | null;
+}
+
+export interface CloudValidationResult {
+  supported: boolean;
+  missing_services: string[];
+  warnings: string[];
+}
+
+// ── Sovereign Compliance Types ──────────────────────────────────────────
+
+export interface SovereignControl {
+  id: string;
+  name: string;
+  description: string;
+  control_count: number;
+}
+
+export interface SovereignFrameworkSummary {
+  short_name: string;
+  name: string;
+  description: string;
+  version: string;
+  cloud_environments: string[];
+  control_family_count: number;
+}
+
+export interface SovereignFrameworkListResponse {
+  frameworks: SovereignFrameworkSummary[];
+  total: number;
+}
+
+export interface SovereignFrameworkDetail {
+  short_name: string;
+  name: string;
+  description: string;
+  version: string;
+  cloud_environments: string[];
+  control_families: SovereignControl[];
+  total_controls: number;
+}
+
+export interface FamilyScoreResult {
+  family_id: string;
+  family_name: string;
+  score: number | null;
+  status: string;
+  controls_evaluated: number;
+  controls_met: number;
+}
+
+export interface SovereignComplianceResult {
+  framework: string;
+  framework_name: string;
+  overall_score: number;
+  status: string;
+  total_controls_evaluated: number;
+  total_controls_met: number;
+  family_scores: FamilyScoreResult[];
+  recommendations: string[];
+  message?: string;
+}
+
+export interface ServiceAvailabilityItem {
+  service_name: string;
+  category: string;
+  commercial: boolean;
+  government: boolean;
+  china: boolean;
+  notes: string;
+}
+
+export interface ServiceAvailabilityMatrix {
+  environments: string[];
+  services: ServiceAvailabilityItem[];
+  by_category: Record<string, ServiceAvailabilityItem[]>;
+  total_services: number;
+}
+
+export interface ArchitectureCompatibilityResult {
+  compatible: boolean;
+  target_environment: string;
+  services_checked: number;
+  missing_services: string[];
+  warnings: string[];
+  alternatives: Record<string, string>;
 }

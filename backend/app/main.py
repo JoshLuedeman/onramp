@@ -15,6 +15,7 @@ from app.api.routes.arm import router as arm_router
 from app.api.routes.audit import router as audit_router
 from app.api.routes.bicep import router as bicep_router
 from app.api.routes.chat import router as chat_router
+from app.api.routes.cloud_config import router as cloud_config_router
 from app.api.routes.collaboration import router as collaboration_router
 from app.api.routes.compliance import router as compliance_router
 from app.api.routes.content_safety import router as content_safety_router
@@ -47,6 +48,7 @@ from app.api.routes.reviews import router as reviews_router
 from app.api.routes.scan_operations import router as scan_operations_router
 from app.api.routes.scoring import router as scoring_router
 from app.api.routes.security import router as security_router
+from app.api.routes.sovereign import router as sovereign_router
 from app.api.routes.sizing import router as sizing_router
 from app.api.routes.tagging import router as tagging_router
 from app.api.routes.template_safety import router as template_safety_router
@@ -188,6 +190,8 @@ app.include_router(templates_router)
 app.include_router(project_rbac_router)
 app.include_router(tenant_lifecycle_router)
 app.include_router(audit_router)
+app.include_router(sovereign_router)
+app.include_router(cloud_config_router)
 
 
 @app.get("/health")
