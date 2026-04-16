@@ -163,12 +163,16 @@ class TestExportAdrs:
             assert adr.title in md
 
     def test_individual_export_format(self):
-        """Individual export should contain only the first ADR."""
+        """Individual export should contain all ADRs as separate markdown sections."""
         adrs = generate_adrs(SAMPLE_ARCHITECTURE, SAMPLE_ANSWERS)
         md = export_adrs(adrs, format="individual")
-        assert adrs[0].title in md
+        # Every ADR should be present in the output
+        for adr in adrs:
+            assert adr.title in md
         # Should not contain the combined header
         assert "# Architecture Decision Records" not in md
+        # ADRs should be separated by ---
+        assert "---" in md
 
     def test_export_empty_list(self):
         """Exporting with no ADRs should return a placeholder message."""
@@ -247,7 +251,7 @@ class TestADRRoutes:
         assert "Architecture Decision Records" in data["content"]
 
     def test_export_endpoint_individual(self):
-        """Export with individual format returns first ADR only."""
+        """Export with individual format returns all ADRs."""
         adrs = generate_adrs(SAMPLE_ARCHITECTURE, SAMPLE_ANSWERS)
         adr_dicts = [adr.model_dump() for adr in adrs]
         response = client.post(
@@ -256,4 +260,5 @@ class TestADRRoutes:
         )
         assert response.status_code == 200
         content = response.json()["content"]
-        assert adrs[0].title in content
+        for adr in adrs:
+            assert adr.title in content

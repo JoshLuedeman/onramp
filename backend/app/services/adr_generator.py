@@ -279,14 +279,69 @@ def generate_adrs(
 
             if ai_client.is_configured:
                 logger.info("Enhancing ADRs with AI")
-                # AI enhancement would happen here in production
-                # For now, log and return template ADRs
+                adrs = _enhance_adrs_with_ai(adrs, ai_client, architecture, answers)
             else:
-                logger.info("AI not configured — using template ADRs")
+                logger.warning("AI not configured — falling back to template ADRs")
         except Exception as e:
             logger.warning("AI enhancement failed, falling back to templates: %s", e)
 
     return adrs
+
+
+def _enhance_adrs_with_ai(
+    adrs: list[ADRRecord],
+    client: object,
+    architecture: dict,
+    answers: dict,
+) -> list[ADRRecord]:
+    """Enhance template-generated ADRs using AI.
+
+    Uses the AI client to rewrite context, decision, and consequences
+    for each ADR with richer, architecture-specific content.
+    Falls back to the original ADR if enhancement fails.
+    """
+    import json as _json
+
+    enhanced: list[ADRRecord] = []
+    for adr in adrs:
+        system_prompt = (
+            "You are an Azure cloud architecture expert. Enhance the following "
+            "Architecture Decision Record with richer detail based on the provided "
+            "architecture and questionnaire answers. Return a JSON object with keys: "
+            "context, decision, consequences. Keep the tone professional and concise."
+        )
+        user_prompt = _json.dumps({
+            "adr_title": adr.title,
+            "adr_category": adr.category,
+            "current_context": adr.context,
+            "current_decision": adr.decision,
+            "current_consequences": adr.consequences,
+            "architecture_summary": {
+                k: v for k, v in architecture.items()
+                if k in ("management_groups", "network_topology", "identity",
+                         "subscriptions", "policies")
+            },
+            "answers_summary": answers,
+        })
+        try:
+            response = client.generate_completion(
+                system_prompt, user_prompt, temperature=0.3, max_tokens=1024,
+            )
+            data = _json.loads(response)
+            enhanced.append(ADRRecord(
+                id=adr.id,
+                title=adr.title,
+                status=adr.status,
+                context=data.get("context", adr.context),
+                decision=data.get("decision", adr.decision),
+                consequences=data.get("consequences", adr.consequences),
+                category=adr.category,
+                created_at=adr.created_at,
+            ))
+        except Exception as exc:
+            logger.warning("AI enhancement failed for %s, keeping template: %s", adr.id, exc)
+            enhanced.append(adr)
+    return enhanced
 
 
 def _format_single_adr(adr: ADRRecord) -> str:
@@ -318,7 +373,7 @@ def export_adrs(adrs: list[ADRRecord], format: str = "combined") -> str:
     Args:
         adrs: List of ADR records to export.
         format: Export format — "combined" for single document,
-                "individual" for first ADR only.
+                "individual" for separate markdown per ADR.
 
     Returns:
         Markdown string of the exported ADRs.
@@ -327,7 +382,8 @@ def export_adrs(adrs: list[ADRRecord], format: str = "combined") -> str:
         return "# Architecture Decision Records\n\nNo ADRs generated yet.\n"
 
     if format == "individual":
-        return _format_single_adr(adrs[0])
+        sections = [_format_single_adr(adr) for adr in adrs]
+        return "\n---\n\n".join(sections)
 
     sections = [_format_single_adr(adr) for adr in adrs]
     header = "# Architecture Decision Records\n\n"

@@ -75,6 +75,7 @@ export default function ArchitecturePage() {
   const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string }>();
   const [architecture, setArchitecture] = useState<Architecture | null>(null);
+  const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
   const [costEstimation, setCostEstimation] = useState<CostEstimation | null>(null);
   const [costLoading, setCostLoading] = useState(false);
   const [costError, setCostError] = useState<string | null>(null);
@@ -87,10 +88,21 @@ export default function ArchitecturePage() {
           setArchitecture(data.architecture);
         }
       }).catch(console.error);
+      // Load saved questionnaire answers for project-scoped flows
+      api.questionnaire.loadState(projectId).then((data) => {
+        if (data.answers && Object.keys(data.answers).length > 0) {
+          setAnswers(data.answers);
+        }
+      }).catch(console.error);
     } else {
       const stored = sessionStorage.getItem("onramp_architecture");
       if (stored) {
         setArchitecture(JSON.parse(stored));
+      }
+      // Load answers saved by the wizard during generation
+      const storedAnswers = sessionStorage.getItem("onramp_answers");
+      if (storedAnswers) {
+        setAnswers(JSON.parse(storedAnswers));
       }
     }
   }, [projectId]);
@@ -313,7 +325,7 @@ export default function ArchitecturePage() {
 
       <ADRPanel
         architecture={architecture as Record<string, unknown>}
-        answers={{}}
+        answers={answers}
         projectId={projectId}
       />
     </div>

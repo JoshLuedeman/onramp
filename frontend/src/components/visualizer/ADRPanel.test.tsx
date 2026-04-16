@@ -69,6 +69,12 @@ describe("ADRPanel", () => {
     vi.clearAllMocks();
     mockGenerateAdrs.mockResolvedValue({ adrs: mockAdrs, project_id: "proj-1" });
     mockExportAdrs.mockResolvedValue({ content: "# ADRs\n\nContent here" });
+    // Stub blob URL APIs not available in jsdom
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: vi.fn().mockReturnValue("blob:test"),
+      revokeObjectURL: vi.fn(),
+    });
   });
 
   it("renders with no ADRs and shows generate button", () => {
