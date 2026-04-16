@@ -19,6 +19,23 @@ This starts the frontend at `http://localhost:5173` and the backend at `http://l
 - **Theme:** Use the default Fluent UI light theme
 - **Data:** Ensure sample data is loaded (the dev environment includes mock data)
 
+### 2b. Create a Sample Project
+
+The dev database does not create projects by default. Before capturing `home.png`, create one:
+
+1. Open the app at `http://localhost:5173`
+2. Click **"New Project"** on the dashboard
+3. Enter a name (e.g., "Contoso Landing Zone") and save
+4. The project now appears on the dashboard and is available for subsequent pages
+
+Alternatively, use the API directly:
+
+```bash
+curl -X POST http://localhost:8000/api/projects \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Contoso Landing Zone", "description": "Sample project for screenshots"}'
+```
+
 ### 3. Screenshots Needed
 
 | File | Page / Route | What to Show |

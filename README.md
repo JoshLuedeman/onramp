@@ -16,7 +16,15 @@
 
 ## 📸 Screenshots
 
-> **Screenshots coming soon.** Want to help? See [`docs/screenshots/README.md`](docs/screenshots/README.md) for capture instructions.
+The application includes a guided questionnaire, an interactive architecture visualizer, compliance scoring dashboards, and one-click Azure deployment. See [`docs/screenshots/README.md`](docs/screenshots/README.md) for instructions on capturing screenshots of each page.
+
+```mermaid
+flowchart LR
+    Wizard[🧭 Questionnaire] --> Arch[🏗️ Architecture Visualizer]
+    Arch --> Compliance[📋 Compliance Scoring]
+    Compliance --> Bicep[📝 Bicep Preview]
+    Bicep --> Deploy[🚀 One-Click Deploy]
+```
 
 ## 🏗️ System Architecture
 

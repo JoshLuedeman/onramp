@@ -8,7 +8,7 @@ OnRamp is an AI-powered Azure Landing Zone Architect & Deployer. It guides custo
 
 ```mermaid
 flowchart TB
-    subgraph Frontend["Frontend (React + Fluent UI v9)"]
+    subgraph Frontend["Frontend (React 19 + Fluent UI v9)"]
         UI[Web App — Vite + React 19 + TypeScript]
         MSAL_JS[MSAL.js]
     end
@@ -19,7 +19,7 @@ flowchart TB
 
     subgraph Backend["Backend (Python FastAPI)"]
         API[FastAPI — REST API]
-        TokenVal[Token Validation — MSAL Python]
+        TokenVal[Token Validation — PyJWT / JWKS]
         Questionnaire[Questionnaire Service]
         ArchGen[Architecture Generator]
         CompScorer[Compliance Scorer]
