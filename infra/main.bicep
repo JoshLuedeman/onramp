@@ -10,13 +10,11 @@ param location string = 'eastus2'
 @description('Base name for resources')
 param baseName string = 'onramp'
 
-@description('SQL administrator login')
-@secure()
-param sqlAdminLogin string
+@description('Display name of the Entra ID group to set as SQL admin')
+param sqlAdminGroupName string
 
-@description('SQL administrator password')
-@secure()
-param sqlAdminPassword string
+@description('Object ID of the Entra ID group to set as SQL admin')
+param sqlAdminGroupObjectId string
 
 @description('Azure AI Foundry API key')
 @secure()
@@ -45,6 +43,20 @@ resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   tags: tags
 }
 
+// User-assigned managed identity for the application — created at the top level
+// so it can be referenced by both the SQL module (for DB user setup) and the
+// Container Apps module (for runtime Key Vault / DB access).
+module appIdentity 'modules/identity.bicep' = {
+  scope: rg
+  name: 'app-identity'
+  params: {
+    location: location
+    baseName: baseName
+    environment: environment
+    tags: tags
+  }
+}
+
 // Deployment order: monitoring first, then sql/ai-foundry in parallel, then keyvault, then container-apps
 
 module monitoring 'modules/monitoring.bicep' = {
@@ -66,8 +78,10 @@ module sql 'modules/sql.bicep' = {
     location: location
     baseName: baseName
     environment: environment
-    sqlAdminLogin: sqlAdminLogin
-    sqlAdminPassword: sqlAdminPassword
+    entraAdminGroupName: sqlAdminGroupName
+    entraAdminGroupObjectId: sqlAdminGroupObjectId
+    appIdentityName: appIdentity.outputs.identityName
+    appIdentityClientId: appIdentity.outputs.identityClientId
     tags: tags
   }
 }
@@ -79,10 +93,6 @@ module keyVault 'modules/keyvault.bicep' = {
     location: location
     baseName: baseName
     environment: environment
-    sqlAdminPassword: sqlAdminPassword
-    sqlAdminLogin: sqlAdminLogin
-    sqlServerFqdn: sql.outputs.serverFqdn
-    sqlDatabaseName: sql.outputs.databaseName
     aiFoundryKey: aiFoundryKey
     clientSecret: clientSecret
     tags: tags
@@ -116,6 +126,11 @@ module containerApps 'modules/container-apps.bicep' = {
     azureClientId: azureClientId
     hasAiFoundryKey: !empty(aiFoundryKey)
     hasClientSecret: !empty(clientSecret)
+    managedIdentityId: appIdentity.outputs.identityResourceId
+    managedIdentityPrincipalId: appIdentity.outputs.identityPrincipalId
+    managedIdentityClientId: appIdentity.outputs.identityClientId
+    sqlServerFqdn: sql.outputs.serverFqdn
+    sqlDatabaseName: sql.outputs.databaseName
     tags: tags
   }
 }

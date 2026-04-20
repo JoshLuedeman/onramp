@@ -19,12 +19,6 @@
         "description": "Azure region for resources"
       }
     },
-    "sqlAdminPassword": {
-      "type": "securestring",
-      "metadata": {
-        "description": "SQL Server admin password (min 8 chars, must include uppercase, lowercase, number, and special character)"
-      }
-    },
     "createAppRegistration": {
       "type": "bool",
       "defaultValue": true,
@@ -49,7 +43,13 @@
     "ownerGroupObjectId": {
       "type": "string",
       "metadata": {
-        "description": "Object ID of the Entra ID group to assign Owner role on all deployed resources. Find this in Entra ID > Groups > your group > Object ID."
+        "description": "Object ID of the Entra ID group to assign Owner role on all deployed resources and SQL admin. Find this in Entra ID > Groups > your group > Object ID."
+      }
+    },
+    "ownerGroupDisplayName": {
+      "type": "string",
+      "metadata": {
+        "description": "Display name of the Entra ID group (used as the SQL Server Entra admin display name)."
       }
     }
   },
@@ -58,8 +58,10 @@
     "containerAppEnvName": "[concat(parameters('appName'), '-env-', variables('uniqueSuffix'))]",
     "logAnalyticsName": "[concat(parameters('appName'), '-logs-', variables('uniqueSuffix'))]",
     "sqlServerName": "[concat(parameters('appName'), '-sql-', variables('uniqueSuffix'))]",
+    "sqlDatabaseName": "onramp",
     "keyVaultName": "[concat(parameters('appName'), '-kv-', variables('uniqueSuffix'))]",
     "identityName": "[concat(parameters('appName'), '-identity-', variables('uniqueSuffix'))]",
+    "bootstrapIdentityName": "[concat(parameters('appName'), '-sqlbootstrap-', variables('uniqueSuffix'))]",
     "appUrl": "[concat('https://', parameters('appName'), '-', variables('uniqueSuffix'), '.', parameters('location'), '.azurecontainerapps.io')]"
   },
   "resources": [
@@ -68,6 +70,15 @@
       "apiVersion": "2023-01-31",
       "name": "[variables('identityName')]",
       "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[variables('bootstrapIdentityName')]",
+      "location": "[parameters('location')]",
+      "metadata": {
+        "description": "Bootstrap identity — temporary SQL admin used during deployment to create the app managed identity as a contained database user."
+      }
     },
     {
       "type": "Microsoft.Resources/deploymentScripts",
@@ -182,17 +193,6 @@
       }
     },
     {
-      "type": "Microsoft.KeyVault/vaults/secrets",
-      "apiVersion": "2023-07-01",
-      "name": "[concat(variables('keyVaultName'), '/sql-admin-password')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
-      ],
-      "properties": {
-        "value": "[parameters('sqlAdminPassword')]"
-      }
-    },
-    {
       "type": "Microsoft.App/managedEnvironments",
       "apiVersion": "2023-05-01",
       "name": "[variables('containerAppEnvName')]",
@@ -212,19 +212,28 @@
     },
     {
       "type": "Microsoft.Sql/servers",
-      "apiVersion": "2023-05-01-preview",
+      "apiVersion": "2023-08-01-preview",
       "name": "[variables('sqlServerName')]",
       "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('bootstrapIdentityName'))]"
+      ],
       "properties": {
-        "administratorLogin": "onrampadmin",
-        "administratorLoginPassword": "[parameters('sqlAdminPassword')]",
-        "version": "12.0"
+        "minimalTlsVersion": "1.2",
+        "administrators": {
+          "administratorType": "ActiveDirectory",
+          "azureADOnlyAuthentication": true,
+          "login": "[variables('bootstrapIdentityName')]",
+          "sid": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('bootstrapIdentityName'))).principalId]",
+          "tenantId": "[subscription().tenantId]",
+          "principalType": "Application"
+        }
       }
     },
     {
       "type": "Microsoft.Sql/servers/databases",
-      "apiVersion": "2023-05-01-preview",
-      "name": "[concat(variables('sqlServerName'), '/onramp')]",
+      "apiVersion": "2023-08-01-preview",
+      "name": "[concat(variables('sqlServerName'), '/', variables('sqlDatabaseName'))]",
       "location": "[parameters('location')]",
       "dependsOn": [
         "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]"
@@ -232,6 +241,76 @@
       "sku": {
         "name": "Basic",
         "tier": "Basic"
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/firewallRules",
+      "apiVersion": "2023-08-01-preview",
+      "name": "[concat(variables('sqlServerName'), '/AllowAzureServices')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]"
+      ],
+      "properties": {
+        "startIpAddress": "0.0.0.0",
+        "endIpAddress": "0.0.0.0"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(variables('sqlServerName'), variables('bootstrapIdentityName'), 'Contributor')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('bootstrapIdentityName'))]"
+      ],
+      "scope": "[concat('Microsoft.Sql/servers/', variables('sqlServerName'))]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('bootstrapIdentityName'))).principalId]",
+        "principalType": "ServicePrincipal",
+        "description": "Temporary Contributor for SQL Entra bootstrap — allows switching SQL admin to the Entra group"
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deploymentScripts",
+      "apiVersion": "2023-08-01",
+      "name": "setupSqlEntraUser",
+      "location": "[parameters('location')]",
+      "kind": "AzureCLI",
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers/databases', variables('sqlServerName'), variables('sqlDatabaseName'))]",
+        "[resourceId('Microsoft.Sql/servers/firewallRules', variables('sqlServerName'), 'AllowAzureServices')]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]",
+        "[guid(variables('sqlServerName'), variables('bootstrapIdentityName'), 'Contributor')]"
+      ],
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('bootstrapIdentityName'))]": {}
+        }
+      },
+      "properties": {
+        "azCliVersion": "2.60.0",
+        "retentionInterval": "P1D",
+        "timeout": "PT15M",
+        "environmentVariables": [
+          {
+            "name": "SQL_SERVER_FQDN",
+            "value": "[reference(resourceId('Microsoft.Sql/servers', variables('sqlServerName'))).fullyQualifiedDomainName]"
+          },
+          { "name": "DATABASE_NAME", "value": "[variables('sqlDatabaseName')]" },
+          { "name": "SQL_SERVER_NAME", "value": "[variables('sqlServerName')]" },
+          { "name": "RESOURCE_GROUP", "value": "[resourceGroup().name]" },
+          { "name": "APP_IDENTITY_NAME", "value": "[variables('identityName')]" },
+          {
+            "name": "APP_IDENTITY_CLIENT_ID",
+            "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))).clientId]"
+          },
+          { "name": "ADMIN_GROUP_NAME", "value": "[parameters('ownerGroupDisplayName')]" },
+          { "name": "ADMIN_GROUP_OID", "value": "[parameters('ownerGroupObjectId')]" }
+        ],
+        "scriptContent": "#!/bin/bash\nset -euo pipefail\necho '=== OnRamp SQL Entra Auth Setup ==='\necho \"Server: $SQL_SERVER_FQDN\"\necho \"Database: $DATABASE_NAME\"\necho \"App identity: $APP_IDENTITY_NAME ($APP_IDENTITY_CLIENT_ID)\"\necho \"Admin group: $ADMIN_GROUP_NAME ($ADMIN_GROUP_OID)\"\n\n# Install ODBC driver and pyodbc\napt-get update -qq\ncurl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg\necho 'deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/12/prod bookworm main' > /etc/apt/sources.list.d/mssql-release.list\napt-get update -qq\nACCEPT_EULA=Y apt-get install -y -qq msodbcsql18 unixodbc-dev > /dev/null 2>&1\npip install -q pyodbc\n\nexport TOKEN=$(az account get-access-token --resource https://database.windows.net --query accessToken -o tsv)\n\npython3 << 'PYEOF'\nimport os, struct, sys, pyodbc\ntoken = os.environ['TOKEN']\nserver = os.environ['SQL_SERVER_FQDN']\ndatabase = os.environ['DATABASE_NAME']\nidentity_name = os.environ['APP_IDENTITY_NAME']\nidentity_client_id = os.environ['APP_IDENTITY_CLIENT_ID']\ntoken_bytes = token.encode('utf-16-le')\ntoken_struct = struct.pack(f'<I{len(token_bytes)}s', len(token_bytes), token_bytes)\nconn_str = f'Driver={{ODBC Driver 18 for SQL Server}};Server=tcp:{server},1433;Database={database};Encrypt=yes;TrustServerCertificate=no'\nconn = pyodbc.connect(conn_str, attrs_before={1256: token_struct})\ncursor = conn.cursor()\nsql = f\"\"\"\nIF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'{identity_name}')\nBEGIN\n    DECLARE @sid VARBINARY(16) = CAST(CAST('{identity_client_id}' AS UNIQUEIDENTIFIER) AS VARBINARY(16));\n    DECLARE @sql NVARCHAR(MAX) = N'CREATE USER [{identity_name}] WITH SID = ' + '0x' + CONVERT(VARCHAR(MAX), @sid, 2) + ', TYPE = E';\n    EXEC sp_executesql @sql;\n    PRINT 'Created user [{identity_name}]';\nEND\nELSE\n    PRINT 'User [{identity_name}] already exists';\n\"\"\"\ncursor.execute(sql)\nconn.commit()\nfor role in ('db_datareader', 'db_datawriter', 'db_ddladmin'):\n    cursor.execute(f'ALTER ROLE {role} ADD MEMBER [{identity_name}]')\n    print(f'  Granted {role}')\nconn.commit()\ncursor.close()\nconn.close()\nprint('Database user setup complete.')\nPYEOF\n\naz sql server ad-admin create --server-name \"$SQL_SERVER_NAME\" --resource-group \"$RESOURCE_GROUP\" --display-name \"$ADMIN_GROUP_NAME\" --object-id \"$ADMIN_GROUP_OID\" --output none\necho '=== SQL Entra auth setup complete ==='",
+        "cleanupPreference": "OnSuccess"
       }
     },
     {

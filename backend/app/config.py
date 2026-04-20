@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     # Database (empty = dev mode with SQLite)
     database_url: str = ""
 
+    # Managed identity client ID for Entra-authenticated SQL connections.
+    # Set when the backend runs on Azure with a user-assigned managed identity.
+    managed_identity_client_id: str = ""
+
     # Azure AD / Entra ID
     azure_tenant_id: str = ""
     azure_client_id: str = ""

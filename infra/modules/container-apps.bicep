@@ -40,6 +40,21 @@ param frontendImage string = 'mcr.microsoft.com/azuredocs/containerapps-hellowor
 @description('Backend container image')
 param backendImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 
+@description('Resource ID of the user-assigned managed identity')
+param managedIdentityId string
+
+@description('Principal (object) ID of the user-assigned managed identity')
+param managedIdentityPrincipalId string
+
+@description('Client (application) ID of the user-assigned managed identity')
+param managedIdentityClientId string
+
+@description('SQL Server FQDN for the database connection string')
+param sqlServerFqdn string
+
+@description('SQL database name')
+param sqlDatabaseName string
+
 @description('Resource tags')
 param tags object
 
@@ -52,7 +67,7 @@ var aiKeySecret = hasAiFoundryKey
       {
         name: 'ai-foundry-key'
         keyVaultUrl: '${keyVault.properties.vaultUri}secrets/ai-foundry-key'
-        identity: managedIdentity.id
+        identity: managedIdentityId
       }
     ]
   : []
@@ -61,13 +76,18 @@ var clientSecretKv = hasClientSecret
       {
         name: 'client-secret'
         keyVaultUrl: '${keyVault.properties.vaultUri}secrets/client-secret'
-        identity: managedIdentity.id
+        identity: managedIdentityId
       }
     ]
   : []
+
+// Credential-free connection string — Entra token auth is handled by the backend
+var databaseUrl = 'mssql+aioodbc://@${sqlServerFqdn}/${sqlDatabaseName}?driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=no'
+
 // Build backend env vars conditionally
 var baseEnvVars = [
-  { name: 'ONRAMP_DATABASE_URL', secretRef: 'sql-connection-string' }
+  { name: 'ONRAMP_DATABASE_URL', value: databaseUrl }
+  { name: 'ONRAMP_MANAGED_IDENTITY_CLIENT_ID', value: managedIdentityClientId }
   { name: 'ONRAMP_AI_FOUNDRY_ENDPOINT', value: aiFoundryEndpoint }
   { name: 'ONRAMP_AI_FOUNDRY_MODEL', value: 'gpt-4o' }
   { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
@@ -104,15 +124,7 @@ var backendEnvVars = concat(
   clientSecretEnvVars
 )
 
-// Store full connection string as a secret (includes credentials)
-var sqlConnectionStringSecret = [
-  {
-    name: 'sql-connection-string'
-    keyVaultUrl: '${keyVault.properties.vaultUri}secrets/sql-connection-string'
-    identity: managedIdentity.id
-  }
-]
-var allBackendSecrets = concat(sqlConnectionStringSecret, aiKeySecret, clientSecretKv)
+var allBackendSecrets = concat(aiKeySecret, clientSecretKv)
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
   name: logAnalyticsName
@@ -122,19 +134,12 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
   name: keyVaultName
 }
 
-// Managed identity for Key Vault access
-resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: 'id-${baseName}-${environment}'
-  location: location
-  tags: tags
-}
-
 // Key Vault Secrets User role assignment (role ID: 4633458b-17de-408a-b874-0445c86b69e6)
 resource kvRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(keyVault.id, managedIdentity.id, '4633458b-17de-408a-b874-0445c86b69e6')
+  name: guid(keyVault.id, managedIdentityId, '4633458b-17de-408a-b874-0445c86b69e6')
   scope: keyVault
   properties: {
-    principalId: managedIdentity.properties.principalId
+    principalId: managedIdentityPrincipalId
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
       '4633458b-17de-408a-b874-0445c86b69e6'
@@ -165,7 +170,7 @@ resource frontendApp 'Microsoft.App/containerApps@2024-03-01' = {
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: {
-      '${managedIdentity.id}': {}
+      '${managedIdentityId}': {}
     }
   }
   properties: {
@@ -180,7 +185,7 @@ resource frontendApp 'Microsoft.App/containerApps@2024-03-01' = {
         ? [
             {
               server: containerRegistryServer
-              identity: managedIdentity.id
+              identity: managedIdentityId
             }
           ]
         : []
@@ -244,7 +249,7 @@ resource backendApp 'Microsoft.App/containerApps@2024-03-01' = {
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: {
-      '${managedIdentity.id}': {}
+      '${managedIdentityId}': {}
     }
   }
   properties: {
@@ -260,7 +265,7 @@ resource backendApp 'Microsoft.App/containerApps@2024-03-01' = {
         ? [
             {
               server: containerRegistryServer
-              identity: managedIdentity.id
+              identity: managedIdentityId
             }
           ]
         : []
@@ -328,4 +333,3 @@ resource backendApp 'Microsoft.App/containerApps@2024-03-01' = {
 output environmentId string = containerAppsEnv.id
 output frontendFqdn string = frontendApp.properties.configuration.ingress.fqdn
 output backendFqdn string = backendApp.properties.configuration.ingress.fqdn
-output managedIdentityPrincipalId string = managedIdentity.properties.principalId

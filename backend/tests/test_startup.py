@@ -40,6 +40,45 @@ def test_validate_environment_with_database():
         assert result["database"] == "configured"
 
 
+def test_validate_environment_mssql_entra_auth_with_mi():
+    """Entra-authenticated MSSQL URL logs MI client ID."""
+    with patch("app.startup.settings") as mock_settings:
+        mock_settings.azure_tenant_id = ""
+        mock_settings.azure_client_id = ""
+        mock_settings.ai_foundry_endpoint = ""
+        mock_settings.database_url = "mssql+aioodbc://@server.database.windows.net/onramp"
+        mock_settings.managed_identity_client_id = "abcd1234-ef56-7890-abcd-ef1234567890"
+        mock_settings.cors_origins = ["http://localhost:5173"]
+        result = validate_environment()
+        assert result["database"] == "configured"
+
+
+def test_validate_environment_mssql_entra_auth_without_mi():
+    """Entra-authenticated MSSQL URL without MI falls back to DefaultAzureCredential."""
+    with patch("app.startup.settings") as mock_settings:
+        mock_settings.azure_tenant_id = ""
+        mock_settings.azure_client_id = ""
+        mock_settings.ai_foundry_endpoint = ""
+        mock_settings.database_url = "mssql+aioodbc://@server.database.windows.net/onramp"
+        mock_settings.managed_identity_client_id = ""
+        mock_settings.cors_origins = ["http://localhost:5173"]
+        result = validate_environment()
+        assert result["database"] == "configured"
+
+
+def test_validate_environment_mssql_sql_auth():
+    """Standard MSSQL URL with credentials is not Entra auth."""
+    with patch("app.startup.settings") as mock_settings:
+        mock_settings.azure_tenant_id = "tenant-1234-abcd"
+        mock_settings.azure_client_id = "client-1234"
+        mock_settings.ai_foundry_endpoint = "https://ai.example.com"
+        mock_settings.database_url = "mssql+aioodbc://user:pass@server/db"
+        mock_settings.cors_origins = ["https://app.example.com"]
+        result = validate_environment()
+        assert result["mode"] == "production"
+        assert result["database"] == "configured"
+
+
 def test_validate_environment_production_mode():
     """When Entra ID is configured, runs in production mode."""
     with patch("app.startup.settings") as mock_settings:
