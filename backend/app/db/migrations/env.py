@@ -7,7 +7,7 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.db.session import get_database_url
+from app.db.session import _is_entra_auth_url, get_database_url
 from app.models import Base
 
 config = context.config
@@ -52,7 +52,16 @@ def do_run_migrations(connection):
 
 async def run_async_migrations() -> None:
     """Run migrations in 'online' mode with async engine."""
-    connectable = create_async_engine(get_url(), poolclass=pool.NullPool)
+    url = get_url()
+    connectable = create_async_engine(url, poolclass=pool.NullPool)
+
+    # When using Entra auth, attach the token hook so the migration connection
+    # authenticates with a managed-identity token instead of SQL credentials.
+    if _is_entra_auth_url(url):
+        from app.db.session import _attach_entra_token_hook, _get_entra_credential
+        credential = _get_entra_credential()
+        _attach_entra_token_hook(connectable, credential)
+
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await connectable.dispose()

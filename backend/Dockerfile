@@ -22,7 +22,14 @@ RUN if [ "$INSTALL_ODBC" = "1" ]; then \
 
 COPY pyproject.toml ./
 COPY app ./app
-RUN pip install --no-cache-dir ".[dev]"
+# Install base + dev dependencies. When INSTALL_ODBC=1 (production), also
+# install the azure extras so azure-identity and aioodbc are available for
+# Entra-authenticated SQL connections.
+RUN if [ "$INSTALL_ODBC" = "1" ]; then \
+      pip install --no-cache-dir ".[dev,azure]"; \
+    else \
+      pip install --no-cache-dir ".[dev]"; \
+    fi
 
 COPY . .
 

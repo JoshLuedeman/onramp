@@ -39,7 +39,20 @@ def validate_environment() -> dict:
             else "SQLite" if "sqlite" in settings.database_url
             else "Other"
         )
-        logger.info("✅ Database configured (%s)", db_type)
+        # Detect Entra-authenticated SQL connections (no credentials in URL)
+        entra_sql = "mssql" in settings.database_url and "://@" in settings.database_url
+        if entra_sql:
+            db_type = "MSSQL + Entra auth"
+            if settings.managed_identity_client_id:
+                logger.info(
+                    "✅ Database configured (%s, MI: %s…)",
+                    db_type,
+                    settings.managed_identity_client_id[:8],
+                )
+            else:
+                logger.info("✅ Database configured (%s, DefaultAzureCredential)", db_type)
+        else:
+            logger.info("✅ Database configured (%s)", db_type)
     else:
         warnings.append("Database not configured — data will not persist")
         logger.warning("⚠️  Database not configured — no data persistence")
