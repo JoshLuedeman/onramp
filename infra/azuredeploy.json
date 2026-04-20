@@ -19,25 +19,16 @@
         "description": "Azure region for resources"
       }
     },
-    "createAppRegistration": {
-      "type": "bool",
-      "defaultValue": true,
-      "metadata": {
-        "description": "Set to true to create a new Entra ID app registration, or false to use an existing one"
-      }
-    },
-    "existingClientId": {
+    "entraClientId": {
       "type": "string",
-      "defaultValue": "",
       "metadata": {
-        "description": "If using an existing app registration, provide its Client (Application) ID. Leave empty if creating a new one."
+        "description": "Client (Application) ID of the Entra ID app registration for OnRamp. Create this before deployment — see README for instructions."
       }
     },
-    "existingClientSecret": {
+    "entraClientSecret": {
       "type": "securestring",
-      "defaultValue": "",
       "metadata": {
-        "description": "If using an existing app registration, provide its client secret. Leave empty if creating a new one."
+        "description": "Client secret for the Entra ID app registration."
       }
     },
     "ownerGroupObjectId": {
@@ -62,6 +53,9 @@
     "keyVaultName": "[concat(parameters('appName'), '-kv-', variables('uniqueSuffix'))]",
     "identityName": "[concat(parameters('appName'), '-identity-', variables('uniqueSuffix'))]",
     "bootstrapIdentityName": "[concat(parameters('appName'), '-sqlbootstrap-', variables('uniqueSuffix'))]",
+    "vnetName": "[concat(parameters('appName'), '-vnet-', variables('uniqueSuffix'))]",
+    "aciSubnetName": "aci-subnet",
+    "peSubnetName": "pe-subnet",
     "scriptStorageName": "[concat('stds', variables('uniqueSuffix'))]",
     "appUrl": "[concat('https://', parameters('appName'), '-', variables('uniqueSuffix'), '.', parameters('location'), '.azurecontainerapps.io')]"
   },
@@ -79,140 +73,6 @@
       "location": "[parameters('location')]",
       "metadata": {
         "description": "Bootstrap identity — temporary SQL admin used during deployment to create the app managed identity as a contained database user."
-      }
-    },
-    {
-      "type": "Microsoft.Storage/storageAccounts",
-      "apiVersion": "2023-05-01",
-      "name": "[variables('scriptStorageName')]",
-      "location": "[parameters('location')]",
-      "kind": "StorageV2",
-      "sku": { "name": "Standard_LRS" },
-      "properties": {
-        "allowSharedKeyAccess": false,
-        "minimumTlsVersion": "TLS1_2",
-        "supportsHttpsTrafficOnly": true,
-        "allowBlobPublicAccess": false
-      }
-    },
-    {
-      "type": "Microsoft.Authorization/roleAssignments",
-      "apiVersion": "2022-04-01",
-      "name": "[guid(variables('scriptStorageName'), variables('identityName'), 'StorageBlobDataContributor')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts', variables('scriptStorageName'))]",
-        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
-      ],
-      "scope": "[concat('Microsoft.Storage/storageAccounts/', variables('scriptStorageName'))]",
-      "properties": {
-        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
-        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))).principalId]",
-        "principalType": "ServicePrincipal"
-      }
-    },
-    {
-      "type": "Microsoft.Authorization/roleAssignments",
-      "apiVersion": "2022-04-01",
-      "name": "[guid(variables('scriptStorageName'), variables('identityName'), 'StorageFileDataSMBShareContributor')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts', variables('scriptStorageName'))]",
-        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
-      ],
-      "scope": "[concat('Microsoft.Storage/storageAccounts/', variables('scriptStorageName'))]",
-      "properties": {
-        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0c867c2a-1d8c-454a-a3db-ab2ea1bdc8bb')]",
-        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))).principalId]",
-        "principalType": "ServicePrincipal"
-      }
-    },
-    {
-      "type": "Microsoft.Authorization/roleAssignments",
-      "apiVersion": "2022-04-01",
-      "name": "[guid(variables('scriptStorageName'), variables('bootstrapIdentityName'), 'StorageBlobDataContributor')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts', variables('scriptStorageName'))]",
-        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('bootstrapIdentityName'))]"
-      ],
-      "scope": "[concat('Microsoft.Storage/storageAccounts/', variables('scriptStorageName'))]",
-      "properties": {
-        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
-        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('bootstrapIdentityName'))).principalId]",
-        "principalType": "ServicePrincipal"
-      }
-    },
-    {
-      "type": "Microsoft.Authorization/roleAssignments",
-      "apiVersion": "2022-04-01",
-      "name": "[guid(variables('scriptStorageName'), variables('bootstrapIdentityName'), 'StorageFileDataSMBShareContributor')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts', variables('scriptStorageName'))]",
-        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('bootstrapIdentityName'))]"
-      ],
-      "scope": "[concat('Microsoft.Storage/storageAccounts/', variables('scriptStorageName'))]",
-      "properties": {
-        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0c867c2a-1d8c-454a-a3db-ab2ea1bdc8bb')]",
-        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('bootstrapIdentityName'))).principalId]",
-        "principalType": "ServicePrincipal"
-      }
-    },
-    {
-      "type": "Microsoft.Resources/deploymentScripts",
-      "apiVersion": "2023-08-01",
-      "name": "setupAppRegistration",
-      "location": "[parameters('location')]",
-      "kind": "AzureCLI",
-      "dependsOn": [
-        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]",
-        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
-        "[guid(variables('keyVaultName'), variables('identityName'), 'KVSecretsOfficer')]",
-        "[guid(variables('scriptStorageName'), variables('identityName'), 'StorageBlobDataContributor')]",
-        "[guid(variables('scriptStorageName'), variables('identityName'), 'StorageFileDataSMBShareContributor')]"
-      ],
-      "identity": {
-        "type": "UserAssigned",
-        "userAssignedIdentities": {
-          "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]": {}
-        }
-      },
-      "properties": {
-        "azCliVersion": "2.60.0",
-        "retentionInterval": "P1D",
-        "timeout": "PT10M",
-        "storageAccountSettings": {
-          "storageAccountName": "[variables('scriptStorageName')]"
-        },
-        "environmentVariables": [
-          {
-            "name": "APP_NAME",
-            "value": "[concat('OnRamp-', variables('uniqueSuffix'))]"
-          },
-          {
-            "name": "REDIRECT_URI",
-            "value": "[variables('appUrl')]"
-          },
-          {
-            "name": "CREATE_APP",
-            "value": "[string(parameters('createAppRegistration'))]"
-          },
-          {
-            "name": "EXISTING_CLIENT_ID",
-            "value": "[parameters('existingClientId')]"
-          },
-          {
-            "name": "EXISTING_CLIENT_SECRET",
-            "secureValue": "[parameters('existingClientSecret')]"
-          },
-          {
-            "name": "OWNER_GROUP_OBJECT_ID",
-            "value": "[parameters('ownerGroupObjectId')]"
-          },
-          {
-            "name": "KV_NAME",
-            "value": "[variables('keyVaultName')]"
-          }
-        ],
-        "scriptContent": "#!/bin/bash\nset -e\n\necho '=== OnRamp App Registration Setup ==='\necho \"Create New: $CREATE_APP\"\n\nSUBSCRIPTION_ID=$(az account show --query id -o tsv)\n\nif [ \"$CREATE_APP\" = \"false\" ] && [ -n \"$EXISTING_CLIENT_ID\" ]; then\n    echo \"Using existing app registration: $EXISTING_CLIENT_ID\"\n    CLIENT_ID=\"$EXISTING_CLIENT_ID\"\n    if [ -n \"$EXISTING_CLIENT_SECRET\" ]; then\n        az keyvault secret set --vault-name \"$KV_NAME\" --name entra-client-secret --value \"$EXISTING_CLIENT_SECRET\" --output none\n        echo 'Stored existing client secret in Key Vault'\n    fi\nelse\n    echo 'Creating new app registration...'\n    APP_INFO=$(az ad app create \\\n        --display-name \"$APP_NAME\" \\\n        --sign-in-audience AzureADMyOrg \\\n        --web-redirect-uris \"$REDIRECT_URI\" \"${REDIRECT_URI}/auth/callback\" \"http://localhost:5173\" \"http://localhost:5173/auth/callback\" \\\n        --enable-id-token-issuance true \\\n        --enable-access-token-issuance false \\\n        -o json)\n    CLIENT_ID=$(echo \"$APP_INFO\" | jq -r '.appId')\n    APP_OBJECT_ID=$(echo \"$APP_INFO\" | jq -r '.id')\n    SP_INFO=$(az ad sp create --id \"$CLIENT_ID\" -o json 2>/dev/null) || SP_INFO=$(az ad sp show --id \"$CLIENT_ID\" -o json 2>/dev/null) || true\n    SP_OBJECT_ID=$(echo \"$SP_INFO\" | jq -r '.id // empty')\n    if [ -n \"$SP_OBJECT_ID\" ]; then\n        az role assignment create --assignee-object-id \"$SP_OBJECT_ID\" --assignee-principal-type ServicePrincipal --role Contributor --scope \"/subscriptions/$SUBSCRIPTION_ID\" 2>/dev/null || true\n        az role assignment create --assignee-object-id \"$SP_OBJECT_ID\" --assignee-principal-type ServicePrincipal --role 'User Access Administrator' --scope \"/subscriptions/$SUBSCRIPTION_ID\" 2>/dev/null || true\n        echo 'Assigned Contributor and User Access Administrator roles'\n    fi\n    az ad app permission add --id \"$CLIENT_ID\" --api 00000003-0000-0000-c000-000000000000 --api-permissions e1fe6dd8-ba31-4d61-89e7-88639da4683d=Scope 2>/dev/null || true\n    az ad app permission add --id \"$CLIENT_ID\" --api 797f4846-ba00-4fd7-ba43-dac1f8f63013 --api-permissions 41094075-9dad-400e-a0bd-54e686782033=Scope 2>/dev/null || true\n    SECRET_INFO=$(az ad app credential reset --id \"$CLIENT_ID\" --display-name 'OnRamp Deployment' --years 2 -o json)\n    CLIENT_SECRET=$(echo \"$SECRET_INFO\" | jq -r '.password')\n    az keyvault secret set --vault-name \"$KV_NAME\" --name entra-client-secret --value \"$CLIENT_SECRET\" --output none\n    echo 'Stored client secret directly in Key Vault'\n    echo \"Created app registration: $CLIENT_ID\"\nfi\n\nTENANT_ID=$(az account show --query tenantId -o tsv)\n\necho \"{\\\"clientId\\\": \\\"$CLIENT_ID\\\", \\\"tenantId\\\": \\\"$TENANT_ID\\\"}\" > $AZ_SCRIPTS_OUTPUT_DIRECTORY/result.json",
-        "cleanupPreference": "OnSuccess"
       }
     },
     {
@@ -267,11 +127,21 @@
       "apiVersion": "2023-07-01",
       "name": "[concat(variables('keyVaultName'), '/entra-client-id')]",
       "dependsOn": [
-        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
-        "setupAppRegistration"
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
       ],
       "properties": {
-        "value": "[if(parameters('createAppRegistration'), reference('setupAppRegistration').outputs.clientId, parameters('existingClientId'))]"
+        "value": "[parameters('entraClientId')]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[concat(variables('keyVaultName'), '/entra-client-secret')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+      ],
+      "properties": {
+        "value": "[parameters('entraClientSecret')]"
       }
     },
     {
@@ -279,11 +149,10 @@
       "apiVersion": "2023-07-01",
       "name": "[concat(variables('keyVaultName'), '/entra-tenant-id')]",
       "dependsOn": [
-        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
-        "setupAppRegistration"
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
       ],
       "properties": {
-        "value": "[if(parameters('createAppRegistration'), reference('setupAppRegistration').outputs.tenantId, subscription().tenantId)]"
+        "value": "[subscription().tenantId]"
       }
     },
     {
@@ -378,6 +247,137 @@
       }
     },
     {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('vnetName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": { "addressPrefixes": ["10.0.0.0/16"] },
+        "subnets": [
+          {
+            "name": "[variables('aciSubnetName')]",
+            "properties": {
+              "addressPrefix": "10.0.0.0/24",
+              "delegations": [
+                {
+                  "name": "aci-delegation",
+                  "properties": {
+                    "serviceName": "Microsoft.ContainerInstance/containerGroups"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "[variables('peSubnetName')]",
+            "properties": {
+              "addressPrefix": "10.0.1.0/24"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('scriptStorageName')]",
+      "location": "[parameters('location')]",
+      "kind": "StorageV2",
+      "sku": { "name": "Standard_LRS" },
+      "properties": {
+        "allowSharedKeyAccess": false,
+        "minimumTlsVersion": "TLS1_2",
+        "supportsHttpsTrafficOnly": true,
+        "allowBlobPublicAccess": false,
+        "publicNetworkAccess": "Disabled",
+        "networkAcls": {
+          "defaultAction": "Deny",
+          "bypass": "None"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones",
+      "apiVersion": "2020-06-01",
+      "name": "[concat('privatelink.file.', environment().suffixes.storage)]",
+      "location": "global"
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+      "apiVersion": "2020-06-01",
+      "name": "[concat('privatelink.file.', environment().suffixes.storage, '/', variables('vnetName'), '-file-link')]",
+      "location": "global",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', concat('privatelink.file.', environment().suffixes.storage))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+      ],
+      "properties": {
+        "registrationEnabled": false,
+        "virtualNetwork": {
+          "id": "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/privateEndpoints",
+      "apiVersion": "2023-11-01",
+      "name": "[concat(variables('scriptStorageName'), '-file-pe')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('scriptStorageName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+      ],
+      "properties": {
+        "subnet": {
+          "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('peSubnetName'))]"
+        },
+        "privateLinkServiceConnections": [
+          {
+            "name": "file",
+            "properties": {
+              "privateLinkServiceId": "[resourceId('Microsoft.Storage/storageAccounts', variables('scriptStorageName'))]",
+              "groupIds": ["file"]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+      "apiVersion": "2023-11-01",
+      "name": "[concat(variables('scriptStorageName'), '-file-pe/default')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateEndpoints', concat(variables('scriptStorageName'), '-file-pe'))]",
+        "[resourceId('Microsoft.Network/privateDnsZones', concat('privatelink.file.', environment().suffixes.storage))]"
+      ],
+      "properties": {
+        "privateDnsZoneConfigs": [
+          {
+            "name": "file",
+            "properties": {
+              "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', concat('privatelink.file.', environment().suffixes.storage))]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(variables('scriptStorageName'), variables('bootstrapIdentityName'), 'StorageFileDataPrivilegedContributor')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('scriptStorageName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('bootstrapIdentityName'))]"
+      ],
+      "scope": "[concat('Microsoft.Storage/storageAccounts/', variables('scriptStorageName'))]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '69566ab7-960f-475b-8e7c-b3118f30c6bd')]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('bootstrapIdentityName'))).principalId]",
+        "principalType": "ServicePrincipal",
+        "description": "Allow bootstrap identity to use keyless storage for deployment scripts"
+      }
+    },
+    {
       "type": "Microsoft.Resources/deploymentScripts",
       "apiVersion": "2023-08-01",
       "name": "setupSqlEntraUser",
@@ -388,8 +388,9 @@
         "[resourceId('Microsoft.Sql/servers/firewallRules', variables('sqlServerName'), 'AllowAzureServices')]",
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]",
         "[guid(variables('sqlServerName'), variables('bootstrapIdentityName'), 'Contributor')]",
-        "[guid(variables('scriptStorageName'), variables('bootstrapIdentityName'), 'StorageBlobDataContributor')]",
-        "[guid(variables('scriptStorageName'), variables('bootstrapIdentityName'), 'StorageFileDataSMBShareContributor')]"
+        "[guid(variables('scriptStorageName'), variables('bootstrapIdentityName'), 'StorageFileDataPrivilegedContributor')]",
+        "[resourceId('Microsoft.Network/privateEndpoints/privateDnsZoneGroups', concat(variables('scriptStorageName'), '-file-pe'), 'default')]",
+        "[resourceId('Microsoft.Network/privateDnsZones/virtualNetworkLinks', concat('privatelink.file.', environment().suffixes.storage), concat(variables('vnetName'), '-file-link'))]"
       ],
       "identity": {
         "type": "UserAssigned",
@@ -403,6 +404,13 @@
         "timeout": "PT15M",
         "storageAccountSettings": {
           "storageAccountName": "[variables('scriptStorageName')]"
+        },
+        "containerSettings": {
+          "subnetIds": [
+            {
+              "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('aciSubnetName'))]"
+            }
+          ]
         },
         "environmentVariables": [
           {
@@ -466,11 +474,11 @@
     },
     "entraClientId": {
       "type": "string",
-      "value": "[if(parameters('createAppRegistration'), reference('setupAppRegistration').outputs.clientId, parameters('existingClientId'))]"
+      "value": "[parameters('entraClientId')]"
     },
     "entraSetupNotes": {
       "type": "string",
-      "value": "[if(parameters('createAppRegistration'), 'App registration created automatically. Grant admin consent for API permissions in Entra ID > App registrations.', 'Using existing app registration.')]"
+      "value": "App registration must be created before deployment. See README for instructions."
     }
   }
 }

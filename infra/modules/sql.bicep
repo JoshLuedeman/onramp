@@ -94,7 +94,38 @@ resource bootstrapContributor 'Microsoft.Authorization/roleAssignments@2022-04-0
   }
 }
 
-// Dedicated storage account for the deployment script — Entra-only auth (no shared keys).
+// VNet for deployment script — isolates script storage via private endpoints.
+// Only used during deployment; does not affect runtime Container Apps (which remain public).
+resource scriptVnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
+  name: 'vnet-${baseName}-script-${environment}'
+  location: location
+  tags: tags
+  properties: {
+    addressSpace: { addressPrefixes: ['10.0.0.0/16'] }
+    subnets: [
+      {
+        name: 'aci-subnet'
+        properties: {
+          addressPrefix: '10.0.0.0/24'
+          delegations: [
+            {
+              name: 'aci-delegation'
+              properties: { serviceName: 'Microsoft.ContainerInstance/containerGroups' }
+            }
+          ]
+        }
+      }
+      {
+        name: 'pe-subnet'
+        properties: {
+          addressPrefix: '10.0.1.0/24'
+        }
+      }
+    ]
+  }
+}
+
+// Keyless storage account for deployment script — no shared key access allowed.
 var scriptStorageName = 'stds${uniqueString(resourceGroup().id, baseName, environment)}'
 
 resource scriptStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
@@ -108,30 +139,73 @@ resource scriptStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true
     allowBlobPublicAccess: false
+    publicNetworkAccess: 'Disabled'
+    networkAcls: {
+      defaultAction: 'Deny'
+      bypass: 'None'
+    }
   }
 }
 
-resource scriptStorageBlobRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(scriptStorage.id, bootstrapIdentity.id, 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+// Private DNS zone for file storage
+resource fileDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
+  name: 'privatelink.file.${az.environment().suffixes.storage}'
+  location: 'global'
+  tags: tags
+}
+
+// Link DNS zone to VNet
+resource fileDnsLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
+  parent: fileDnsZone
+  name: '${scriptVnet.name}-file-link'
+  location: 'global'
+  properties: {
+    registrationEnabled: false
+    virtualNetwork: { id: scriptVnet.id }
+  }
+}
+
+// Private endpoint for file storage — placed in pe-subnet (no ACI delegation)
+resource filePe 'Microsoft.Network/privateEndpoints@2023-11-01' = {
+  name: '${scriptStorageName}-file-pe'
+  location: location
+  tags: tags
+  properties: {
+    subnet: { id: scriptVnet.properties.subnets[1].id }
+    privateLinkServiceConnections: [
+      {
+        name: 'file'
+        properties: {
+          privateLinkServiceId: scriptStorage.id
+          groupIds: ['file']
+        }
+      }
+    ]
+  }
+}
+
+resource filePeDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-11-01' = {
+  parent: filePe
+  name: 'default'
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'file'
+        properties: { privateDnsZoneId: fileDnsZone.id }
+      }
+    ]
+  }
+}
+
+// Storage File Data Privileged Contributor for bootstrap MI — enables keyless deployment script storage
+resource scriptStoragePrivContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(scriptStorage.id, bootstrapIdentity.id, '69566ab7-960f-475b-8e7c-b3118f30c6bd')
   scope: scriptStorage
   properties: {
     principalId: bootstrapIdentity.properties.principalId
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
-      'ba92f5b4-2d11-453d-a403-e96b0029c9fe' // Storage Blob Data Contributor
-    )
-    principalType: 'ServicePrincipal'
-  }
-}
-
-resource scriptStorageFileRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(scriptStorage.id, bootstrapIdentity.id, '0c867c2a-1d8c-454a-a3db-ab2ea1bdc8bb')
-  scope: scriptStorage
-  properties: {
-    principalId: bootstrapIdentity.properties.principalId
-    roleDefinitionId: subscriptionResourceId(
-      'Microsoft.Authorization/roleDefinitions',
-      '0c867c2a-1d8c-454a-a3db-ab2ea1bdc8bb' // Storage File Data SMB Share Contributor
+      '69566ab7-960f-475b-8e7c-b3118f30c6bd' // Storage File Data Privileged Contributor
     )
     principalType: 'ServicePrincipal'
   }
@@ -140,6 +214,7 @@ resource scriptStorageFileRole 'Microsoft.Authorization/roleAssignments@2022-04-
 // Deployment script: create contained database user for the app identity, then
 // hand SQL admin over to the Entra group. Uses SID-based user creation to avoid
 // needing Directory Readers on the SQL server.
+// Runs in a VNet-isolated container with keyless storage — no shared key access.
 resource setupEntraDbUser 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   name: 'setup-sql-entra-users-${environment}'
   location: location
@@ -151,13 +226,25 @@ resource setupEntraDbUser 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       '${bootstrapIdentity.id}': {}
     }
   }
-  dependsOn: [sqlDatabase, firewallAllowAzure, bootstrapContributor, scriptStorageBlobRole, scriptStorageFileRole]
+  dependsOn: [
+    sqlDatabase
+    firewallAllowAzure
+    bootstrapContributor
+    scriptStoragePrivContributor
+    filePeDnsGroup
+    fileDnsLink
+  ]
   properties: {
     azCliVersion: '2.60.0'
     retentionInterval: 'P1D'
     timeout: 'PT15M'
     storageAccountSettings: {
       storageAccountName: scriptStorage.name
+    }
+    containerSettings: {
+      subnetIds: [
+        { id: scriptVnet.properties.subnets[0].id }
+      ]
     }
     environmentVariables: [
       { name: 'SQL_SERVER_FQDN', value: sqlServer.properties.fullyQualifiedDomainName }
