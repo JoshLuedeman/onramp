@@ -19,16 +19,25 @@
         "description": "Azure region for resources"
       }
     },
-    "entraClientId": {
-      "type": "string",
+    "createAppRegistration": {
+      "type": "bool",
+      "defaultValue": true,
       "metadata": {
-        "description": "Client (Application) ID of the Entra ID app registration for OnRamp. Create this before deployment — see README for instructions."
+        "description": "Set to true to create a new Entra ID app registration automatically, or false to use an existing one. Auto-create requires the bootstrap managed identity to have Microsoft Graph Application.ReadWrite.All permission."
       }
     },
-    "entraClientSecret": {
-      "type": "securestring",
+    "existingClientId": {
+      "type": "string",
+      "defaultValue": "",
       "metadata": {
-        "description": "Client secret for the Entra ID app registration."
+        "description": "If using an existing app registration (createAppRegistration=false), provide its Client (Application) ID. Must not be empty when createAppRegistration is false."
+      }
+    },
+    "existingClientSecret": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "If using an existing app registration (createAppRegistration=false), provide its client secret. Must not be empty when createAppRegistration is false."
       }
     },
     "ownerGroupObjectId": {
@@ -57,6 +66,7 @@
     "aciSubnetName": "aci-subnet",
     "peSubnetName": "pe-subnet",
     "scriptStorageName": "[concat('stds', variables('uniqueSuffix'))]",
+    "appRegScriptContent": "#!/bin/bash\n# OnRamp App Registration Setup Script\n# Runs as a deploymentScript in ARM to create or validate an Entra ID app registration.\n# Uses the bootstrap managed identity (requires Microsoft Graph Application.ReadWrite.All).\n\nset -euo pipefail\n\nAPP_NAME=\"${APP_NAME:-OnRamp}\"\nREDIRECT_URI=\"${REDIRECT_URI:-https://onramp.azurewebsites.net}\"\nCREATE_APP=\"${CREATE_APP:-true}\"\nEXISTING_CLIENT_ID=\"${EXISTING_CLIENT_ID:-}\"\nEXISTING_CLIENT_SECRET=\"${EXISTING_CLIENT_SECRET:-}\"\nOWNER_GROUP_OBJECT_ID=\"${OWNER_GROUP_OBJECT_ID:-}\"\nKV_NAME=\"${KV_NAME:-}\"\n\necho \"=== OnRamp App Registration Setup ===\"\necho \"App Name: $APP_NAME\"\necho \"Redirect URI: $REDIRECT_URI\"\necho \"Create New: $CREATE_APP\"\necho \"Owner Group: ${OWNER_GROUP_OBJECT_ID:-<not set>}\"\n\nif [ \"$CREATE_APP\" = \"false\" ] && [ -n \"$EXISTING_CLIENT_ID\" ]; then\n    echo \"Using existing app registration: $EXISTING_CLIENT_ID\"\n\n    # Validate it exists\n    APP_INFO=$(az ad app show --id \"$EXISTING_CLIENT_ID\" -o json 2>/dev/null) || {\n        echo \"ERROR: App registration $EXISTING_CLIENT_ID not found\"\n        exit 1\n    }\n\n    CLIENT_ID=\"$EXISTING_CLIENT_ID\"\n    APP_OBJECT_ID=$(echo \"$APP_INFO\" | jq -r '.id')\n    echo \"Validated existing app: $(echo \"$APP_INFO\" | jq -r '.displayName')\"\n\n    # Store existing client secret in Key Vault if provided\n    if [ -n \"$KV_NAME\" ] && [ -n \"$EXISTING_CLIENT_SECRET\" ]; then\n        az keyvault secret set --vault-name \"$KV_NAME\" --name entra-client-secret \\\n            --value \"$EXISTING_CLIENT_SECRET\" --output none\n        echo \"Stored existing client secret in Key Vault\"\n    fi\nelse\n    echo \"Creating new app registration...\"\n\n    # Verify we have Graph permissions before proceeding\n    az ad app list --top 1 -o none 2>/dev/null || {\n        echo \"ERROR: Bootstrap identity lacks Microsoft Graph permissions.\"\n        echo \"Grant Application.ReadWrite.All to the bootstrap managed identity,\"\n        echo \"or set createAppRegistration=false and provide an existing app registration.\"\n        exit 1\n    }\n\n    # Create the app registration\n    APP_INFO=$(az ad app create \\\n        --display-name \"$APP_NAME\" \\\n        --sign-in-audience \"AzureADMyOrg\" \\\n        --web-redirect-uris \"$REDIRECT_URI\" \"${REDIRECT_URI}/auth/callback\" \"http://localhost:5173\" \"http://localhost:5173/auth/callback\" \\\n        --enable-id-token-issuance true \\\n        --enable-access-token-issuance false \\\n        -o json)\n\n    CLIENT_ID=$(echo \"$APP_INFO\" | jq -r '.appId')\n    APP_OBJECT_ID=$(echo \"$APP_INFO\" | jq -r '.id')\n\n    echo \"Created app registration:\"\n    echo \"  Display Name: $APP_NAME\"\n    echo \"  Client ID: $CLIENT_ID\"\n    echo \"  Object ID: $APP_OBJECT_ID\"\n\n    # Configure the exposed API with identifier URI and access_as_user scope\n    echo \"Configuring exposed API scope...\"\n    az rest --method PATCH --url \"https://graph.microsoft.com/v1.0/applications/$APP_OBJECT_ID\" \\\n        --headers \"Content-Type=application/json\" \\\n        --body \"{\n            \\\"identifierUris\\\": [\\\"api://$CLIENT_ID\\\"],\n            \\\"api\\\": {\n                \\\"oauth2PermissionScopes\\\": [{\n                    \\\"id\\\": \\\"$(cat /proc/sys/kernel/random/uuid)\\\",\n                    \\\"adminConsentDisplayName\\\": \\\"Access OnRamp as user\\\",\n                    \\\"adminConsentDescription\\\": \\\"Allow the application to access OnRamp on behalf of the signed-in user.\\\",\n                    \\\"userConsentDisplayName\\\": \\\"Access OnRamp as user\\\",\n                    \\\"userConsentDescription\\\": \\\"Allow the application to access OnRamp on your behalf.\\\",\n                    \\\"isEnabled\\\": true,\n                    \\\"type\\\": \\\"User\\\",\n                    \\\"value\\\": \\\"access_as_user\\\"\n                }]\n            }\n        }\" --output none 2>/dev/null || echo \"Exposed API scope may already exist\"\n    echo \"  Configured api://$CLIENT_ID/access_as_user scope\"\n\n    # Create a service principal for the app\n    SP_INFO=$(az ad sp create --id \"$CLIENT_ID\" -o json 2>/dev/null) || {\n        echo \"Service principal may already exist, continuing...\"\n        SP_INFO=$(az ad sp show --id \"$CLIENT_ID\" -o json 2>/dev/null) || true\n    }\n    SP_OBJECT_ID=$(echo \"$SP_INFO\" | jq -r '.id // empty')\n\n    # Assign roles at subscription scope\n    SUBSCRIPTION_ID=$(az account show --query id -o tsv)\n    if [ -n \"$SP_OBJECT_ID\" ]; then\n        echo \"Assigning Contributor role to service principal...\"\n        az role assignment create \\\n            --assignee-object-id \"$SP_OBJECT_ID\" \\\n            --assignee-principal-type ServicePrincipal \\\n            --role \"Contributor\" \\\n            --scope \"/subscriptions/$SUBSCRIPTION_ID\" \\\n            2>/dev/null || echo \"Role assignment may already exist\"\n\n        echo \"Assigning User Access Administrator role...\"\n        az role assignment create \\\n            --assignee-object-id \"$SP_OBJECT_ID\" \\\n            --assignee-principal-type ServicePrincipal \\\n            --role \"User Access Administrator\" \\\n            --scope \"/subscriptions/$SUBSCRIPTION_ID\" \\\n            2>/dev/null || echo \"Role assignment may already exist\"\n\n        echo \"  Assigned Contributor and User Access Administrator roles\"\n    else\n        echo \"  Could not determine SP object ID \u00e2\u20ac\u201d assign roles manually\"\n    fi\n\n    # Add required API permissions\n    echo \"Adding Microsoft Graph User.Read permission...\"\n    az ad app permission add \\\n        --id \"$CLIENT_ID\" \\\n        --api 00000003-0000-0000-c000-000000000000 \\\n        --api-permissions e1fe6dd8-ba31-4d61-89e7-88639da4683d=Scope \\\n        2>/dev/null || echo \"Permission may already exist\"\n\n    echo \"Adding Azure Management user_impersonation permission...\"\n    az ad app permission add \\\n        --id \"$CLIENT_ID\" \\\n        --api 797f4846-ba00-4fd7-ba43-dac1f8f63013 \\\n        --api-permissions 41094075-9dad-400e-a0bd-54e686782033=Scope \\\n        2>/dev/null || echo \"Permission may already exist\"\n\n    # Create a client secret\n    echo \"Creating client secret...\"\n    SECRET_INFO=$(az ad app credential reset \\\n        --id \"$CLIENT_ID\" \\\n        --display-name \"OnRamp Deployment\" \\\n        --years 2 \\\n        -o json)\n\n    CLIENT_SECRET=$(echo \"$SECRET_INFO\" | jq -r '.password')\n\n    # Store client secret in Key Vault\n    if [ -n \"$KV_NAME\" ]; then\n        az keyvault secret set --vault-name \"$KV_NAME\" --name entra-client-secret \\\n            --value \"$CLIENT_SECRET\" --output none\n        echo \"Stored client secret in Key Vault\"\n    fi\n\n    echo \"\"\n    echo \"  App Registration Created: $CLIENT_ID\"\n    echo \"  Exposed API: api://$CLIENT_ID/access_as_user\"\n    echo \"  Grant admin consent in Entra ID > App registrations for:\"\n    echo \"    - Microsoft Graph: User.Read\"\n    echo \"    - Azure Service Management: user_impersonation\"\n    echo \"\"\nfi\n\n# Get tenant ID\nTENANT_ID=$(az account show --query tenantId -o tsv)\n\n# Store client ID and tenant ID in Key Vault\nif [ -n \"$KV_NAME\" ]; then\n    az keyvault secret set --vault-name \"$KV_NAME\" --name entra-client-id \\\n        --value \"$CLIENT_ID\" --output none\n    az keyvault secret set --vault-name \"$KV_NAME\" --name entra-tenant-id \\\n        --value \"$TENANT_ID\" --output none\n    echo \"Stored client ID and tenant ID in Key Vault\"\nfi\n\n# Output results as JSON for ARM template to consume\ncat <<EOF > $AZ_SCRIPTS_OUTPUT_DIRECTORY/result.json\n{\n    \"clientId\": \"$CLIENT_ID\",\n    \"tenantId\": \"$TENANT_ID\",\n    \"appObjectId\": \"${APP_OBJECT_ID:-}\"\n}\nEOF\n\necho \"=== App Registration Setup Complete ===\"\n",
     "appUrl": "[concat('https://', parameters('appName'), '-', variables('uniqueSuffix'), '.', parameters('location'), '.azurecontainerapps.io')]"
   },
   "resources": [
@@ -119,34 +129,53 @@
         "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]",
         "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))).principalId]",
         "principalType": "ServicePrincipal",
-        "description": "Allow deployment script identity to write secrets to Key Vault"
+        "description": "Allow app identity to read/write secrets in Key Vault"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(variables('keyVaultName'), variables('bootstrapIdentityName'), 'KVSecretsOfficer')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('bootstrapIdentityName'))]"
+      ],
+      "scope": "[concat('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('bootstrapIdentityName'))).principalId]",
+        "principalType": "ServicePrincipal",
+        "description": "Allow bootstrap identity to write secrets to Key Vault during deployment"
       }
     },
     {
       "type": "Microsoft.KeyVault/vaults/secrets",
       "apiVersion": "2023-07-01",
+      "condition": "[not(parameters('createAppRegistration'))]",
       "name": "[concat(variables('keyVaultName'), '/entra-client-id')]",
       "dependsOn": [
         "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
       ],
       "properties": {
-        "value": "[parameters('entraClientId')]"
+        "value": "[parameters('existingClientId')]"
       }
     },
     {
       "type": "Microsoft.KeyVault/vaults/secrets",
       "apiVersion": "2023-07-01",
+      "condition": "[not(parameters('createAppRegistration'))]",
       "name": "[concat(variables('keyVaultName'), '/entra-client-secret')]",
       "dependsOn": [
         "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
       ],
       "properties": {
-        "value": "[parameters('entraClientSecret')]"
+        "value": "[parameters('existingClientSecret')]"
       }
     },
     {
       "type": "Microsoft.KeyVault/vaults/secrets",
       "apiVersion": "2023-07-01",
+      "condition": "[not(parameters('createAppRegistration'))]",
       "name": "[concat(variables('keyVaultName'), '/entra-tenant-id')]",
       "dependsOn": [
         "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
@@ -380,6 +409,63 @@
     {
       "type": "Microsoft.Resources/deploymentScripts",
       "apiVersion": "2023-08-01",
+      "name": "setupAppRegistration",
+      "location": "[parameters('location')]",
+      "kind": "AzureCLI",
+      "condition": "[parameters('createAppRegistration')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('bootstrapIdentityName'))]",
+        "[guid(variables('keyVaultName'), variables('bootstrapIdentityName'), 'KVSecretsOfficer')]",
+        "[guid(variables('scriptStorageName'), variables('bootstrapIdentityName'), 'StorageFileDataPrivilegedContributor')]",
+        "[resourceId('Microsoft.Network/privateEndpoints/privateDnsZoneGroups', concat(variables('scriptStorageName'), '-file-pe'), 'default')]",
+        "[resourceId('Microsoft.Network/privateDnsZones/virtualNetworkLinks', concat('privatelink.file.', environment().suffixes.storage), concat(variables('vnetName'), '-file-link'))]"
+      ],
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('bootstrapIdentityName'))]": {}
+        }
+      },
+      "properties": {
+        "azCliVersion": "2.60.0",
+        "retentionInterval": "P1D",
+        "timeout": "PT10M",
+        "storageAccountSettings": {
+          "storageAccountName": "[variables('scriptStorageName')]"
+        },
+        "containerSettings": {
+          "subnetIds": [
+            {
+              "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('aciSubnetName'))]"
+            }
+          ]
+        },
+        "environmentVariables": [
+          {
+            "name": "APP_NAME",
+            "value": "[concat('OnRamp-', variables('uniqueSuffix'))]"
+          },
+          { "name": "REDIRECT_URI", "value": "[variables('appUrl')]" },
+          {
+            "name": "CREATE_APP",
+            "value": "[string(parameters('createAppRegistration'))]"
+          },
+          { "name": "EXISTING_CLIENT_ID", "value": "[parameters('existingClientId')]" },
+          {
+            "name": "EXISTING_CLIENT_SECRET",
+            "secureValue": "[parameters('existingClientSecret')]"
+          },
+          { "name": "OWNER_GROUP_OBJECT_ID", "value": "[parameters('ownerGroupObjectId')]" },
+          { "name": "KV_NAME", "value": "[variables('keyVaultName')]" }
+        ],
+        "scriptContent": "[variables('appRegScriptContent')]",
+        "cleanupPreference": "OnSuccess"
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deploymentScripts",
+      "apiVersion": "2023-08-01",
       "name": "setupSqlEntraUser",
       "location": "[parameters('location')]",
       "kind": "AzureCLI",
@@ -474,11 +560,11 @@
     },
     "entraClientId": {
       "type": "string",
-      "value": "[parameters('entraClientId')]"
+      "value": "[if(parameters('createAppRegistration'), reference('setupAppRegistration').outputs.clientId, parameters('existingClientId'))]"
     },
     "entraSetupNotes": {
       "type": "string",
-      "value": "App registration must be created before deployment. See README for instructions."
+      "value": "[if(parameters('createAppRegistration'), 'App registration created automatically. Grant admin consent for API permissions in Entra ID > App registrations.', 'Using existing app registration.')]"
     }
   }
 }
