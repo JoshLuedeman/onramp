@@ -95,7 +95,7 @@ resource bootstrapContributor 'Microsoft.Authorization/roleAssignments@2022-04-0
 }
 
 // Dedicated storage account for the deployment script — Entra-only auth (no shared keys).
-var scriptStorageName = 'stds${uniqueString(resourceGroup().id, baseName)}'
+var scriptStorageName = 'stds${uniqueString(resourceGroup().id, baseName, environment)}'
 
 resource scriptStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: scriptStorageName

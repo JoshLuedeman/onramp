@@ -45,6 +45,34 @@ def test_validate_environment_with_ai_foundry_mi():
         assert result["mode"] == "development"
 
 
+def test_validate_environment_ai_key_without_endpoint_is_mock():
+    """AI key without endpoint should report mock, not ai_foundry_key."""
+    with patch("app.startup.settings") as mock_settings:
+        mock_settings.azure_tenant_id = ""
+        mock_settings.azure_client_id = ""
+        mock_settings.ai_foundry_endpoint = ""
+        mock_settings.ai_foundry_key = "orphaned-key"
+        mock_settings.managed_identity_client_id = ""
+        mock_settings.database_url = ""
+        mock_settings.cors_origins = ["http://localhost:5173"]
+        result = validate_environment()
+        assert result["ai"] == "mock"
+
+
+def test_validate_environment_ai_mi_without_endpoint_is_mock():
+    """MI client ID without endpoint should report mock, not ai_foundry_mi."""
+    with patch("app.startup.settings") as mock_settings:
+        mock_settings.azure_tenant_id = ""
+        mock_settings.azure_client_id = ""
+        mock_settings.ai_foundry_endpoint = ""
+        mock_settings.ai_foundry_key = ""
+        mock_settings.managed_identity_client_id = "orphaned-mi"
+        mock_settings.database_url = ""
+        mock_settings.cors_origins = ["http://localhost:5173"]
+        result = validate_environment()
+        assert result["ai"] == "mock"
+
+
 def test_validate_environment_with_database():
     """When database URL is configured, database status is configured."""
     with patch("app.startup.settings") as mock_settings:

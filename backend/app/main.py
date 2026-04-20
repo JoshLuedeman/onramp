@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -81,6 +82,8 @@ from app.security import (
 )
 from app.startup import get_startup_status, log_plugin_status, validate_environment
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app):
@@ -112,7 +115,9 @@ async def lifespan(app):
 
         await ai_client.close()
     except Exception:
-        pass
+        logger.warning(
+            "Failed to close AI client during shutdown", exc_info=True
+        )
 
     await close_db()
 

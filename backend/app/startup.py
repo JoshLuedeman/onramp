@@ -100,8 +100,10 @@ def validate_environment() -> dict:
         "errors": errors,
         "auth": "entra_id" if settings.azure_tenant_id else "mock",
         "ai": (
-            "ai_foundry_key" if settings.ai_foundry_key
-            else "ai_foundry_mi" if (settings.ai_foundry_endpoint and settings.managed_identity_client_id)
+            "ai_foundry_key"
+            if (settings.ai_foundry_endpoint and settings.ai_foundry_key)
+            else "ai_foundry_mi"
+            if (settings.ai_foundry_endpoint and settings.managed_identity_client_id)
             else "mock"
         ),
         "database": "configured" if settings.database_url else "none",

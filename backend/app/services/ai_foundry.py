@@ -13,24 +13,33 @@ _COGNITIVE_SCOPE = "https://cognitiveservices.azure.com/.default"
 
 
 def _get_sync_token_provider():
-    """Create a sync token provider using ManagedIdentityCredential."""
+    """Create a sync token provider using ManagedIdentityCredential.
+
+    Returns:
+        Tuple of (provider_callable, credential) or (None, None) on failure.
+    """
     try:
         from azure.identity import ManagedIdentityCredential, get_bearer_token_provider
 
         credential = ManagedIdentityCredential(
             client_id=settings.managed_identity_client_id
         )
-        return get_bearer_token_provider(credential, _COGNITIVE_SCOPE)
+        provider = get_bearer_token_provider(credential, _COGNITIVE_SCOPE)
+        return provider, credential
     except ImportError:
         logger.warning("azure-identity not installed — cannot use MI token auth")
-        return None
+        return None, None
     except Exception as e:
         logger.warning("Failed to create sync token provider: %s", e)
-        return None
+        return None, None
 
 
 def _get_async_token_provider():
-    """Create an async token provider using async ManagedIdentityCredential."""
+    """Create an async token provider using async ManagedIdentityCredential.
+
+    Returns:
+        Tuple of (provider_callable, credential) or (None, None) on failure.
+    """
     try:
         from azure.identity.aio import ManagedIdentityCredential as AsyncMICredential
 
@@ -42,15 +51,13 @@ def _get_async_token_provider():
             token = await credential.get_token(_COGNITIVE_SCOPE)
             return token.token
 
-        # Attach credential for cleanup
-        provider._credential = credential  # type: ignore[attr-defined]
-        return provider
+        return provider, credential
     except ImportError:
         logger.warning("azure-identity not installed — cannot use async MI token auth")
-        return None
+        return None, None
     except Exception as e:
         logger.warning("Failed to create async token provider: %s", e)
-        return None
+        return None, None
 
 
 class AIFoundryClient:
@@ -59,7 +66,8 @@ class AIFoundryClient:
     def __init__(self):
         self._client = None
         self._async_client = None
-        self._async_token_provider = None
+        self._sync_credential = None
+        self._async_credential = None
 
     @property
     def _use_mi_auth(self) -> bool:
@@ -88,10 +96,11 @@ class AIFoundryClient:
                     "api_version": "2024-06-01",
                 }
                 if self._use_mi_auth:
-                    token_provider = _get_sync_token_provider()
+                    token_provider, credential = _get_sync_token_provider()
                     if token_provider is None:
                         return None
                     kwargs["azure_ad_token_provider"] = token_provider
+                    self._sync_credential = credential
                 else:
                     kwargs["api_key"] = settings.ai_foundry_key
 
@@ -113,10 +122,10 @@ class AIFoundryClient:
                     "api_version": "2024-06-01",
                 }
                 if self._use_mi_auth:
-                    provider = _get_async_token_provider()
+                    provider, credential = _get_async_token_provider()
                     if provider is None:
                         return None
-                    self._async_token_provider = provider
+                    self._async_credential = credential
                     kwargs["azure_ad_token_provider"] = provider
                 else:
                     kwargs["api_key"] = settings.ai_foundry_key
@@ -129,13 +138,25 @@ class AIFoundryClient:
         return self._async_client
 
     async def close(self):
-        """Clean up async credentials on shutdown."""
-        if self._async_token_provider and hasattr(self._async_token_provider, '_credential'):
+        """Clean up credentials on shutdown."""
+        if self._async_credential is not None:
             try:
-                await self._async_token_provider._credential.close()
+                await self._async_credential.close()
             except Exception:
-                pass
-        self._async_token_provider = None
+                logger.warning(
+                    "Failed to close async AI credential during shutdown",
+                    exc_info=True,
+                )
+        if self._sync_credential is not None:
+            try:
+                self._sync_credential.close()
+            except Exception:
+                logger.warning(
+                    "Failed to close sync AI credential during shutdown",
+                    exc_info=True,
+                )
+        self._sync_credential = None
+        self._async_credential = None
         self._async_client = None
         self._client = None
 

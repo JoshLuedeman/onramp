@@ -1,6 +1,7 @@
 """Tests for the AI Foundry client."""
 
 import pytest
+
 from app.services.ai_foundry import AIFoundryClient
 
 
@@ -105,4 +106,5 @@ async def test_close_cleans_up():
     await c.close()
     assert c._client is None
     assert c._async_client is None
-    assert c._async_token_provider is None
+    assert c._sync_credential is None
+    assert c._async_credential is None
