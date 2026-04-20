@@ -16,10 +16,6 @@ param sqlAdminGroupName string
 @description('Object ID of the Entra ID group to set as SQL admin')
 param sqlAdminGroupObjectId string
 
-@description('Azure AI Foundry API key')
-@secure()
-param aiFoundryKey string = ''
-
 @description('Azure AD client secret')
 @secure()
 param clientSecret string = ''
@@ -93,7 +89,6 @@ module keyVault 'modules/keyvault.bicep' = {
     location: location
     baseName: baseName
     environment: environment
-    aiFoundryKey: aiFoundryKey
     clientSecret: clientSecret
     tags: tags
   }
@@ -108,6 +103,7 @@ module aiFoundry 'modules/ai-foundry.bicep' = {
     baseName: baseName
     environment: environment
     tags: tags
+    managedIdentityPrincipalId: appIdentity.outputs.identityPrincipalId
   }
 }
 
@@ -124,7 +120,6 @@ module containerApps 'modules/container-apps.bicep' = {
     aiFoundryEndpoint: aiFoundry.outputs.endpoint
     azureTenantId: azureTenantId
     azureClientId: azureClientId
-    hasAiFoundryKey: !empty(aiFoundryKey)
     hasClientSecret: !empty(clientSecret)
     managedIdentityId: appIdentity.outputs.identityResourceId
     managedIdentityPrincipalId: appIdentity.outputs.identityPrincipalId

@@ -94,6 +94,49 @@ resource bootstrapContributor 'Microsoft.Authorization/roleAssignments@2022-04-0
   }
 }
 
+// Dedicated storage account for the deployment script — Entra-only auth (no shared keys).
+var scriptStorageName = 'stds${uniqueString(resourceGroup().id, baseName, environment)}'
+
+resource scriptStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: scriptStorageName
+  location: location
+  tags: tags
+  kind: 'StorageV2'
+  sku: { name: 'Standard_LRS' }
+  properties: {
+    allowSharedKeyAccess: false
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+    allowBlobPublicAccess: false
+  }
+}
+
+resource scriptStorageBlobRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(scriptStorage.id, bootstrapIdentity.id, 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+  scope: scriptStorage
+  properties: {
+    principalId: bootstrapIdentity.properties.principalId
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      'ba92f5b4-2d11-453d-a403-e96b0029c9fe' // Storage Blob Data Contributor
+    )
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource scriptStorageFileRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(scriptStorage.id, bootstrapIdentity.id, '0c867c2a-1d8c-454a-a3db-ab2ea1bdc8bb')
+  scope: scriptStorage
+  properties: {
+    principalId: bootstrapIdentity.properties.principalId
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      '0c867c2a-1d8c-454a-a3db-ab2ea1bdc8bb' // Storage File Data SMB Share Contributor
+    )
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // Deployment script: create contained database user for the app identity, then
 // hand SQL admin over to the Entra group. Uses SID-based user creation to avoid
 // needing Directory Readers on the SQL server.
@@ -108,11 +151,14 @@ resource setupEntraDbUser 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       '${bootstrapIdentity.id}': {}
     }
   }
-  dependsOn: [sqlDatabase, firewallAllowAzure, bootstrapContributor]
+  dependsOn: [sqlDatabase, firewallAllowAzure, bootstrapContributor, scriptStorageBlobRole, scriptStorageFileRole]
   properties: {
     azCliVersion: '2.60.0'
     retentionInterval: 'P1D'
     timeout: 'PT15M'
+    storageAccountSettings: {
+      storageAccountName: scriptStorage.name
+    }
     environmentVariables: [
       { name: 'SQL_SERVER_FQDN', value: sqlServer.properties.fullyQualifiedDomainName }
       { name: 'DATABASE_NAME', value: dbName }

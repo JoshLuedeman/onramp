@@ -8,6 +8,57 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Scope required for Azure Cognitive Services / OpenAI tokens
+_COGNITIVE_SCOPE = "https://cognitiveservices.azure.com/.default"
+
+
+def _get_sync_token_provider():
+    """Create a sync token provider using ManagedIdentityCredential.
+
+    Returns:
+        Tuple of (provider_callable, credential) or (None, None) on failure.
+    """
+    try:
+        from azure.identity import ManagedIdentityCredential, get_bearer_token_provider
+
+        credential = ManagedIdentityCredential(
+            client_id=settings.managed_identity_client_id
+        )
+        provider = get_bearer_token_provider(credential, _COGNITIVE_SCOPE)
+        return provider, credential
+    except ImportError:
+        logger.warning("azure-identity not installed — cannot use MI token auth")
+        return None, None
+    except Exception as e:
+        logger.warning("Failed to create sync token provider: %s", e)
+        return None, None
+
+
+def _get_async_token_provider():
+    """Create an async token provider using async ManagedIdentityCredential.
+
+    Returns:
+        Tuple of (provider_callable, credential) or (None, None) on failure.
+    """
+    try:
+        from azure.identity.aio import ManagedIdentityCredential as AsyncMICredential
+
+        credential = AsyncMICredential(
+            client_id=settings.managed_identity_client_id
+        )
+
+        async def provider() -> str:
+            token = await credential.get_token(_COGNITIVE_SCOPE)
+            return token.token
+
+        return provider, credential
+    except ImportError:
+        logger.warning("azure-identity not installed — cannot use async MI token auth")
+        return None, None
+    except Exception as e:
+        logger.warning("Failed to create async token provider: %s", e)
+        return None, None
+
 
 class AIFoundryClient:
     """Client for Azure AI Foundry model interactions."""
@@ -15,25 +66,49 @@ class AIFoundryClient:
     def __init__(self):
         self._client = None
         self._async_client = None
+        self._sync_credential = None
+        self._async_credential = None
+
+    @property
+    def _use_mi_auth(self) -> bool:
+        """Whether MI token auth should be used (endpoint set, no key, MI configured)."""
+        return bool(
+            settings.ai_foundry_endpoint
+            and not settings.ai_foundry_key
+            and settings.managed_identity_client_id
+        )
 
     @property
     def is_configured(self) -> bool:
-        return bool(settings.ai_foundry_endpoint and settings.ai_foundry_key)
+        """Check if AI client can be created (key-based OR MI-based)."""
+        if settings.ai_foundry_endpoint and settings.ai_foundry_key:
+            return True
+        return self._use_mi_auth
 
     def _get_client(self):
         """Get synchronous OpenAI-compatible client."""
         if self._client is None and self.is_configured:
             try:
                 from openai import AzureOpenAI
-                self._client = AzureOpenAI(
-                    azure_endpoint=settings.ai_foundry_endpoint,
-                    api_key=settings.ai_foundry_key,
-                    api_version="2024-06-01",
-                )
+
+                kwargs = {
+                    "azure_endpoint": settings.ai_foundry_endpoint,
+                    "api_version": "2024-06-01",
+                }
+                if self._use_mi_auth:
+                    token_provider, credential = _get_sync_token_provider()
+                    if token_provider is None:
+                        return None
+                    kwargs["azure_ad_token_provider"] = token_provider
+                    self._sync_credential = credential
+                else:
+                    kwargs["api_key"] = settings.ai_foundry_key
+
+                self._client = AzureOpenAI(**kwargs)
             except ImportError:
                 logger.warning("openai package not installed — using mock mode")
             except Exception as e:
-                logger.warning(f"Failed to initialize AI client: {e}")
+                logger.warning("Failed to initialize AI client: %s", e)
         return self._client
 
     def _get_async_client(self):
@@ -41,16 +116,49 @@ class AIFoundryClient:
         if self._async_client is None and self.is_configured:
             try:
                 from openai import AsyncAzureOpenAI
-                self._async_client = AsyncAzureOpenAI(
-                    azure_endpoint=settings.ai_foundry_endpoint,
-                    api_key=settings.ai_foundry_key,
-                    api_version="2024-06-01",
-                )
+
+                kwargs = {
+                    "azure_endpoint": settings.ai_foundry_endpoint,
+                    "api_version": "2024-06-01",
+                }
+                if self._use_mi_auth:
+                    provider, credential = _get_async_token_provider()
+                    if provider is None:
+                        return None
+                    self._async_credential = credential
+                    kwargs["azure_ad_token_provider"] = provider
+                else:
+                    kwargs["api_key"] = settings.ai_foundry_key
+
+                self._async_client = AsyncAzureOpenAI(**kwargs)
             except ImportError:
                 logger.warning("openai package not installed — using mock mode")
             except Exception as e:
-                logger.warning(f"Failed to initialize async AI client: {e}")
+                logger.warning("Failed to initialize async AI client: %s", e)
         return self._async_client
+
+    async def close(self):
+        """Clean up credentials on shutdown."""
+        if self._async_credential is not None:
+            try:
+                await self._async_credential.close()
+            except Exception:
+                logger.warning(
+                    "Failed to close async AI credential during shutdown",
+                    exc_info=True,
+                )
+        if self._sync_credential is not None:
+            try:
+                self._sync_credential.close()
+            except Exception:
+                logger.warning(
+                    "Failed to close sync AI credential during shutdown",
+                    exc_info=True,
+                )
+        self._sync_credential = None
+        self._async_credential = None
+        self._async_client = None
+        self._client = None
 
     def generate_completion(
         self,
