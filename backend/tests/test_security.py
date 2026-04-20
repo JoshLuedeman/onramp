@@ -1,6 +1,5 @@
 """Tests for security headers middleware, CSP, request validation, and rate limiting."""
 
-import asyncio
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -88,7 +87,7 @@ def test_csp_production_no_ws():
 # --------------------------------------------------------------------------- #
 
 
-def test_request_validation_blocks_path_traversal():
+async def test_request_validation_blocks_path_traversal():
     """Requests with .. in path should be rejected with 400."""
     from app.security import RequestValidationMiddleware
 
@@ -98,14 +97,12 @@ def test_request_validation_blocks_path_traversal():
     request.headers = {}
     call_next = AsyncMock()
 
-    response = asyncio.get_event_loop().run_until_complete(
-        mw.dispatch(request, call_next)
-    )
+    response = await mw.dispatch(request, call_next)
     assert response.status_code == 400
     call_next.assert_not_called()
 
 
-def test_request_validation_blocks_oversized_body():
+async def test_request_validation_blocks_oversized_body():
     """Requests with Content-Length exceeding limit should get 413."""
     from app.security import RequestValidationMiddleware
 
@@ -115,14 +112,12 @@ def test_request_validation_blocks_oversized_body():
     request.headers = {"content-length": "999999999"}
     call_next = AsyncMock()
 
-    response = asyncio.get_event_loop().run_until_complete(
-        mw.dispatch(request, call_next)
-    )
+    response = await mw.dispatch(request, call_next)
     assert response.status_code == 413
     call_next.assert_not_called()
 
 
-def test_request_validation_rejects_invalid_content_length():
+async def test_request_validation_rejects_invalid_content_length():
     """Non-numeric Content-Length should be rejected with 400."""
     from app.security import RequestValidationMiddleware
 
@@ -132,14 +127,12 @@ def test_request_validation_rejects_invalid_content_length():
     request.headers = {"content-length": "not-a-number"}
     call_next = AsyncMock()
 
-    response = asyncio.get_event_loop().run_until_complete(
-        mw.dispatch(request, call_next)
-    )
+    response = await mw.dispatch(request, call_next)
     assert response.status_code == 400
     assert b"Invalid Content-Length" in response.body
 
 
-def test_request_validation_rejects_negative_content_length():
+async def test_request_validation_rejects_negative_content_length():
     """Negative Content-Length should be rejected with 400."""
     from app.security import RequestValidationMiddleware
 
@@ -149,9 +142,7 @@ def test_request_validation_rejects_negative_content_length():
     request.headers = {"content-length": "-1"}
     call_next = AsyncMock()
 
-    response = asyncio.get_event_loop().run_until_complete(
-        mw.dispatch(request, call_next)
-    )
+    response = await mw.dispatch(request, call_next)
     assert response.status_code == 400
     assert b"Invalid Content-Length" in response.body
 
@@ -211,12 +202,11 @@ def test_rate_limit_middleware_exists():
     assert RateLimitMiddleware is not None
 
 
-def test_rate_limit_returns_429_when_exceeded():
+async def test_rate_limit_returns_429_when_exceeded():
     """Rate limiter should return 429 with Retry-After when limit exceeded."""
     from app.security import RateLimitMiddleware
 
     mw = RateLimitMiddleware(app=None)
-    now = time.monotonic()
     call_next = AsyncMock(return_value=MagicMock())
 
     # Simulate production mode
@@ -235,20 +225,16 @@ def test_rate_limit_returns_429_when_exceeded():
 
         # First two requests should succeed
         for _ in range(2):
-            resp = asyncio.get_event_loop().run_until_complete(
-                mw.dispatch(request, call_next)
-            )
+            resp = await mw.dispatch(request, call_next)
         assert call_next.call_count == 2
 
         # Third request should be rate limited
-        resp = asyncio.get_event_loop().run_until_complete(
-            mw.dispatch(request, call_next)
-        )
+        resp = await mw.dispatch(request, call_next)
         assert resp.status_code == 429
         assert "Retry-After" in resp.headers
 
 
-def test_rate_limit_skips_options_preflight():
+async def test_rate_limit_skips_options_preflight():
     """OPTIONS (CORS preflight) requests should bypass rate limiting."""
     from app.security import RateLimitMiddleware
 
@@ -266,9 +252,7 @@ def test_rate_limit_skips_options_preflight():
 
         # OPTIONS should always pass through
         for _ in range(20):
-            asyncio.get_event_loop().run_until_complete(
-                mw.dispatch(request, call_next)
-            )
+            await mw.dispatch(request, call_next)
         # All 20 should have been forwarded (no 429)
         assert call_next.call_count == 20
 
@@ -308,7 +292,7 @@ def test_rate_limit_uses_x_forwarded_for():
     assert key.startswith("1.2.3.4:")
 
 
-def test_rate_limit_memory_eviction():
+async def test_rate_limit_memory_eviction():
     """Expired entries should be evicted to prevent unbounded memory growth."""
     from app.security import RateLimitMiddleware
 
@@ -331,9 +315,7 @@ def test_rate_limit_memory_eviction():
         request.headers = {}
         request.client.host = "eviction-test"
 
-        asyncio.get_event_loop().run_until_complete(
-            mw.dispatch(request, call_next)
-        )
+        await mw.dispatch(request, call_next)
     # After processing, the old entries should be gone and key should have 1 new entry
     assert len(mw._requests.get("eviction-test:default", [])) == 1
 
@@ -345,7 +327,7 @@ def test_rate_limit_memory_eviction():
 
 def test_cors_dev_mode_permissive():
     """Dev mode CORS should use wildcard methods/headers."""
-    from app.main import _cors_methods, _cors_headers
+    from app.main import _cors_headers, _cors_methods
     # In dev mode (no azure_tenant_id), CORS should be permissive
     assert _cors_methods == ["*"]
     assert _cors_headers == ["*"]

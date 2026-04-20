@@ -23,15 +23,17 @@ def test_session_get_database_url_helper():
 
 def test_session_init_db_callable():
     """init_db function exists and is callable."""
-    from app.db.session import init_db
     import inspect
+
+    from app.db.session import init_db
     assert inspect.iscoroutinefunction(init_db)
 
 
 def test_session_close_db_callable():
     """close_db function exists and is callable."""
-    from app.db.session import close_db
     import inspect
+
+    from app.db.session import close_db
     assert inspect.iscoroutinefunction(close_db)
 
 
@@ -44,13 +46,13 @@ def test_database_url_mssql_async():
         assert "aioodbc" in url
 
 
-def test_session_get_db_yields_none_without_factory():
+async def test_session_get_db_yields_none_without_factory():
     """get_db yields None when no session factory available."""
-    import asyncio
-    from app.db.session import get_db
     from unittest.mock import patch
+
+    from app.db.session import get_db
 
     with patch("app.db.session.get_session_factory", return_value=None):
         gen = get_db()
-        result = asyncio.get_event_loop().run_until_complete(gen.__anext__())
+        result = await gen.__anext__()
         assert result is None
