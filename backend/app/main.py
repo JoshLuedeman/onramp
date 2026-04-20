@@ -105,6 +105,15 @@ async def lifespan(app):
 
     # Shut down scheduler before closing DB
     await task_scheduler.shutdown()
+
+    # Close AI client credentials (async token providers)
+    try:
+        from app.services.ai_foundry import ai_client
+
+        await ai_client.close()
+    except Exception:
+        pass
+
     await close_db()
 
 

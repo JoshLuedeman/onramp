@@ -7,10 +7,6 @@ param baseName string
 @description('Environment')
 param environment string
 
-@description('AI Foundry API key to store as secret')
-@secure()
-param aiFoundryKey string = ''
-
 @description('Azure AD client secret to store as secret')
 @secure()
 param clientSecret string = ''
@@ -38,15 +34,6 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
 }
 
 // Store secrets — only created when values are provided
-resource aiKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(aiFoundryKey)) {
-  parent: keyVault
-  name: 'ai-foundry-key'
-  properties: {
-    value: aiFoundryKey
-    contentType: 'text/plain'
-  }
-}
-
 resource clientSecretSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(clientSecret)) {
   parent: keyVault
   name: 'client-secret'

@@ -62,6 +62,7 @@
     "keyVaultName": "[concat(parameters('appName'), '-kv-', variables('uniqueSuffix'))]",
     "identityName": "[concat(parameters('appName'), '-identity-', variables('uniqueSuffix'))]",
     "bootstrapIdentityName": "[concat(parameters('appName'), '-sqlbootstrap-', variables('uniqueSuffix'))]",
+    "scriptStorageName": "[concat('stds', variables('uniqueSuffix'))]",
     "appUrl": "[concat('https://', parameters('appName'), '-', variables('uniqueSuffix'), '.', parameters('location'), '.azurecontainerapps.io')]"
   },
   "resources": [
@@ -81,6 +82,80 @@
       }
     },
     {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('scriptStorageName')]",
+      "location": "[parameters('location')]",
+      "kind": "StorageV2",
+      "sku": { "name": "Standard_LRS" },
+      "properties": {
+        "allowSharedKeyAccess": false,
+        "minimumTlsVersion": "TLS1_2",
+        "supportsHttpsTrafficOnly": true,
+        "allowBlobPublicAccess": false
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(variables('scriptStorageName'), variables('identityName'), 'StorageBlobDataContributor')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('scriptStorageName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
+      ],
+      "scope": "[concat('Microsoft.Storage/storageAccounts/', variables('scriptStorageName'))]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))).principalId]",
+        "principalType": "ServicePrincipal"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(variables('scriptStorageName'), variables('identityName'), 'StorageFileDataSMBShareContributor')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('scriptStorageName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
+      ],
+      "scope": "[concat('Microsoft.Storage/storageAccounts/', variables('scriptStorageName'))]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0c867c2a-1d8c-454a-a3db-ab2ea1bdc8bb')]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))).principalId]",
+        "principalType": "ServicePrincipal"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(variables('scriptStorageName'), variables('bootstrapIdentityName'), 'StorageBlobDataContributor')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('scriptStorageName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('bootstrapIdentityName'))]"
+      ],
+      "scope": "[concat('Microsoft.Storage/storageAccounts/', variables('scriptStorageName'))]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('bootstrapIdentityName'))).principalId]",
+        "principalType": "ServicePrincipal"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(variables('scriptStorageName'), variables('bootstrapIdentityName'), 'StorageFileDataSMBShareContributor')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('scriptStorageName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('bootstrapIdentityName'))]"
+      ],
+      "scope": "[concat('Microsoft.Storage/storageAccounts/', variables('scriptStorageName'))]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0c867c2a-1d8c-454a-a3db-ab2ea1bdc8bb')]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('bootstrapIdentityName'))).principalId]",
+        "principalType": "ServicePrincipal"
+      }
+    },
+    {
       "type": "Microsoft.Resources/deploymentScripts",
       "apiVersion": "2023-08-01",
       "name": "setupAppRegistration",
@@ -89,7 +164,9 @@
       "dependsOn": [
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]",
         "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
-        "[guid(variables('keyVaultName'), variables('identityName'), 'KVSecretsOfficer')]"
+        "[guid(variables('keyVaultName'), variables('identityName'), 'KVSecretsOfficer')]",
+        "[guid(variables('scriptStorageName'), variables('identityName'), 'StorageBlobDataContributor')]",
+        "[guid(variables('scriptStorageName'), variables('identityName'), 'StorageFileDataSMBShareContributor')]"
       ],
       "identity": {
         "type": "UserAssigned",
@@ -101,6 +178,9 @@
         "azCliVersion": "2.60.0",
         "retentionInterval": "P1D",
         "timeout": "PT10M",
+        "storageAccountSettings": {
+          "storageAccountName": "[variables('scriptStorageName')]"
+        },
         "environmentVariables": [
           {
             "name": "APP_NAME",
@@ -216,12 +296,24 @@
       ],
       "properties": {
         "appLogsConfiguration": {
-          "destination": "log-analytics",
-          "logAnalyticsConfiguration": {
-            "customerId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))).customerId]",
-            "sharedKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName')), '2022-10-01').primarySharedKey]"
-          }
+          "destination": "azure-monitor"
         }
+      }
+    },
+    {
+      "type": "Microsoft.App/managedEnvironments/providers/diagnosticSettings",
+      "apiVersion": "2021-05-01-preview",
+      "name": "[concat(variables('containerAppEnvName'), '/Microsoft.Insights/logAnalytics')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.App/managedEnvironments', variables('containerAppEnvName'))]",
+        "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))]"
+      ],
+      "properties": {
+        "workspaceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))]",
+        "logs": [
+          { "category": "ContainerAppConsoleLogs", "enabled": true },
+          { "category": "ContainerAppSystemLogs", "enabled": true }
+        ]
       }
     },
     {
@@ -295,7 +387,9 @@
         "[resourceId('Microsoft.Sql/servers/databases', variables('sqlServerName'), variables('sqlDatabaseName'))]",
         "[resourceId('Microsoft.Sql/servers/firewallRules', variables('sqlServerName'), 'AllowAzureServices')]",
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]",
-        "[guid(variables('sqlServerName'), variables('bootstrapIdentityName'), 'Contributor')]"
+        "[guid(variables('sqlServerName'), variables('bootstrapIdentityName'), 'Contributor')]",
+        "[guid(variables('scriptStorageName'), variables('bootstrapIdentityName'), 'StorageBlobDataContributor')]",
+        "[guid(variables('scriptStorageName'), variables('bootstrapIdentityName'), 'StorageFileDataSMBShareContributor')]"
       ],
       "identity": {
         "type": "UserAssigned",
@@ -307,6 +401,9 @@
         "azCliVersion": "2.60.0",
         "retentionInterval": "P1D",
         "timeout": "PT15M",
+        "storageAccountSettings": {
+          "storageAccountName": "[variables('scriptStorageName')]"
+        },
         "environmentVariables": [
           {
             "name": "SQL_SERVER_FQDN",

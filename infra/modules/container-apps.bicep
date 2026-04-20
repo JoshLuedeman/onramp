@@ -25,9 +25,6 @@ param azureTenantId string = ''
 @description('Azure AD client ID')
 param azureClientId string = ''
 
-@description('Whether AI Foundry key is configured in Key Vault')
-param hasAiFoundryKey bool = false
-
 @description('Whether client secret is configured in Key Vault')
 param hasClientSecret bool = false
 
@@ -62,15 +59,6 @@ var envName = 'cae-${baseName}-${environment}'
 var isProd = environment == 'prod'
 
 // Build backend secrets array conditionally — only reference KV secrets that exist
-var aiKeySecret = hasAiFoundryKey
-  ? [
-      {
-        name: 'ai-foundry-key'
-        keyVaultUrl: '${keyVault.properties.vaultUri}secrets/ai-foundry-key'
-        identity: managedIdentityId
-      }
-    ]
-  : []
 var clientSecretKv = hasClientSecret
   ? [
       {
@@ -106,11 +94,6 @@ var clientIdEnvVars = !empty(azureClientId)
       { name: 'ONRAMP_AZURE_CLIENT_ID', value: azureClientId }
     ]
   : []
-var aiKeyEnvVars = hasAiFoundryKey
-  ? [
-      { name: 'ONRAMP_AI_FOUNDRY_KEY', secretRef: 'ai-foundry-key' }
-    ]
-  : []
 var clientSecretEnvVars = hasClientSecret
   ? [
       { name: 'ONRAMP_AZURE_CLIENT_SECRET', secretRef: 'client-secret' }
@@ -120,11 +103,10 @@ var backendEnvVars = concat(
   baseEnvVars,
   tenantEnvVars,
   clientIdEnvVars,
-  aiKeyEnvVars,
   clientSecretEnvVars
 )
 
-var allBackendSecrets = concat(aiKeySecret, clientSecretKv)
+var allBackendSecrets = clientSecretKv
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
   name: logAnalyticsName
@@ -154,12 +136,21 @@ resource containerAppsEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
   tags: tags
   properties: {
     appLogsConfiguration: {
-      destination: 'log-analytics'
-      logAnalyticsConfiguration: {
-        customerId: logAnalytics.properties.customerId
-        sharedKey: logAnalytics.listKeys().primarySharedKey
-      }
+      destination: 'azure-monitor'
     }
+  }
+}
+
+// Route container app logs to Log Analytics via diagnostic settings (Entra auth, no shared key)
+resource envDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'logAnalytics'
+  scope: containerAppsEnv
+  properties: {
+    workspaceId: logAnalytics.id
+    logs: [
+      { category: 'ContainerAppConsoleLogs', enabled: true }
+      { category: 'ContainerAppSystemLogs', enabled: true }
+    ]
   }
 }
 

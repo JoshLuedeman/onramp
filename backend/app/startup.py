@@ -27,7 +27,19 @@ def validate_environment() -> dict:
 
     # Check AI Foundry
     if settings.ai_foundry_endpoint:
-        logger.info("✅ AI Foundry configured (endpoint: %s)", settings.ai_foundry_endpoint[:30] + "...")
+        if settings.ai_foundry_key:
+            logger.info(
+                "✅ AI Foundry configured (endpoint: %s, auth: api-key)",
+                settings.ai_foundry_endpoint[:30] + "...",
+            )
+        elif settings.managed_identity_client_id:
+            logger.info(
+                "✅ AI Foundry configured (endpoint: %s, auth: managed-identity)",
+                settings.ai_foundry_endpoint[:30] + "...",
+            )
+        else:
+            warnings.append("AI Foundry endpoint set but no auth configured (need key or MI)")
+            logger.warning("⚠️  AI Foundry endpoint set but no auth — AI features will use mock data")
     else:
         warnings.append("AI Foundry not configured — using mock responses")
         logger.warning("⚠️  AI Foundry not configured — AI features will return mock data")
@@ -87,7 +99,11 @@ def validate_environment() -> dict:
         "warnings": warnings,
         "errors": errors,
         "auth": "entra_id" if settings.azure_tenant_id else "mock",
-        "ai": "ai_foundry" if settings.ai_foundry_endpoint else "mock",
+        "ai": (
+            "ai_foundry_key" if settings.ai_foundry_key
+            else "ai_foundry_mi" if (settings.ai_foundry_endpoint and settings.managed_identity_client_id)
+            else "mock"
+        ),
         "database": "configured" if settings.database_url else "none",
     }
 

@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 from copy import deepcopy
 
-from app.config import settings
 from app.schemas.architecture_compare import ArchitectureVariant, ComparisonResult
 from app.services.archetypes import get_archetype_for_answers
 
@@ -270,7 +269,9 @@ class ArchitectureComparator:
         In dev mode (AI not configured) a deterministic mock string is
         returned so the feature is fully usable without Azure credentials.
         """
-        if not settings.ai_foundry_endpoint or not settings.ai_foundry_key:
+        from app.services.ai_foundry import ai_client as _ai
+
+        if not _ai.is_configured:
             return self._mock_tradeoff_analysis(variants)
 
         # Real AI path — build prompt and call AI client

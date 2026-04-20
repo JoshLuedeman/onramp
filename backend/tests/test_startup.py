@@ -16,15 +16,32 @@ def test_validate_environment_dev_mode():
 
 
 def test_validate_environment_with_ai_foundry():
-    """When AI Foundry endpoint is configured, ai status is ai_foundry."""
+    """When AI Foundry endpoint + key is configured, ai status is ai_foundry_key."""
     with patch("app.startup.settings") as mock_settings:
         mock_settings.azure_tenant_id = ""
         mock_settings.azure_client_id = ""
         mock_settings.ai_foundry_endpoint = "https://ai.example.com/endpoint"
+        mock_settings.ai_foundry_key = "test-key"
+        mock_settings.managed_identity_client_id = ""
         mock_settings.database_url = ""
         mock_settings.cors_origins = ["http://localhost:5173"]
         result = validate_environment()
-        assert result["ai"] == "ai_foundry"
+        assert result["ai"] == "ai_foundry_key"
+        assert result["mode"] == "development"
+
+
+def test_validate_environment_with_ai_foundry_mi():
+    """When AI Foundry endpoint + MI is configured (no key), ai status is ai_foundry_mi."""
+    with patch("app.startup.settings") as mock_settings:
+        mock_settings.azure_tenant_id = ""
+        mock_settings.azure_client_id = ""
+        mock_settings.ai_foundry_endpoint = "https://ai.example.com/endpoint"
+        mock_settings.ai_foundry_key = ""
+        mock_settings.managed_identity_client_id = "mi-client-id"
+        mock_settings.database_url = ""
+        mock_settings.cors_origins = ["http://localhost:5173"]
+        result = validate_environment()
+        assert result["ai"] == "ai_foundry_mi"
         assert result["mode"] == "development"
 
 
