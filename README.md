@@ -2,6 +2,21 @@
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FJoshLuedeman%2Fonramp%2Fmain%2Finfra%2Fazuredeploy.json)
 
+### ☁️ Deploy to Azure — Prerequisites
+
+Before clicking **Deploy to Azure**, you must create an **Entra ID app registration** for the application:
+
+1. In the Azure portal, go to **Microsoft Entra ID** → **App registrations** → **New registration**
+2. Set the redirect URI to `https://<your-container-app-url>/.auth/login/aad/callback` (you can update this after deployment)
+3. Under **Certificates & secrets**, create a new client secret and note the value
+4. Note the **Application (client) ID** from the app overview page
+
+You will need the **client ID** and **client secret** as parameters when deploying the template.
+
+The deployment also requires:
+- An **Entra security group** that will serve as the SQL Server administrator
+- A **user-assigned managed identity** is created automatically by the template for bootstrap operations
+
 **OnRamp** is an AI-powered web application that guides Azure customers through designing and deploying Cloud Adoption Framework (CAF) aligned landing zones. Answer questions about your organization, get an AI-generated architecture recommendation, review it visually, and deploy it to Azure with a single click.
 
 ## ✨ Features
