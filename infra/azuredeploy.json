@@ -87,7 +87,9 @@
       "location": "[parameters('location')]",
       "kind": "AzureCLI",
       "dependsOn": [
-        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]",
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
+        "[guid(variables('keyVaultName'), variables('identityName'), 'KVSecretsOfficer')]"
       ],
       "identity": {
         "type": "UserAssigned",
@@ -117,11 +119,19 @@
             "value": "[parameters('existingClientId')]"
           },
           {
+            "name": "EXISTING_CLIENT_SECRET",
+            "secureValue": "[parameters('existingClientSecret')]"
+          },
+          {
             "name": "OWNER_GROUP_OBJECT_ID",
             "value": "[parameters('ownerGroupObjectId')]"
+          },
+          {
+            "name": "KV_NAME",
+            "value": "[variables('keyVaultName')]"
           }
         ],
-        "scriptContent": "#!/bin/bash\nset -e\n\necho '=== OnRamp App Registration Setup ==='\necho \"Create New: $CREATE_APP\"\n\nSUBSCRIPTION_ID=$(az account show --query id -o tsv)\n\nif [ \"$CREATE_APP\" = \"false\" ] && [ -n \"$EXISTING_CLIENT_ID\" ]; then\n    echo \"Using existing app registration: $EXISTING_CLIENT_ID\"\n    CLIENT_ID=\"$EXISTING_CLIENT_ID\"\nelse\n    echo 'Creating new app registration...'\n    APP_INFO=$(az ad app create \\\n        --display-name \"$APP_NAME\" \\\n        --sign-in-audience AzureADMyOrg \\\n        --web-redirect-uris \"$REDIRECT_URI\" \"${REDIRECT_URI}/auth/callback\" \"http://localhost:5173\" \"http://localhost:5173/auth/callback\" \\\n        --enable-id-token-issuance true \\\n        --enable-access-token-issuance true \\\n        -o json)\n    CLIENT_ID=$(echo \"$APP_INFO\" | jq -r '.appId')\n    APP_OBJECT_ID=$(echo \"$APP_INFO\" | jq -r '.id')\n    SP_INFO=$(az ad sp create --id \"$CLIENT_ID\" -o json 2>/dev/null) || SP_INFO=$(az ad sp show --id \"$CLIENT_ID\" -o json 2>/dev/null) || true\n    SP_OBJECT_ID=$(echo \"$SP_INFO\" | jq -r '.id // empty')\n    if [ -n \"$SP_OBJECT_ID\" ]; then\n        az role assignment create --assignee-object-id \"$SP_OBJECT_ID\" --assignee-principal-type ServicePrincipal --role Contributor --scope \"/subscriptions/$SUBSCRIPTION_ID\" 2>/dev/null || true\n        az role assignment create --assignee-object-id \"$SP_OBJECT_ID\" --assignee-principal-type ServicePrincipal --role 'User Access Administrator' --scope \"/subscriptions/$SUBSCRIPTION_ID\" 2>/dev/null || true\n        echo 'Assigned Contributor and User Access Administrator roles'\n    fi\n    az ad app permission add --id \"$CLIENT_ID\" --api 00000003-0000-0000-c000-000000000000 --api-permissions e1fe6dd8-ba31-4d61-89e7-88639da4683d=Scope 2>/dev/null || true\n    az ad app permission add --id \"$CLIENT_ID\" --api 797f4846-ba00-4fd7-ba43-dac1f8f63013 --api-permissions 41094075-9dad-400e-a0bd-54e686782033=Scope 2>/dev/null || true\n    SECRET_INFO=$(az ad app credential reset --id \"$CLIENT_ID\" --display-name 'OnRamp Deployment' --years 2 -o json)\n    CLIENT_SECRET=$(echo \"$SECRET_INFO\" | jq -r '.password')\n    echo \"Created app registration: $CLIENT_ID\"\nfi\n\nTENANT_ID=$(az account show --query tenantId -o tsv)\n\necho \"{\\\"clientId\\\": \\\"$CLIENT_ID\\\", \\\"tenantId\\\": \\\"$TENANT_ID\\\", \\\"clientSecret\\\": \\\"${CLIENT_SECRET:-}\\\"}\" > $AZ_SCRIPTS_OUTPUT_DIRECTORY/result.json",
+        "scriptContent": "#!/bin/bash\nset -e\n\necho '=== OnRamp App Registration Setup ==='\necho \"Create New: $CREATE_APP\"\n\nSUBSCRIPTION_ID=$(az account show --query id -o tsv)\n\nif [ \"$CREATE_APP\" = \"false\" ] && [ -n \"$EXISTING_CLIENT_ID\" ]; then\n    echo \"Using existing app registration: $EXISTING_CLIENT_ID\"\n    CLIENT_ID=\"$EXISTING_CLIENT_ID\"\n    if [ -n \"$EXISTING_CLIENT_SECRET\" ]; then\n        az keyvault secret set --vault-name \"$KV_NAME\" --name entra-client-secret --value \"$EXISTING_CLIENT_SECRET\" --output none\n        echo 'Stored existing client secret in Key Vault'\n    fi\nelse\n    echo 'Creating new app registration...'\n    APP_INFO=$(az ad app create \\\n        --display-name \"$APP_NAME\" \\\n        --sign-in-audience AzureADMyOrg \\\n        --web-redirect-uris \"$REDIRECT_URI\" \"${REDIRECT_URI}/auth/callback\" \"http://localhost:5173\" \"http://localhost:5173/auth/callback\" \\\n        --enable-id-token-issuance true \\\n        --enable-access-token-issuance false \\\n        -o json)\n    CLIENT_ID=$(echo \"$APP_INFO\" | jq -r '.appId')\n    APP_OBJECT_ID=$(echo \"$APP_INFO\" | jq -r '.id')\n    SP_INFO=$(az ad sp create --id \"$CLIENT_ID\" -o json 2>/dev/null) || SP_INFO=$(az ad sp show --id \"$CLIENT_ID\" -o json 2>/dev/null) || true\n    SP_OBJECT_ID=$(echo \"$SP_INFO\" | jq -r '.id // empty')\n    if [ -n \"$SP_OBJECT_ID\" ]; then\n        az role assignment create --assignee-object-id \"$SP_OBJECT_ID\" --assignee-principal-type ServicePrincipal --role Contributor --scope \"/subscriptions/$SUBSCRIPTION_ID\" 2>/dev/null || true\n        az role assignment create --assignee-object-id \"$SP_OBJECT_ID\" --assignee-principal-type ServicePrincipal --role 'User Access Administrator' --scope \"/subscriptions/$SUBSCRIPTION_ID\" 2>/dev/null || true\n        echo 'Assigned Contributor and User Access Administrator roles'\n    fi\n    az ad app permission add --id \"$CLIENT_ID\" --api 00000003-0000-0000-c000-000000000000 --api-permissions e1fe6dd8-ba31-4d61-89e7-88639da4683d=Scope 2>/dev/null || true\n    az ad app permission add --id \"$CLIENT_ID\" --api 797f4846-ba00-4fd7-ba43-dac1f8f63013 --api-permissions 41094075-9dad-400e-a0bd-54e686782033=Scope 2>/dev/null || true\n    SECRET_INFO=$(az ad app credential reset --id \"$CLIENT_ID\" --display-name 'OnRamp Deployment' --years 2 -o json)\n    CLIENT_SECRET=$(echo \"$SECRET_INFO\" | jq -r '.password')\n    az keyvault secret set --vault-name \"$KV_NAME\" --name entra-client-secret --value \"$CLIENT_SECRET\" --output none\n    echo 'Stored client secret directly in Key Vault'\n    echo \"Created app registration: $CLIENT_ID\"\nfi\n\nTENANT_ID=$(az account show --query tenantId -o tsv)\n\necho \"{\\\"clientId\\\": \\\"$CLIENT_ID\\\", \\\"tenantId\\\": \\\"$TENANT_ID\\\"}\" > $AZ_SCRIPTS_OUTPUT_DIRECTORY/result.json",
         "cleanupPreference": "OnSuccess"
       }
     },
@@ -157,6 +167,22 @@
       }
     },
     {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(variables('keyVaultName'), variables('identityName'), 'KVSecretsOfficer')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
+      ],
+      "scope": "[concat('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))).principalId]",
+        "principalType": "ServicePrincipal",
+        "description": "Allow deployment script identity to write secrets to Key Vault"
+      }
+    },
+    {
       "type": "Microsoft.KeyVault/vaults/secrets",
       "apiVersion": "2023-07-01",
       "name": "[concat(variables('keyVaultName'), '/entra-client-id')]",
@@ -166,18 +192,6 @@
       ],
       "properties": {
         "value": "[if(parameters('createAppRegistration'), reference('setupAppRegistration').outputs.clientId, parameters('existingClientId'))]"
-      }
-    },
-    {
-      "type": "Microsoft.KeyVault/vaults/secrets",
-      "apiVersion": "2023-07-01",
-      "name": "[concat(variables('keyVaultName'), '/entra-client-secret')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
-        "setupAppRegistration"
-      ],
-      "properties": {
-        "value": "[if(parameters('createAppRegistration'), reference('setupAppRegistration').outputs.clientSecret, parameters('existingClientSecret'))]"
       }
     },
     {
@@ -309,7 +323,7 @@
           { "name": "ADMIN_GROUP_NAME", "value": "[parameters('ownerGroupDisplayName')]" },
           { "name": "ADMIN_GROUP_OID", "value": "[parameters('ownerGroupObjectId')]" }
         ],
-        "scriptContent": "#!/bin/bash\nset -euo pipefail\necho '=== OnRamp SQL Entra Auth Setup ==='\necho \"Server: $SQL_SERVER_FQDN\"\necho \"Database: $DATABASE_NAME\"\necho \"App identity: $APP_IDENTITY_NAME ($APP_IDENTITY_CLIENT_ID)\"\necho \"Admin group: $ADMIN_GROUP_NAME ($ADMIN_GROUP_OID)\"\n\n# Install ODBC driver and pyodbc\napt-get update -qq\ncurl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg\necho 'deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/12/prod bookworm main' > /etc/apt/sources.list.d/mssql-release.list\napt-get update -qq\nACCEPT_EULA=Y apt-get install -y -qq msodbcsql18 unixodbc-dev > /dev/null 2>&1\npip install -q pyodbc\n\nexport TOKEN=$(az account get-access-token --resource https://database.windows.net --query accessToken -o tsv)\n\npython3 << 'PYEOF'\nimport os, struct, sys, pyodbc\ntoken = os.environ['TOKEN']\nserver = os.environ['SQL_SERVER_FQDN']\ndatabase = os.environ['DATABASE_NAME']\nidentity_name = os.environ['APP_IDENTITY_NAME']\nidentity_client_id = os.environ['APP_IDENTITY_CLIENT_ID']\ntoken_bytes = token.encode('utf-16-le')\ntoken_struct = struct.pack(f'<I{len(token_bytes)}s', len(token_bytes), token_bytes)\nconn_str = f'Driver={{ODBC Driver 18 for SQL Server}};Server=tcp:{server},1433;Database={database};Encrypt=yes;TrustServerCertificate=no'\nconn = pyodbc.connect(conn_str, attrs_before={1256: token_struct})\ncursor = conn.cursor()\nsql = f\"\"\"\nIF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'{identity_name}')\nBEGIN\n    DECLARE @sid VARBINARY(16) = CAST(CAST('{identity_client_id}' AS UNIQUEIDENTIFIER) AS VARBINARY(16));\n    DECLARE @sql NVARCHAR(MAX) = N'CREATE USER [{identity_name}] WITH SID = ' + '0x' + CONVERT(VARCHAR(MAX), @sid, 2) + ', TYPE = E';\n    EXEC sp_executesql @sql;\n    PRINT 'Created user [{identity_name}]';\nEND\nELSE\n    PRINT 'User [{identity_name}] already exists';\n\"\"\"\ncursor.execute(sql)\nconn.commit()\nfor role in ('db_datareader', 'db_datawriter', 'db_ddladmin'):\n    cursor.execute(f'ALTER ROLE {role} ADD MEMBER [{identity_name}]')\n    print(f'  Granted {role}')\nconn.commit()\ncursor.close()\nconn.close()\nprint('Database user setup complete.')\nPYEOF\n\naz sql server ad-admin create --server-name \"$SQL_SERVER_NAME\" --resource-group \"$RESOURCE_GROUP\" --display-name \"$ADMIN_GROUP_NAME\" --object-id \"$ADMIN_GROUP_OID\" --output none\necho '=== SQL Entra auth setup complete ==='",
+        "scriptContent": "#!/bin/bash\nset -euo pipefail\necho '=== OnRamp SQL Entra Auth Setup ==='\necho \"Server: $SQL_SERVER_FQDN\"\necho \"Database: $DATABASE_NAME\"\necho \"App identity: $APP_IDENTITY_NAME ($APP_IDENTITY_CLIENT_ID)\"\necho \"Admin group: $ADMIN_GROUP_NAME ($ADMIN_GROUP_OID)\"\n\n# Install ODBC driver and pyodbc\napt-get update -qq\ncurl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg\necho 'deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/12/prod bookworm main' > /etc/apt/sources.list.d/mssql-release.list\napt-get update -qq\nACCEPT_EULA=Y apt-get install -y -qq msodbcsql18 unixodbc-dev > /dev/null 2>&1\npip install -q pyodbc\n\nexport TOKEN=$(az account get-access-token --resource https://database.windows.net --query accessToken -o tsv)\n\npython3 << 'PYEOF'\nimport os, re, struct, sys, pyodbc\ntoken = os.environ['TOKEN']\nserver = os.environ['SQL_SERVER_FQDN']\ndatabase = os.environ['DATABASE_NAME']\nidentity_name = os.environ['APP_IDENTITY_NAME']\nidentity_client_id = os.environ['APP_IDENTITY_CLIENT_ID']\nif not re.match(r'^[a-zA-Z0-9_-]+$', identity_name):\n    print(f'ERROR: Invalid identity name: {identity_name}', file=sys.stderr)\n    sys.exit(1)\nif not re.match(r'^[0-9a-fA-F-]+$', identity_client_id):\n    print(f'ERROR: Invalid client ID: {identity_client_id}', file=sys.stderr)\n    sys.exit(1)\ntoken_bytes = token.encode('utf-16-le')\ntoken_struct = struct.pack(f'<I{len(token_bytes)}s', len(token_bytes), token_bytes)\nconn_str = f'Driver={{ODBC Driver 18 for SQL Server}};Server=tcp:{server},1433;Database={database};Encrypt=yes;TrustServerCertificate=no'\nconn = pyodbc.connect(conn_str, attrs_before={1256: token_struct})\ncursor = conn.cursor()\nsafe_name = identity_name.replace(']', ']]')\nsql = f\"\"\"\nIF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'{safe_name}')\nBEGIN\n    DECLARE @sid VARBINARY(16) = CAST(CAST('{identity_client_id}' AS UNIQUEIDENTIFIER) AS VARBINARY(16));\n    DECLARE @sql NVARCHAR(MAX) = N'CREATE USER [{safe_name}] WITH SID = ' + '0x' + CONVERT(VARCHAR(MAX), @sid, 2) + ', TYPE = E';\n    EXEC sp_executesql @sql;\n    PRINT 'Created user [{safe_name}]';\nEND\nELSE\n    PRINT 'User [{safe_name}] already exists';\n\"\"\"\ncursor.execute(sql)\nconn.commit()\nfor role in ('db_datareader', 'db_datawriter', 'db_ddladmin'):\n    cursor.execute(f'ALTER ROLE {role} ADD MEMBER [{safe_name}]')\n    print(f'  Granted {role}')\nconn.commit()\ncursor.close()\nconn.close()\nprint('Database user setup complete.')\nPYEOF\n\naz sql server ad-admin create --server-name \"$SQL_SERVER_NAME\" --resource-group \"$RESOURCE_GROUP\" --display-name \"$ADMIN_GROUP_NAME\" --object-id \"$ADMIN_GROUP_OID\" --output none\necho '=== SQL Entra auth setup complete ==='",
         "cleanupPreference": "OnSuccess"
       }
     },

@@ -36,12 +36,13 @@ pip install -q pyodbc
 
 # ── Step 2: Get access token for Azure SQL ──────────────────────────────────
 echo "Acquiring access token for Azure SQL..."
-TOKEN=$(az account get-access-token --resource https://database.windows.net --query accessToken -o tsv)
+export TOKEN=$(az account get-access-token --resource https://database.windows.net --query accessToken -o tsv)
 
 # ── Step 3: Create contained database user for app identity ─────────────────
 echo "Creating contained database user for app identity..."
 python3 << 'PYEOF'
 import os
+import re
 import struct
 import sys
 
@@ -56,6 +57,14 @@ server = os.environ["SQL_SERVER_FQDN"]
 database = os.environ["DATABASE_NAME"]
 identity_name = os.environ["APP_IDENTITY_NAME"]
 identity_client_id = os.environ["APP_IDENTITY_CLIENT_ID"]
+
+# Validate inputs to prevent SQL injection
+if not re.match(r'^[a-zA-Z0-9_-]+$', identity_name):
+    print(f"ERROR: Invalid identity name: {identity_name}", file=sys.stderr)
+    sys.exit(1)
+if not re.match(r'^[0-9a-fA-F-]+$', identity_client_id):
+    print(f"ERROR: Invalid client ID format: {identity_client_id}", file=sys.stderr)
+    sys.exit(1)
 
 # Pack the access token for ODBC SQL_COPT_SS_ACCESS_TOKEN (1256)
 token_bytes = token.encode("utf-16-le")
@@ -72,26 +81,29 @@ print(f"Connecting to {server}/{database}...")
 conn = pyodbc.connect(conn_str, attrs_before={1256: token_struct})
 cursor = conn.cursor()
 
+# Escape ] in identity name for bracket-quoted SQL identifiers
+safe_name = identity_name.replace("]", "]]")
+
 # Use SID-based user creation to avoid needing Directory Readers on the SQL server.
 # The SID is the binary representation of the managed identity's client (application) ID.
 sql = f"""
-IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'{identity_name}')
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'{safe_name}')
 BEGIN
     DECLARE @sid VARBINARY(16) = CAST(CAST('{identity_client_id}' AS UNIQUEIDENTIFIER) AS VARBINARY(16));
-    DECLARE @sql NVARCHAR(MAX) = N'CREATE USER [{identity_name}] WITH SID = '
+    DECLARE @sql NVARCHAR(MAX) = N'CREATE USER [{safe_name}] WITH SID = '
         + '0x' + CONVERT(VARCHAR(MAX), @sid, 2) + ', TYPE = E';
     EXEC sp_executesql @sql;
-    PRINT 'Created user [{identity_name}]';
+    PRINT 'Created user [{safe_name}]';
 END
 ELSE
-    PRINT 'User [{identity_name}] already exists';
+    PRINT 'User [{safe_name}] already exists';
 """
 cursor.execute(sql)
 conn.commit()
 
 # Grant database roles
 for role in ("db_datareader", "db_datawriter", "db_ddladmin"):
-    cursor.execute(f"ALTER ROLE {role} ADD MEMBER [{identity_name}]")
+    cursor.execute(f"ALTER ROLE {role} ADD MEMBER [{safe_name}]")
     print(f"  Granted {role}")
 conn.commit()
 
@@ -99,8 +111,6 @@ cursor.close()
 conn.close()
 print("Database user setup complete.")
 PYEOF
-
-export TOKEN  # make available to the Python heredoc
 
 # ── Step 4: Switch SQL admin to the Entra group ────────────────────────────
 echo "Switching SQL AD admin to Entra group: $ADMIN_GROUP_NAME..."
