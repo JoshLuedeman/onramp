@@ -28,7 +28,7 @@ have issues assigned with clear acceptance criteria. Milestones are executed in 
 | 1 | **Coder** | Create feature branch for the milestone (`feat/<milestone-slug>`) | Milestone name, main branch | Feature branch created from latest main | Branch created; naming follows conventions |
 | 2 | **Coder** | Open a draft PR linking all milestone issues with GitHub issue-closing keywords | Feature branch, milestone issues | Draft PR with issue-closing references in body | PR created; all issues linked with "Closes #N" or "Fixes #N" |
 | 3 | **Orchestrator** | Dispatch issues to agents for parallel implementation | PR, milestone issues, dependency graph | Agent assignments | Independent issues dispatched in parallel; dependent issues queued |
-| 4 | **Coder / Fleet** | Implement each issue: write code, write tests, commit | Issue acceptance criteria, conventions | Commits on feature branch | Each issue's acceptance criteria met; tests written |
+| 4 | **Coder / Fleet** | Implement each issue using incremental agent turns: send focused first step, read result, send follow-up. Agents commit after each unit of work. | Issue acceptance criteria, conventions | Commits on feature branch | Each issue's acceptance criteria met; tests written; progress visible via git log |
 | 5 | **Tester** | Run full test suite, verify coverage thresholds | Feature branch with all changes | Test results, coverage report | All tests pass; coverage ≥ 75% backend/frontend |
 | 6 | **Lint Agent** | Run linters, fix any style violations | Feature branch | Clean lint output | No lint errors in backend or frontend |
 | 7 | **Coder** | Request Copilot review on the PR | PR ready for review | Copilot review comments | Review requested successfully |
@@ -137,3 +137,7 @@ The full workflow is complete when all milestones have been executed in order.
   = minor, breaking changes = major.
 - **Rollback:** If a merged milestone causes issues on main, invoke the rollback-workflow skill
   to revert the merge before proceeding with the next milestone.
+- **Incremental agent turns:** When dispatching agents in step 4, prefer multi-turn conversations
+  over monolithic single-turn dispatches. Send a focused first step, read the result with
+  `read_agent`, then send follow-ups with `write_agent`. This provides checkpoint-level
+  visibility and the ability to course-correct. See `AGENTS.md` §Sub-Agent Delegation Pattern.
