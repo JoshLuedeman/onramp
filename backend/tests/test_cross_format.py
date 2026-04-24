@@ -479,18 +479,38 @@ class TestSecurityValidation:
 
     @pytest.mark.parametrize("fmt,content", ALL_IAC_OUTPUTS, ids=[f[0] for f in ALL_IAC_OUTPUTS])
     def test_no_wildcard_nsg_rule(self, fmt: str, content: str):
-        """No format should have an NSG rule with source * and destination port *."""
-        # Patterns like "sourceAddressPrefix": "*" with "destinationPortRange": "*"
-        has_wildcard = bool(
-            re.search(
-                r'source.*["\']?\*["\']?\s*.*destination.*port.*["\']?\*["\']?',
-                content,
-                re.DOTALL | re.IGNORECASE,
+        """No format should have an Allow NSG rule with source * and port *.
+
+        Deny-all rules and Azure service tag rules (VirtualNetwork,
+        AzureLoadBalancer) are security best practice and are excluded.
+        """
+        # Split content into individual rule blocks so the regex doesn't
+        # span across unrelated rules when using DOTALL.
+        rule_blocks = re.split(
+            r'(?:^|\n)\s*(?:\{|resource\s)', content
+        )
+        for block in rule_blocks:
+            # Skip explicit deny rules — deny-all with source=* port=*
+            # is a security best practice.
+            if re.search(r'["\']?Deny["\']?', block, re.IGNORECASE):
+                continue
+            # Skip rules using Azure service tags (VirtualNetwork,
+            # AzureLoadBalancer, etc.) — these are scoped, not wildcard.
+            if re.search(
+                r'source.*(?:VirtualNetwork|AzureLoadBalancer)',
+                block, re.IGNORECASE
+            ):
+                continue
+            has_wildcard = bool(
+                re.search(
+                    r'source.*["\']?\*["\']?.*destination.*port.*["\']?\*["\']?',
+                    block,
+                    re.DOTALL | re.IGNORECASE,
+                )
             )
-        )
-        assert not has_wildcard, (
-            f"{fmt}: contains wildcard NSG rule (source=* port=*)"
-        )
+            assert not has_wildcard, (
+                f"{fmt}: contains wildcard Allow NSG rule (source=* port=*)"
+            )
 
     # -- Firewall present when enabled -------------------------------------
 
