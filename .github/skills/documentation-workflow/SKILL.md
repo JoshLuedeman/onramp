@@ -103,3 +103,26 @@ The orchestrator validates each handoff artifact before dispatching the next rol
   quality gate fails, the orchestrator keeps the workflow at the current step and notifies
   the responsible role. If a blocker is raised, the orchestrator sets the workflow to
   `blocked` and escalates to the human.
+
+## Error Handling
+
+### Common Failures
+
+| Step | Failure | Recovery Action |
+|------|---------|-----------------|
+| 2 (Documenter) | Scope is too broad — too many docs to update in one pass | Break the work into multiple PRs by topic or audience. File follow-up issues for deferred sections |
+| 3 (Documenter) | Documentation references code that is actively changing | Coordinate with in-flight PRs. Either wait for code to stabilize or document the stable parts first and note unstable sections for follow-up |
+| 3 (Documenter) | Cannot verify technical accuracy without running the code | Consult the Coder or Architect as subject matter experts. Do not guess — inaccurate docs are worse than missing docs |
+| 4 (Reviewer) | Reviewer finds docs contradict the codebase | Return to Documenter (step 3). The Documenter must reconcile with the code — update the docs to match reality, or file a bug if the code is wrong |
+
+### Escalation Criteria
+
+- Documentation reveals a bug or security issue in the code — file a separate issue immediately using the appropriate workflow
+- Subject matter expert is unavailable and accuracy cannot be verified — pause the workflow until expertise is available
+- Conflicting sources of truth (e.g., README says one thing, API docs say another) — escalate to Architect to determine the correct behavior
+
+### Rollback Procedures
+
+- Documentation PRs carry low rollback risk — revert the merge commit if inaccurate content was published
+- No partial rollback is needed since documentation changes have no runtime side effects
+- If published docs cause user confusion, prioritize a follow-up correction PR over a revert

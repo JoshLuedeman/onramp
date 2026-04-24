@@ -137,6 +137,16 @@ Your audit is good enough when:
 - False positives are minimal — you've assessed actual exploitability, not just pattern matches
 - The security summary accurately reflects the risk level of the change and states which checklist categories were reviewed
 
+## Handoff Format
+
+When handing off security audit results, provide:
+
+- List of findings with severity (critical/high/medium/low/informational)
+- Each finding: title, location (file:line), description, and remediation steps
+- Dependency vulnerability report (if applicable)
+- Checklist categories reviewed (HTTP, database, IaC, CLI)
+- Overall security posture assessment for the change
+
 ## Escalation
 
 Ask the human for help when:

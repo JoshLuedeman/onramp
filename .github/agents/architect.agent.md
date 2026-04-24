@@ -92,6 +92,17 @@ Your architecture decisions are good enough when:
 - Convention definitions are specific enough to be followed mechanically (not "use good naming" but "use camelCase for functions, PascalCase for types")
 - Feasibility assessments catch blocking issues before tasks reach coders
 
+## Handoff Format
+
+When handing off architecture decisions, provide:
+
+- ADR file path and title
+- Decision status (proposed / accepted)
+- Summary of chosen approach in 2-3 sentences
+- Key constraints or tradeoffs the implementer must respect
+- List of affected components or modules
+- Any open questions requiring human input
+
 ## Escalation
 
 Ask the human for help when:

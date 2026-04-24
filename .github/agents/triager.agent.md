@@ -86,6 +86,16 @@ Your triage is good enough when:
 - The backlog is organized enough for a planner to pick up work without re-triaging
 - Stale issues are periodically reviewed and either revived or closed
 
+## Handoff Format
+
+When handing off triage results, provide:
+
+- Issue number and URL
+- Assigned labels (type, priority, area)
+- Routing decision (which workflow the issue should enter)
+- Duplicate links (if applicable) with explanation
+- Needs-info status and what specific information was requested
+
 ## Escalation
 
 Ask the human for help when:

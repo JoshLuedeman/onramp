@@ -141,3 +141,31 @@ The full workflow is complete when all milestones have been executed in order.
   over monolithic single-turn dispatches. Send a focused first step, read the result with
   `read_agent`, then send follow-ups with `write_agent`. This provides checkpoint-level
   visibility and the ability to course-correct. See `AGENTS.md` §Sub-Agent Delegation Pattern.
+
+## Error Handling
+
+### Common Failures
+
+| Step | Failure | Recovery Action |
+|------|---------|-----------------|
+| 0 (Orchestrator) | Milestone has issues without acceptance criteria | Pause workflow. Return issues to the Planner for criteria before proceeding with implementation |
+| 4 (Coder/Fleet) | Agent fails mid-implementation of an issue | Retry the agent on the same issue. If it fails again, break the issue into smaller sub-tasks and dispatch individually |
+| 4 (Coder/Fleet) | Merge conflicts between parallel agents | Resolve conflicts on the feature branch. Prefer rebasing individual agent work. If conflicts are severe, serialize the conflicting issues instead of parallelizing |
+| 5 (Tester) | Coverage falls below 75% threshold | Return to Coder (step 4) to add missing tests. Identify which issues lack coverage and dispatch targeted test-writing |
+| 6 (Lint) | Lint errors across many files | Dispatch Lint Agent to fix all violations. If lint errors reveal deeper code quality issues, file follow-up issues rather than expanding scope |
+| 7–11 (Quality Loop) | Loop iterates more than 3 times without converging | Escalate to human. Likely indicates a fundamental issue with the implementation approach. Consider reverting to step 4 with revised guidance |
+| 10 (Coder) | CI failures that are flaky or infrastructure-related | Retry CI. If a specific test is flaky, document it and file a separate issue. Do not block the milestone on pre-existing flakiness |
+| 13 (Coder) | Merge to main fails (branch protection, conflicts) | Rebase the feature branch onto latest main and resolve conflicts. Re-run CI after rebase |
+
+### Escalation Criteria
+
+- Quality gate loop exceeds 3 iterations — escalate to human for direction
+- More than 30% of milestone issues fail during implementation — re-evaluate milestone scope with Planner
+- Milestone is blocked by an incomplete dependency milestone — cannot proceed; set to `blocked`
+- Human review (step 12) results in major rework — loop back to step 4 with revised scope
+
+### Rollback Procedures
+
+- Before merge: abandon the feature branch entirely and restart the milestone
+- After merge: invoke **rollback-workflow** to revert the milestone PR, then restart
+- After release: if the release causes issues, create a patch release reverting the problematic changes

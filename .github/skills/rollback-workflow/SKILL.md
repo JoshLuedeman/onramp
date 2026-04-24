@@ -87,3 +87,29 @@ The orchestrator validates each handoff artifact before dispatching the next rol
   quality gate fails, the orchestrator keeps the workflow at the current step and notifies
   the responsible role. If a blocker is raised, the orchestrator sets the workflow to
   `blocked` and escalates to the human.
+
+## Error Handling
+
+### Common Failures
+
+| Step | Failure | Recovery Action |
+|------|---------|-----------------|
+| 3 (Coder) | `git revert` produces merge conflicts | Resolve conflicts minimally. If conflicts are complex (e.g., many subsequent commits depend on the reverted change), escalate to human — a manual rollback strategy may be needed instead of `git revert` |
+| 3 (Coder) | The commit to revert is a merge commit | Use `git revert -m 1 <sha>` to specify the mainline parent. Verify the revert undoes all changes from the merged branch |
+| 4 (Tester) | Revert restores the original failure but introduces a different regression | The reverted change may have included both the problematic change and an unrelated fix. Identify which parts should be reverted and which should be kept — may need a selective revert |
+| 4 (Tester) | Original failure persists even after the revert | The root cause may not be the identified commit. Widen the investigation — check recent infrastructure changes, configuration updates, or other recent merges |
+| 6 (Human) | Revert merge conflicts with main (main has diverged) | Rebase the revert PR onto latest main and re-run CI. If rebase is complex, the Coder creates a fresh revert from the current main |
+
+### Escalation Criteria
+
+- `git revert` conflicts are too complex for mechanical resolution — escalate to human for manual rollback strategy
+- Revert does not fix the original problem — the root cause is elsewhere; escalate to broaden investigation
+- Multiple commits need reverting in sequence — escalate to human to decide batch revert vs selective approach
+- The reverted change is depended on by other merged work — escalate to Architect to assess cascading impact
+
+### Rollback Procedures
+
+- The rollback workflow IS the rollback procedure. If the revert itself causes problems:
+  - Revert the revert (re-apply the original change) and try a different fix approach
+  - If the situation is worse than before, escalate to human for emergency intervention
+  - Consider a full branch reset to a known-good tag as a last resort (requires human approval)

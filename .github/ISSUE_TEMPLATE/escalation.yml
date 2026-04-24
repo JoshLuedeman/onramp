@@ -1,0 +1,44 @@
+name: Escalation
+description: Escalate an issue that requires human intervention or cross-team coordination
+title: "[ESCALATION] "
+labels: ["escalation", "needs-human"]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What is happening and why does it need escalation?
+    validations:
+      required: true
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: Urgency
+      options:
+        - Blocking (work stopped)
+        - High (degraded capability)
+        - Medium (workaround exists)
+        - Low (informational)
+    validations:
+      required: true
+  - type: textarea
+    id: blocked-work
+    attributes:
+      label: Blocked Work
+      description: What issues, PRs, or workflows are blocked?
+    validations:
+      required: false
+  - type: textarea
+    id: attempted-resolution
+    attributes:
+      label: Attempted Resolution
+      description: What has already been tried?
+    validations:
+      required: true
+  - type: textarea
+    id: requested-action
+    attributes:
+      label: Requested Action
+      description: What specific action or decision is needed?
+    validations:
+      required: true

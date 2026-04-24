@@ -115,3 +115,29 @@ The orchestrator validates each handoff artifact before dispatching the next rol
   quality gate fails, the orchestrator keeps the workflow at the current step and notifies
   the responsible role. If a blocker is raised, the orchestrator sets the workflow to
   `blocked` and escalates to the human.
+
+## Error Handling
+
+### Common Failures
+
+| Step | Failure | Recovery Action |
+|------|---------|-----------------|
+| 2 (Architect) | Target design is unclear or contested | Trigger a spike-workflow to investigate design options before proceeding. Do not allow the Coder to start without a clear target |
+| 3 (Planner) | Cannot decompose into safe incremental steps | The refactoring may be too intertwined. Consider a "strangler fig" approach — build the new structure alongside the old, then switch over, rather than transforming in place |
+| 4 (Coder) | Tests fail after a refactoring step | This indicates a behavior change, not a refactoring. Revert the step, identify the behavior difference, and either adjust the approach or reclassify as a feature/bugfix |
+| 4 (Coder) | Refactoring causes merge conflicts with in-flight work | Coordinate with other active workflows. Either pause the refactoring until the conflicting PR merges, or rebase frequently to stay current |
+| 5 (Tester) | Coverage is insufficient to verify behavioral equivalence | Stop the refactoring. Add tests first (as a separate preliminary PR) to establish a behavioral baseline, then resume |
+| 6 (Reviewer) | Reviewer identifies subtle behavior change missed by tests | Return to Coder (step 4) to fix. If the behavior change is desirable, reclassify the work — it is no longer a pure refactoring |
+
+### Escalation Criteria
+
+- Refactoring reveals the code is more tangled than expected — re-scope with Architect before continuing
+- Behavioral equivalence cannot be proven (insufficient tests and code is too complex for manual verification) — escalate to human
+- Refactoring conflicts with multiple in-flight PRs — escalate to human to decide priority
+- Scope creep: Coder discovers additional improvements — file separate issues, do not expand this workflow
+
+### Rollback Procedures
+
+- Each incremental step is independently merge-safe, so rollback means reverting only the latest step
+- If the full refactoring PR is merged and causes issues, invoke **rollback-workflow** to revert
+- Partial refactorings left on a branch can be safely abandoned — the main branch is unaffected

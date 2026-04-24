@@ -136,3 +136,28 @@ List all remaining unfilled placeholders (if any) and inform the user which agen
 - 🚫 Never modify agent instructions, boundaries, or responsibilities — only fill in Project Knowledge placeholders.
 - 🚫 Never remove agent files that aren't relevant (e.g., `dba-agent` when there's no database). The user decides which agents to keep.
 - 🚫 Never skip Step 0 — project type detection affects which placeholders are relevant and which agents the user actually needs.
+
+## Error Handling
+
+### Common Failures
+
+| Step | Failure | Recovery Action |
+|------|---------|-----------------|
+| 0 (Detect) | Project type cannot be determined automatically | Ask the user directly. Present the project type options and let them choose. Do not guess |
+| 1 (Analyze) | Repository is empty or has no config files | Skip auto-detection entirely. Proceed to Step 2 and ask the user for their planned tech stack |
+| 1 (Analyze) | Multiple conflicting tech stacks detected (e.g., both `package.json` and `pyproject.toml`) | This is normal for polyglot projects. Detect both stacks and present the full summary for confirmation |
+| 4 (Fill In) | Placeholder value cannot be determined from detected stack | Leave the placeholder unfilled. Report it in Step 5 so the user knows which values still need manual input |
+| 4 (Fill In) | Agent file has been customized and placeholders are in unexpected locations | Only modify lines containing `<!-- CUSTOMIZE -->`. Never overwrite user customizations in other parts of the file |
+| 5 (Verify) | Many placeholders remain unfilled after auto-detection | This is expected for new or minimal repositories. Report all unfilled placeholders and inform the user they can re-run the skill later |
+
+### Escalation Criteria
+
+- User disagrees with detected project type — accept the user's correction and adjust accordingly
+- Agent files are missing or corrupted — inform the user and suggest reinstalling the Teamwork framework
+- User cannot provide tech stack details (project is too early) — stop the workflow and advise re-running later
+
+### Rollback Procedures
+
+- If placeholders were filled incorrectly, re-run the skill — it will detect the `<!-- CUSTOMIZE -->` comments are gone and report which files were already modified
+- To fully reset, restore agent files from git history (`git checkout -- .github/agents/`)
+- This skill makes no destructive changes — it only fills in placeholders in existing files

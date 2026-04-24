@@ -101,6 +101,16 @@ Your coordination is good enough when:
 - Dispatched roles receive complete context — they can begin work without asking follow-up questions about prior steps
 - Workflows reach a terminal state (completed, failed, or cancelled) — no workflows are left indefinitely active or silently stalled
 
+## Handoff Format
+
+When handing off workflow status, provide:
+
+- Workflow instance ID and current state file path
+- Current step and status
+- Completed steps with handoff artifact paths
+- Blockers (if any) with escalation context
+- Next step and the role that should be dispatched
+
 ## Escalation
 
 Ask the human for help when:

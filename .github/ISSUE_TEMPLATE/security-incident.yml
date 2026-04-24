@@ -1,0 +1,53 @@
+name: Security Incident
+description: Report a security vulnerability or incident requiring immediate attention
+title: "[SECURITY] "
+labels: ["security", "priority:critical"]
+body:
+  - type: markdown
+    attributes:
+      value: "⚠️ **For active exploits or data breaches, contact the security team immediately via the channel in SECURITY.md before filing this issue.**"
+  - type: dropdown
+    id: incident-type
+    attributes:
+      label: Incident Type
+      options:
+        - Vulnerability discovered in code
+        - Dependency vulnerability (CVE)
+        - Exposed credentials or secrets
+        - Unauthorized access detected
+        - Data integrity concern
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Critical (active exploit or data breach)
+        - High (exploitable vulnerability)
+        - Medium (potential vulnerability)
+        - Low (hardening recommendation)
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the security issue. Do NOT include actual secrets, credentials, or exploit details.
+    validations:
+      required: true
+  - type: textarea
+    id: affected-components
+    attributes:
+      label: Affected Components
+      description: Which services, endpoints, or infrastructure are affected?
+    validations:
+      required: true
+  - type: textarea
+    id: mitigation
+    attributes:
+      label: Immediate Mitigation
+      description: What temporary mitigation can be applied right now?
+    validations:
+      required: false

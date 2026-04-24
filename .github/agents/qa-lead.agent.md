@@ -62,3 +62,13 @@ A QA Lead handoff is complete when:
 - Coverage analysis identifies gaps requiring attention
 - Release readiness assessment is documented with clear go/no-go recommendation
 - Known risks are listed with mitigation plans
+
+## Handoff Format
+
+When handing off quality assessments, provide:
+
+- Test strategy summary (what types of tests are needed and where)
+- Quality gate definitions with measurable thresholds
+- Coverage analysis with identified gaps requiring attention
+- Risk areas ranked by priority for extra test focus
+- Release readiness recommendation (go/no-go with rationale)
