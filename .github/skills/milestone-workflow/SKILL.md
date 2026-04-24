@@ -24,9 +24,9 @@ have issues assigned with clear acceptance criteria. Milestones are executed in 
 
 | # | Role | Action | Inputs | Outputs | Success Criteria |
 |---|------|--------|--------|---------|------------------|
-| 0 | **Orchestrator** | Initialize workflow: identify target milestone, verify issues exist, determine dependency order | Milestone list, dependency map | Execution plan, state file | Milestones ordered; all issues have acceptance criteria |
+| 0 | **Orchestrator** | Initialize workflow: create state file, identify target milestone, verify issues exist, determine dependency order | Milestone list, dependency map | `.teamwork/state/<id>.yaml`, execution plan, metrics log entry | State file created with status `active`; milestones ordered; all issues have acceptance criteria |
 | 1 | **Coder** | Create feature branch for the milestone (`feat/<milestone-slug>`) | Milestone name, main branch | Feature branch created from latest main | Branch created; naming follows conventions |
-| 2 | **Coder** | Open a draft PR linking all milestone issues | Feature branch, milestone issues | Draft PR with issue references in body | PR created; all issues linked with "Addresses #N" |
+| 2 | **Coder** | Open a draft PR linking all milestone issues with GitHub issue-closing keywords | Feature branch, milestone issues | Draft PR with issue-closing references in body | PR created; all issues linked with "Closes #N" or "Fixes #N" |
 | 3 | **Orchestrator** | Dispatch issues to agents for parallel implementation | PR, milestone issues, dependency graph | Agent assignments | Independent issues dispatched in parallel; dependent issues queued |
 | 4 | **Coder / Fleet** | Implement each issue: write code, write tests, commit | Issue acceptance criteria, conventions | Commits on feature branch | Each issue's acceptance criteria met; tests written |
 | 5 | **Tester** | Run full test suite, verify coverage thresholds | Feature branch with all changes | Test results, coverage report | All tests pass; coverage ≥ 75% backend/frontend |
@@ -40,7 +40,8 @@ have issues assigned with clear acceptance criteria. Milestones are executed in 
 | 13 | **Coder** | Merge PR to main | Approved PR | Merged commit on main | PR merged; main branch updated |
 | 14 | **Coder** | Create a new release from the merge | Merged main, version strategy | GitHub Release with tag and notes | Release created with changelog |
 | 15 | **Orchestrator** | Close the completed milestone | Merged PR, release | Milestone closed | All milestone issues closed; milestone marked complete |
-| 16 | **Orchestrator** | Move to next milestone; repeat from step 1 | Next milestone in order | New iteration begins | Workflow continues until all milestones complete |
+| 16 | **Orchestrator** | Complete workflow: validate all gates passed, update state file to `completed` | All step outputs, quality gate results | State file with status `completed`, final metrics | All completion criteria verified; state file finalized |
+| 17 | **Orchestrator** | Move to next milestone; repeat from step 0 | Next milestone in order | New iteration begins | Workflow continues until all milestones complete |
 
 ## Quality Gate Loop (Steps 7–11)
 
@@ -69,6 +70,10 @@ This is the critical quality loop that repeats until the PR is clean:
 **Exit condition:** Copilot review has no new recommendations AND all CI checks are green.
 
 ## Handoff Contracts
+
+Each step must produce specific artifacts before the next step can begin.
+
+The orchestrator validates each handoff artifact before dispatching the next role. Handoffs are stored in `.teamwork/handoffs/<workflow-id>/` following the format in `.teamwork/docs/protocols.md`.
 
 **Orchestrator → Coder (Step 1)**
 - Milestone name and slug for branch naming
@@ -120,10 +125,10 @@ The full workflow is complete when all milestones have been executed in order.
   until all milestones it depends on are complete and merged to main.
 - **Branch naming:** Use `feat/<milestone-slug>` (e.g., `feat/security-stability`,
   `feat/test-coverage`). If the milestone is a fix-focused milestone, use `fix/<milestone-slug>`.
-- **Issue linking:** The PR body should reference all milestone issues using "Addresses #N"
-  format. When the PR merges, GitHub will not auto-close issues unless "Closes #N" or
-  "Fixes #N" is used — use the appropriate keyword based on whether the issue is fully
-  resolved by the PR.
+- **Issue linking:** The PR body should reference all milestone issues using "Closes #N" or
+  "Fixes #N" keywords so that issues auto-close when the PR merges. Use "Closes" for
+  feature issues and "Fixes" for bug issues. Only use "Addresses #N" for issues that are
+  partially addressed and will need follow-up work in a later milestone.
 - **Human checkpoints:** The human reviews at step 12 only. All other quality gates (Copilot
   review, CI checks) are automated. The human should not need to intervene unless something
   unexpected arises.
