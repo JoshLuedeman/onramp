@@ -6,40 +6,32 @@
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Badge,
-  Button,
-  Combobox,
-  Field,
-  Input,
   MessageBar,
   MessageBarBody,
-  Option,
-  Popover,
-  PopoverSurface,
-  PopoverTrigger,
-  Spinner,
   Text,
-  Tooltip,
   makeStyles,
   tokens,
 } from "@fluentui/react-components";
-import {
-  AddRegular,
-  ArrowSortRegular,
-  DismissRegular,
-  LinkRegular,
-  SearchRegular,
-  ZoomInRegular,
-  ZoomOutRegular,
-  ZoomFitRegular,
-} from "@fluentui/react-icons";
 import type {
   DependencyEdge,
   DependencyGraph as DependencyGraphData,
   MigrationOrderResponse,
-  WorkloadSummary,
 } from "../../services/api";
 import { api } from "../../services/api";
+import {
+  CRITICALITY_COLOR,
+  GROUP_PALETTE,
+  MIGRATION_STRATEGY_COLOR,
+  NODE_H,
+  NODE_W,
+  type NodeLayout,
+  layoutNodes,
+  nodeCentre,
+  svgDimensions,
+} from "./dependencyGraphUtils";
+import DependencyGraphLegend from "./DependencyGraphLegend";
+import DependencyGraphToolbar from "./DependencyGraphToolbar";
+import DependencyGraphNodeDetail from "./DependencyGraphNodeDetail";
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -51,216 +43,33 @@ const useStyles = makeStyles({
     flexDirection: "column",
     gap: tokens.spacingVerticalL,
   },
-  toolbar: {
-    display: "flex",
-    gap: tokens.spacingHorizontalM,
-    alignItems: "center",
-    flexWrap: "wrap",
-  },
   svgContainer: {
-    border: `1px solid ${tokens.colorNeutralStroke1}`,
+    borderTopWidth: "1px",
+    borderRightWidth: "1px",
+    borderBottomWidth: "1px",
+    borderLeftWidth: "1px",
+    borderTopStyle: "solid",
+    borderRightStyle: "solid",
+    borderBottomStyle: "solid",
+    borderLeftStyle: "solid",
+    borderTopColor: tokens.colorNeutralStroke1,
+    borderRightColor: tokens.colorNeutralStroke1,
+    borderBottomColor: tokens.colorNeutralStroke1,
+    borderLeftColor: tokens.colorNeutralStroke1,
     borderRadius: tokens.borderRadiusMedium,
     backgroundColor: tokens.colorNeutralBackground2,
     overflow: "auto",
     minHeight: "400px",
-  },
-  legend: {
-    display: "flex",
-    gap: tokens.spacingHorizontalL,
-    flexWrap: "wrap",
-    alignItems: "center",
-  },
-  legendItem: {
-    display: "flex",
-    gap: tokens.spacingHorizontalXS,
-    alignItems: "center",
-  },
-  legendSwatch: {
-    width: "16px",
-    height: "16px",
-    borderRadius: tokens.borderRadiusSmall,
-  },
-  orderList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: tokens.spacingVerticalXS,
-  },
-  orderItem: {
-    display: "flex",
-    gap: tokens.spacingHorizontalS,
-    alignItems: "center",
-    padding: `${tokens.spacingVerticalXS} ${tokens.spacingHorizontalS}`,
-    backgroundColor: tokens.colorNeutralBackground1,
-    borderRadius: tokens.borderRadiusMedium,
-    border: `1px solid ${tokens.colorNeutralStroke1}`,
-  },
-  addDepForm: {
-    display: "flex",
-    flexDirection: "column",
-    gap: tokens.spacingVerticalM,
-    minWidth: "280px",
-    padding: tokens.spacingVerticalM,
-  },
-  addDepFormButtons: {
-    display: "flex",
-    gap: tokens.spacingHorizontalS,
-  },
-  detailPopover: {
-    padding: tokens.spacingVerticalM,
-    minWidth: "200px",
-  },
-  detailRow: {
-    display: "flex",
-    gap: tokens.spacingHorizontalXS,
-    alignItems: "baseline",
   },
   emptyState: {
     padding: tokens.spacingVerticalXXL,
     textAlign: "center",
     color: tokens.colorNeutralForeground3,
   },
-  detailPanel: {
-    padding: tokens.spacingVerticalM,
-    backgroundColor: tokens.colorNeutralBackground1,
-    border: `1px solid ${tokens.colorNeutralStroke1}`,
-    borderRadius: tokens.borderRadiusMedium,
-  },
-  detailContent: {
-    marginTop: tokens.spacingVerticalS,
-    display: "flex",
-    flexDirection: "column",
-    gap: tokens.spacingVerticalXS,
-  },
-  detailLabel: {
-    color: tokens.colorNeutralForeground3,
-  },
-  migrationOrderSection: {
-    display: "flex",
-    flexDirection: "column",
-    gap: tokens.spacingVerticalS,
-  },
-  mutedText: {
-    color: tokens.colorNeutralForeground3,
-  },
-  migrationGroupsTitle: {
-    marginTop: tokens.spacingVerticalS,
-  },
-  zoomControls: {
-    display: "flex",
-    gap: tokens.spacingHorizontalXS,
-    alignItems: "center",
-  },
-  legendSwatchCycle: {
-    width: "16px",
-    height: "16px",
-    borderRadius: tokens.borderRadiusSmall,
-    backgroundColor: tokens.colorStatusDangerForeground1,
-    borderTopWidth: "2px",
-    borderRightWidth: "2px",
-    borderBottomWidth: "2px",
-    borderLeftWidth: "2px",
-    borderTopStyle: "solid",
-    borderRightStyle: "solid",
-    borderBottomStyle: "solid",
-    borderLeftStyle: "solid",
-    borderTopColor: tokens.colorStatusDangerForeground1,
-    borderRightColor: tokens.colorStatusDangerForeground1,
-    borderBottomColor: tokens.colorStatusDangerForeground1,
-    borderLeftColor: tokens.colorStatusDangerForeground1,
-  },
   svgBlock: {
     display: "block",
   },
 });
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const NODE_W = 140;
-const NODE_H = 50;
-const NODE_PADDING_X = 30;
-const NODE_PADDING_Y = 40;
-const COLS = 4;
-
-// Criticality colour strip — mapped to Fluent UI semantic colour tokens.
-// Used as SVG `fill` values so the token CSS-var string is passed directly.
-const CRITICALITY_COLOR: Record<string, string> = {
-  "mission-critical": tokens.colorStatusDangerForeground1,
-  "business-critical": tokens.colorStatusWarningForeground1,
-  "standard": tokens.colorBrandForeground1,
-  "dev-test": tokens.colorNeutralForeground3,
-};
-
-// Group background palette — Fluent UI palette background tokens keep
-// compatibility with light/dark themes.
-const GROUP_PALETTE = [
-  tokens.colorPaletteBlueBackground2,
-  tokens.colorPaletteGreenBackground2,
-  tokens.colorPaletteGrapeBackground2,
-  tokens.colorPaletteMarigoldBackground2,
-  tokens.colorPaletteTealBackground2,
-];
-
-// Criticality → node size multiplier so more critical workloads stand out.
-const CRITICALITY_SIZE_SCALE: Record<string, number> = {
-  "mission-critical": 1.15,
-  "business-critical": 1.07,
-  standard: 1.0,
-  "dev-test": 0.92,
-};
-
-// Migration strategy → colour indicator (small dot on each node).
-const MIGRATION_STRATEGY_COLOR: Record<string, string> = {
-  rehost: tokens.colorPaletteGreenForeground1,
-  replatform: tokens.colorPaletteBlueForeground2,
-  refactor: tokens.colorPaletteMarigoldForeground1,
-  rearchitect: tokens.colorPaletteGrapeForeground2,
-  rebuild: tokens.colorStatusDangerForeground1,
-  retire: tokens.colorNeutralForeground4,
-  retain: tokens.colorNeutralForeground3,
-  replace: tokens.colorPaletteRedForeground1,
-  unknown: tokens.colorNeutralForeground3,
-};
-
-// ---------------------------------------------------------------------------
-// Layout helpers
-// ---------------------------------------------------------------------------
-
-interface NodeLayout {
-  id: string;
-  x: number;
-  y: number;
-  summary: WorkloadSummary;
-  /** Size multiplier derived from criticality. */
-  scale: number;
-}
-
-function layoutNodes(nodes: WorkloadSummary[]): NodeLayout[] {
-  return nodes.map((node, i) => {
-    const col = i % COLS;
-    const row = Math.floor(i / COLS);
-    return {
-      id: node.id,
-      x: NODE_PADDING_X + col * (NODE_W + NODE_PADDING_X),
-      y: NODE_PADDING_Y + row * (NODE_H + NODE_PADDING_Y),
-      summary: node,
-      scale: CRITICALITY_SIZE_SCALE[node.criticality] ?? 1.0,
-    };
-  });
-}
-
-function svgDimensions(layouts: NodeLayout[]): { w: number; h: number } {
-  if (layouts.length === 0) return { w: 400, h: 200 };
-  const maxX = Math.max(...layouts.map((n) => n.x + NODE_W));
-  const maxY = Math.max(...layouts.map((n) => n.y + NODE_H));
-  return { w: maxX + NODE_PADDING_X, h: maxY + NODE_PADDING_Y };
-}
-
-// Return the centre of a node box for edge attachment
-function nodeCentre(layout: NodeLayout): { x: number; y: number } {
-  return { x: layout.x + NODE_W / 2, y: layout.y + NODE_H / 2 };
-}
 
 // ---------------------------------------------------------------------------
 // SVG Edge (arrow)
@@ -426,86 +235,6 @@ function NodeBox({ layout, isSelected, groupColor, inCycle, onClick }: NodeBoxPr
         {layout.summary.criticality}
       </text>
     </g>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Add Dependency popover form
-// ---------------------------------------------------------------------------
-
-interface AddDepFormProps {
-  nodes: WorkloadSummary[];
-  onAdd: (sourceId: string, targetId: string) => Promise<void>;
-  onClose: () => void;
-  loading: boolean;
-  error: string | null;
-}
-
-function AddDepForm({ nodes, onAdd, onClose, loading, error }: AddDepFormProps) {
-  const styles = useStyles();
-  const [source, setSource] = useState("");
-  const [sourceInput, setSourceInput] = useState("");
-  const [target, setTarget] = useState("");
-  const [targetInput, setTargetInput] = useState("");
-
-  return (
-    <div className={styles.addDepForm}>
-      <Text weight="semibold">Add Dependency</Text>
-      <Field label="From workload">
-        <Combobox
-          value={sourceInput}
-          selectedOptions={source ? [source] : []}
-          onOptionSelect={(_, d) => {
-            setSource(d.optionValue ?? "");
-            setSourceInput(d.optionText ?? "");
-          }}
-          onChange={(e) => setSourceInput(e.target.value)}
-          placeholder="Select source workload"
-        >
-          {nodes.map((n) => (
-            <Option key={n.id} value={n.id}>
-              {n.name}
-            </Option>
-          ))}
-        </Combobox>
-      </Field>
-      <Field label="Depends on">
-        <Combobox
-          value={targetInput}
-          selectedOptions={target ? [target] : []}
-          onOptionSelect={(_, d) => {
-            setTarget(d.optionValue ?? "");
-            setTargetInput(d.optionText ?? "");
-          }}
-          onChange={(e) => setTargetInput(e.target.value)}
-          placeholder="Select target workload"
-        >
-          {nodes.filter((n) => n.id !== source).map((n) => (
-            <Option key={n.id} value={n.id}>
-              {n.name}
-            </Option>
-          ))}
-        </Combobox>
-      </Field>
-      {error && (
-        <MessageBar intent="error">
-          <MessageBarBody>{error}</MessageBarBody>
-        </MessageBar>
-      )}
-      <div className={styles.addDepFormButtons}>
-        <Button
-          appearance="primary"
-          icon={loading ? <Spinner size="tiny" /> : <LinkRegular />}
-          disabled={!source || !target || loading}
-          onClick={() => onAdd(source, target)}
-        >
-          Add
-        </Button>
-        <Button appearance="subtle" icon={<DismissRegular />} onClick={onClose}>
-          Cancel
-        </Button>
-      </div>
-    </div>
   );
 }
 
@@ -729,112 +458,45 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
     setViewBox(null);
   }, []);
 
+  // Pre-compute dependency name strings for the detail panel
+  const dependsOnNames = selectedNode
+    ? (graph?.edges ?? [])
+        .filter((e) => e.target === selectedNode.id)
+        .map((e) => graph?.nodes.find((n) => n.id === e.source)?.name ?? e.source)
+        .join(", ")
+    : "";
+
+  const requiredByNames = selectedNode
+    ? (graph?.edges ?? [])
+        .filter((e) => e.source === selectedNode.id)
+        .map((e) => graph?.nodes.find((n) => n.id === e.target)?.name ?? e.target)
+        .join(", ")
+    : "";
+
   return (
     <div className={styles.root}>
       {/* Toolbar */}
-      <div className={styles.toolbar}>
-        <Button
-          appearance="subtle"
-          onClick={fetchGraph}
-          disabled={loading}
-          icon={loading ? <Spinner size="tiny" /> : undefined}
-        >
-          {loading ? "Loading…" : "Refresh"}
-        </Button>
-
-        <Popover
-          open={addDepOpen}
-          onOpenChange={(_, d) => {
-            setAddDepOpen(d.open);
-            if (!d.open) setAddDepError(null);
-          }}
-          positioning="below-start"
-        >
-          <PopoverTrigger>
-            <Button
-              appearance="primary"
-              icon={<AddRegular />}
-              disabled={!graph || graph.nodes.length < 2}
-              aria-label="Add Dependency"
-            >
-              Add Dependency
-            </Button>
-          </PopoverTrigger>
-          <PopoverSurface>
-            {graph && (
-              <AddDepForm
-                nodes={graph.nodes}
-                onAdd={handleAddDep}
-                onClose={() => setAddDepOpen(false)}
-                loading={addDepLoading}
-                error={addDepError}
-              />
-            )}
-          </PopoverSurface>
-        </Popover>
-
-        <Button
-          appearance="subtle"
-          icon={orderLoading ? <Spinner size="tiny" /> : <ArrowSortRegular />}
-          onClick={fetchOrder}
-          disabled={orderLoading}
-          aria-label="Suggest Migration Order"
-        >
-          Suggest Migration Order
-        </Button>
-
-        {selectedNodeId && (
-          <Button
-            appearance="subtle"
-            icon={<DismissRegular />}
-            size="small"
-            onClick={() => setSelectedNodeId(null)}
-            aria-label="Clear selection"
-          >
-            Clear selection
-          </Button>
-        )}
-
-        {/* Search/filter */}
-        <Input
-          contentBefore={<SearchRegular />}
-          placeholder="Filter workloads…"
-          value={searchQuery}
-          onChange={(_, d) => setSearchQuery(d.value)}
-          aria-label="Filter workloads by name"
-        />
-
-        {/* Zoom controls */}
-        <div className={styles.zoomControls}>
-          <Tooltip content="Zoom in" relationship="label">
-            <Button
-              appearance="subtle"
-              icon={<ZoomInRegular />}
-              size="small"
-              onClick={handleZoomIn}
-              aria-label="Zoom in"
-            />
-          </Tooltip>
-          <Tooltip content="Zoom out" relationship="label">
-            <Button
-              appearance="subtle"
-              icon={<ZoomOutRegular />}
-              size="small"
-              onClick={handleZoomOut}
-              aria-label="Zoom out"
-            />
-          </Tooltip>
-          <Tooltip content="Reset zoom" relationship="label">
-            <Button
-              appearance="subtle"
-              icon={<ZoomFitRegular />}
-              size="small"
-              onClick={handleResetZoom}
-              aria-label="Reset zoom"
-            />
-          </Tooltip>
-        </div>
-      </div>
+      <DependencyGraphToolbar
+        loading={loading}
+        onRefresh={fetchGraph}
+        nodeCount={graph?.nodes.length ?? 0}
+        nodes={graph?.nodes ?? []}
+        addDepOpen={addDepOpen}
+        onAddDepOpenChange={setAddDepOpen}
+        onAddDep={handleAddDep}
+        addDepLoading={addDepLoading}
+        addDepError={addDepError}
+        onClearAddDepError={() => setAddDepError(null)}
+        orderLoading={orderLoading}
+        onFetchOrder={fetchOrder}
+        selectedNodeId={selectedNodeId}
+        onClearSelection={() => setSelectedNodeId(null)}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onResetZoom={handleResetZoom}
+      />
 
       {/* Errors */}
       {error && (
@@ -857,33 +519,10 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
       )}
 
       {/* Legend */}
-      <div className={styles.legend}>
-        {Object.entries(CRITICALITY_COLOR).map(([level, color]) => (
-          <div key={level} className={styles.legendItem}>
-            <div
-              className={styles.legendSwatch}
-              style={{ backgroundColor: color }}
-              aria-hidden="true"
-            />
-            <Text size={200}>{level}</Text>
-          </div>
-        ))}
-        <div className={styles.legendItem}>
-          <div
-            className={styles.legendSwatchCycle}
-            aria-hidden="true"
-          />
-          <Text size={200}>circular dependency</Text>
-        </div>
-        <div className={styles.legendItem}>
-          <div
-            className={styles.legendSwatch}
-            style={{ backgroundColor: GROUP_PALETTE[0] }}
-            aria-hidden="true"
-          />
-          <Text size={200}>migration group</Text>
-        </div>
-      </div>
+      <DependencyGraphLegend
+        criticalityColors={CRITICALITY_COLOR}
+        groupPaletteSample={GROUP_PALETTE[0]}
+      />
 
       {/* SVG Graph */}
       <div className={styles.svgContainer} aria-label="Dependency graph">
@@ -972,113 +611,15 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
         )}
       </div>
 
-      {/* Node detail panel */}
-      {selectedNode && (
-        <div
-          className={styles.detailPanel}
-          aria-label={`Details for ${selectedNode.name}`}
-        >
-          <Text weight="semibold" size={400}>
-            {selectedNode.name}
-          </Text>
-          <div className={styles.detailContent}>
-            <div className={styles.detailRow}>
-              <Text size={200} className={styles.detailLabel}>Criticality:</Text>
-              <Badge
-                appearance="tint"
-                color={
-                  selectedNode.criticality === "mission-critical"
-                    ? "danger"
-                    : selectedNode.criticality === "business-critical"
-                      ? "warning"
-                      : "informative"
-                }
-                size="small"
-              >
-                {selectedNode.criticality}
-              </Badge>
-            </div>
-            <div className={styles.detailRow}>
-              <Text size={200} className={styles.detailLabel}>Migration strategy:</Text>
-              <Text size={200}>{selectedNode.migration_strategy}</Text>
-            </div>
-            <div className={styles.detailRow}>
-              <Text size={200} className={styles.detailLabel}>In cycle:</Text>
-              <Text size={200}>{cycleNodes.has(selectedNode.id) ? "⚠ Yes" : "No"}</Text>
-            </div>
-            <div className={styles.detailRow}>
-              <Text size={200} className={styles.detailLabel}>Depends on:</Text>
-              <Text size={200}>
-                {(graph?.edges ?? [])
-                  .filter((e) => e.target === selectedNode.id)
-                  .map((e) => graph?.nodes.find((n) => n.id === e.source)?.name ?? e.source)
-                  .join(", ") || "—"}
-              </Text>
-            </div>
-            <div className={styles.detailRow}>
-              <Text size={200} className={styles.detailLabel}>Required by:</Text>
-              <Text size={200}>
-                {(graph?.edges ?? [])
-                  .filter((e) => e.source === selectedNode.id)
-                  .map((e) => graph?.nodes.find((n) => n.id === e.target)?.name ?? e.target)
-                  .join(", ") || "—"}
-              </Text>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Migration order */}
-      {migrationOrder && (
-        <div className={styles.migrationOrderSection}>
-          <Text weight="semibold" size={400}>
-            Suggested Migration Order
-          </Text>
-          {migrationOrder.has_circular && (
-            <MessageBar intent="warning">
-              <MessageBarBody>
-                Circular dependencies detected — order may be incomplete.
-              </MessageBarBody>
-            </MessageBar>
-          )}
-          {migrationOrder.order.length === 0 && (
-            <Text className={styles.mutedText}>
-              Cannot determine order due to circular dependencies.
-            </Text>
-          )}
-          <div className={styles.orderList}>
-            {migrationOrder.order.map((id, idx) => (
-              <div key={id} className={styles.orderItem}>
-                <Badge appearance="filled" size="small" color="brand">
-                  {idx + 1}
-                </Badge>
-                <Text>{migrationOrder.workload_names[id] ?? id}</Text>
-                {cycleNodes.has(id) && (
-                  <Badge appearance="tint" color="danger" size="small">
-                    cycle
-                  </Badge>
-                )}
-              </div>
-            ))}
-          </div>
-          {migrationOrder.migration_groups.length > 0 && (
-            <>
-              <Text weight="semibold" size={300} className={styles.migrationGroupsTitle}>
-                Migration Groups
-              </Text>
-              {migrationOrder.migration_groups.map((group, idx) => (
-                <div key={idx} className={styles.orderItem}>
-                  <Badge appearance="tint" size="small">Group {idx + 1}</Badge>
-                  <Text>
-                    {group
-                      .map((id) => migrationOrder.workload_names[id] ?? id)
-                      .join(", ")}
-                  </Text>
-                </div>
-              ))}
-            </>
-          )}
-        </div>
+      {/* Node detail panel + migration order */}
+      {(selectedNode || migrationOrder) && (
+        <DependencyGraphNodeDetail
+          selectedNode={selectedNode ?? null}
+          cycleNodes={cycleNodes}
+          dependsOnNames={dependsOnNames}
+          requiredByNames={requiredByNames}
+          migrationOrder={migrationOrder}
+        />
       )}
     </div>
   );
