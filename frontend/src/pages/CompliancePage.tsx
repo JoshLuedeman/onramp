@@ -61,6 +61,31 @@ const useStyles = makeStyles({
     padding: "8px 0",
     borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
   },
+  scoreButton: {
+    marginTop: tokens.spacingVerticalL,
+  },
+  overallScoreFlex: {
+    flex: 1,
+  },
+  progressBarMargin: {
+    marginTop: tokens.spacingVerticalXS,
+  },
+  frameworkHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  frameworkProgress: {
+    marginTop: tokens.spacingVerticalS,
+    marginBottom: tokens.spacingVerticalS,
+  },
+  divider: {
+    marginTop: tokens.spacingVerticalS,
+    marginBottom: tokens.spacingVerticalS,
+  },
+  remediationText: {
+    color: tokens.colorBrandForeground1,
+  },
 });
 
 const FRAMEWORKS = [
@@ -194,7 +219,7 @@ export default function CompliancePage() {
           appearance="primary"
           onClick={handleScore}
           disabled={selected.length === 0 || loading}
-          style={{ marginTop: "16px" }}
+          className={styles.scoreButton}
         >
           {loading ? <Spinner size="tiny" /> : "Score Architecture"}
         </Button>
@@ -205,12 +230,12 @@ export default function CompliancePage() {
           <Card className={styles.card}>
             <div className={styles.scoreSection}>
               <Text className={styles.scoreValue}>{Math.round(result.overall_score)}%</Text>
-              <div style={{ flex: 1 }}>
+              <div className={styles.overallScoreFlex}>
                 <Text weight="semibold">Overall Compliance Score</Text>
                 <ProgressBar
                   value={result.overall_score / 100}
                   color={progressColor(result.overall_score) as "success" | "warning" | "error"}
-                  style={{ marginTop: "4px" }}
+                  className={styles.progressBarMargin}
                 />
               </div>
             </div>
@@ -218,7 +243,7 @@ export default function CompliancePage() {
 
           {result.frameworks.map((fw) => (
             <Card key={fw.name} className={styles.card}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div className={styles.frameworkHeader}>
                 <Text weight="semibold">{fw.name}</Text>
                 <Badge
                   color={badgeColor(fw.score) as "success" | "warning" | "danger"}
@@ -233,12 +258,12 @@ export default function CompliancePage() {
               <ProgressBar
                 value={fw.score / 100}
                 color={progressColor(fw.score) as "success" | "warning" | "error"}
-                style={{ margin: "8px 0" }}
+                className={styles.frameworkProgress}
               />
 
               {fw.gaps && fw.gaps.length > 0 && (
                 <>
-                  <Divider style={{ margin: "8px 0" }} />
+                  <Divider className={styles.divider} />
                   <Text weight="semibold" size={300}>
                     <WarningRegular /> Gaps ({fw.gaps.length})
                   </Text>
@@ -250,7 +275,7 @@ export default function CompliancePage() {
                       {gap.remediation && (
                         <>
                           <br />
-                          <Text size={200} style={{ color: tokens.colorBrandForeground1 }}>
+                          <Text size={200} className={styles.remediationText}>
                             <CheckmarkCircleRegular /> {gap.remediation}
                           </Text>
                         </>

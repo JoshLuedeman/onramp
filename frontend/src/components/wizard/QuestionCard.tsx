@@ -72,6 +72,9 @@ const useStyles = makeStyles({
     fontSize: tokens.fontSizeBase200,
     color: tokens.colorNeutralForeground3,
   },
+  fullWidthInput: {
+    width: "100%",
+  },
 });
 
 interface QuestionCardProps {
@@ -161,7 +164,7 @@ export default function QuestionCard({ question, onAnswer, existingAnswer, disco
           onChange={(_, data) => setTextValue(data.value)}
           placeholder="Type your answer..."
           size="large"
-          style={{ width: "100%" }}
+          className={styles.fullWidthInput}
         />
       )}
 

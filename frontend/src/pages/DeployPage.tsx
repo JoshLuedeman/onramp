@@ -49,6 +49,23 @@ const useStyles = makeStyles({
     gap: "8px",
     alignItems: "end",
   },
+  subscriptionInput: {
+    flex: 1,
+  },
+  validatedMessage: {
+    marginTop: tokens.spacingVerticalS,
+  },
+  deployButton: {
+    marginTop: tokens.spacingVerticalS,
+  },
+  progressBar: {
+    marginTop: tokens.spacingVerticalM,
+    marginBottom: tokens.spacingVerticalM,
+  },
+  divider: {
+    marginTop: tokens.spacingVerticalS,
+    marginBottom: tokens.spacingVerticalS,
+  },
 });
 
 interface DeploymentStep {
@@ -181,7 +198,7 @@ export default function DeployPage() {
             placeholder="Subscription ID"
             value={subscriptionId}
             onChange={(_, d) => setSubscriptionId(d.value)}
-            style={{ flex: 1 }}
+            className={styles.subscriptionInput}
           />
           <Button
             appearance="primary"
@@ -192,7 +209,7 @@ export default function DeployPage() {
           </Button>
         </div>
         {validated && (
-          <MessageBar intent="success" style={{ marginTop: 8 }}>
+          <MessageBar intent="success" className={styles.validatedMessage}>
             <MessageBarBody>Subscription validated successfully.</MessageBarBody>
           </MessageBar>
         )}
@@ -207,16 +224,16 @@ export default function DeployPage() {
               icon={<RocketRegular />}
               onClick={handleDeploy}
               disabled={deploying}
-              style={{ marginTop: 8 }}
+              className={styles.deployButton}
             >
               {deploying ? "Deploying..." : "Deploy to Azure"}
             </Button>
           )}
           {steps.length > 0 && (
             <>
-              <ProgressBar value={progress} style={{ margin: "12px 0" }} />
+              <ProgressBar value={progress} className={styles.progressBar} />
               <Text>{Math.round(progress * 100)}% complete</Text>
-              <Divider style={{ margin: "8px 0" }} />
+              <Divider className={styles.divider} />
               {steps.map((step) => (
                 <div key={step.id} className={styles.stepRow}>
                   <Text>{step.name}</Text>

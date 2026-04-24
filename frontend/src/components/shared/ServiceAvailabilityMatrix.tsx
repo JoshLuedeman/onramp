@@ -53,6 +53,9 @@ const useStyles = makeStyles({
   categoryBadge: {
     marginRight: tokens.spacingHorizontalXS,
   },
+  sortableHeader: {
+    cursor: "pointer",
+  },
 });
 
 export interface ServiceAvailabilityMatrixProps {
@@ -149,34 +152,31 @@ export default function ServiceAvailabilityMatrix({
           <TableRow>
             <TableHeaderCell
               onClick={() => handleSort("service_name")}
-              style={{ cursor: "pointer" }}
+              className={styles.sortableHeader}
             >
               Service Name
             </TableHeaderCell>
             <TableHeaderCell
               onClick={() => handleSort("category")}
-              style={{ cursor: "pointer" }}
+              className={styles.sortableHeader}
             >
               Category
             </TableHeaderCell>
             <TableHeaderCell
-              className={targetEnvironment === "commercial" ? styles.highlighted : undefined}
+              className={targetEnvironment === "commercial" ? `${styles.highlighted} ${styles.sortableHeader}` : styles.sortableHeader}
               onClick={() => handleSort("commercial")}
-              style={{ cursor: "pointer" }}
             >
               Commercial
             </TableHeaderCell>
             <TableHeaderCell
-              className={targetEnvironment === "government" ? styles.highlighted : undefined}
+              className={targetEnvironment === "government" ? `${styles.highlighted} ${styles.sortableHeader}` : styles.sortableHeader}
               onClick={() => handleSort("government")}
-              style={{ cursor: "pointer" }}
             >
               Government
             </TableHeaderCell>
             <TableHeaderCell
-              className={targetEnvironment === "china" ? styles.highlighted : undefined}
+              className={targetEnvironment === "china" ? `${styles.highlighted} ${styles.sortableHeader}` : styles.sortableHeader}
               onClick={() => handleSort("china")}
-              style={{ cursor: "pointer" }}
             >
               China
             </TableHeaderCell>

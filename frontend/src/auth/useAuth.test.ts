@@ -14,9 +14,9 @@ describe("useAuth – dev mode (no client ID)", () => {
     useAuth = mod.useAuth;
   });
 
-  it("returns isAuthenticated false when no client ID is configured", () => {
+  it("returns isAuthenticated true in dev mode", () => {
     const { result } = renderHook(() => useAuth());
-    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.isAuthenticated).toBe(true);
   });
 
   it("returns login and logout functions", () => {
@@ -25,9 +25,13 @@ describe("useAuth – dev mode (no client ID)", () => {
     expect(typeof result.current.logout).toBe("function");
   });
 
-  it("returns null user when not authenticated", () => {
+  it("returns a mock dev user in dev mode", () => {
     const { result } = renderHook(() => useAuth());
-    expect(result.current.user).toBeNull();
+    expect(result.current.user).toEqual({
+      name: "Dev User",
+      email: "dev@onramp.local",
+      id: "dev-user-001",
+    });
   });
 
   it("returns getAccessToken function", () => {
@@ -35,10 +39,10 @@ describe("useAuth – dev mode (no client ID)", () => {
     expect(typeof result.current.getAccessToken).toBe("function");
   });
 
-  it("getAccessToken resolves to null in dev mode", async () => {
+  it("getAccessToken resolves to dev-token in dev mode", async () => {
     const { result } = renderHook(() => useAuth());
     const token = await result.current.getAccessToken();
-    expect(token).toBeNull();
+    expect(token).toBe("dev-token");
   });
 
   it("login does not throw in dev mode", async () => {

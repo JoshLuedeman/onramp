@@ -21,14 +21,17 @@ import type { GapFinding } from "../../services/api";
 
 const useStyles = makeStyles({
   card: {
-    padding: "16px",
-    marginBottom: "8px",
+    paddingTop: tokens.spacingVerticalL,
+    paddingRight: tokens.spacingHorizontalL,
+    paddingBottom: tokens.spacingVerticalL,
+    paddingLeft: tokens.spacingHorizontalL,
+    marginBottom: tokens.spacingVerticalS,
   },
   header: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: "12px",
+    gap: tokens.spacingHorizontalM,
     cursor: "pointer",
   },
   headerLeft: {
@@ -45,7 +48,7 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground3,
   },
   body: {
-    marginTop: "12px",
+    marginTop: tokens.spacingVerticalM,
     display: "flex",
     flexDirection: "column",
     gap: "10px",
@@ -53,7 +56,7 @@ const useStyles = makeStyles({
   section: {
     display: "flex",
     flexDirection: "column",
-    gap: "4px",
+    gap: tokens.spacingVerticalXS,
   },
   label: {
     fontWeight: tokens.fontWeightSemibold,
@@ -67,14 +70,18 @@ const useStyles = makeStyles({
     color: tokens.colorBrandForeground1,
   },
   remediationItem: {
-    paddingLeft: "16px",
+    paddingLeft: tokens.spacingHorizontalL,
     fontSize: tokens.fontSizeBase300,
     color: tokens.colorNeutralForeground2,
   },
   actions: {
     display: "flex",
-    gap: "8px",
-    marginTop: "8px",
+    gap: tokens.spacingHorizontalS,
+    marginTop: tokens.spacingVerticalS,
+  },
+  divider: {
+    marginTop: tokens.spacingVerticalM,
+    marginBottom: tokens.spacingVerticalM,
   },
 });
 
@@ -149,7 +156,7 @@ export default function GapFindingCard({ finding, onAddToArchitecture }: GapFind
 
       {expanded && (
         <>
-          <Divider style={{ margin: "12px 0" }} />
+          <Divider className={styles.divider} />
           <div className={styles.body}>
             <div className={styles.section}>
               <Text className={styles.label}>Description</Text>

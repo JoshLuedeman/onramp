@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { api } from "./api";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { api, DEFAULT_TIMEOUT_MS, MAX_RETRIES, RETRY_BASE_DELAY_MS, RETRYABLE_STATUS_CODES } from "./api";
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -35,10 +35,10 @@ describe("api.questionnaire", () => {
   it("throws on non-ok response", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: false,
-      status: 500,
-      statusText: "Internal Server Error",
+      status: 400,
+      statusText: "Bad Request",
     }));
-    await expect(api.questionnaire.getCategories()).rejects.toThrow("API error: 500");
+    await expect(api.questionnaire.getCategories()).rejects.toThrow("API error: 400");
   });
 });
 
@@ -133,10 +133,10 @@ describe("api.bicep", () => {
   it("download throws on non-ok response", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: false,
-      status: 500,
-      statusText: "Internal Server Error",
+      status: 400,
+      statusText: "Bad Request",
     }));
-    await expect(api.bicep.download({ mg: {} })).rejects.toThrow("API error: 500");
+    await expect(api.bicep.download({ mg: {} })).rejects.toThrow("API error: 400");
   });
 
   it("getByProject fetches bicep files for a project", async () => {
@@ -1932,5 +1932,179 @@ describe("api.sap", () => {
     expect(call[1].method).toBe("POST");
     const body = JSON.parse(call[1].body);
     expect(body.architecture).toBeDefined();
+  });
+});
+
+// ── Resilience: timeout + retry tests ──────────────────────────────────
+
+describe("fetchWithResilience (via fetchApi)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("times out after DEFAULT_TIMEOUT_MS", async () => {
+    // fetch that never resolves — the AbortController should fire
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(
+        (_url: string, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => {
+              reject(new DOMException("The operation was aborted.", "AbortError"));
+            });
+          }),
+      ),
+    );
+
+    const promise = api.questionnaire.getCategories();
+
+    // Attach rejection handler BEFORE advancing timers to avoid unhandled rejection
+    const assertion = expect(promise).rejects.toThrow("aborted");
+
+    // Advance past timeout + all retry delays:
+    // attempt 0: 30s timeout, then 1s delay
+    // attempt 1: 30s timeout, then 2s delay
+    // attempt 2: 30s timeout (final — throws)
+    for (let i = 0; i <= MAX_RETRIES; i++) {
+      await vi.advanceTimersByTimeAsync(DEFAULT_TIMEOUT_MS);
+      if (i < MAX_RETRIES) {
+        await vi.advanceTimersByTimeAsync(RETRY_BASE_DELAY_MS * Math.pow(2, i));
+      }
+    }
+
+    await assertion;
+    expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(MAX_RETRIES + 1);
+  });
+
+  it("retries on 503 then succeeds", async () => {
+    const mockFetch = vi
+      .fn<(input: string | URL | Request, init?: RequestInit) => Promise<Response>>()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        statusText: "Service Unavailable",
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ categories: [{ id: "org", name: "Organization" }] }),
+      } as Response);
+
+    vi.stubGlobal("fetch", mockFetch);
+
+    const promise = api.questionnaire.getCategories();
+
+    // Advance past the retry delay for attempt 0 (1s)
+    await vi.advanceTimersByTimeAsync(RETRY_BASE_DELAY_MS);
+
+    const result = await promise;
+    expect(result.categories).toHaveLength(1);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry on 400", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      statusText: "Bad Request",
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    await expect(api.questionnaire.getCategories()).rejects.toThrow("API error: 400");
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries on network error then succeeds", async () => {
+    const mockFetch = vi
+      .fn<(input: string | URL | Request, init?: RequestInit) => Promise<Response>>()
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ categories: [] }),
+      } as Response);
+
+    vi.stubGlobal("fetch", mockFetch);
+
+    const promise = api.questionnaire.getCategories();
+
+    // Advance past the retry delay for attempt 0 (1s)
+    await vi.advanceTimersByTimeAsync(RETRY_BASE_DELAY_MS);
+
+    const result = await promise;
+    expect(result.categories).toHaveLength(0);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("exhausts retries on persistent 503 then throws ApiError", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      statusText: "Service Unavailable",
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const promise = api.questionnaire.getCategories();
+
+    // Attach rejection handler BEFORE advancing timers to avoid unhandled rejection
+    const assertion = expect(promise).rejects.toThrow("API error: 503");
+
+    // Advance through all retry delays
+    for (let i = 0; i < MAX_RETRIES; i++) {
+      await vi.advanceTimersByTimeAsync(RETRY_BASE_DELAY_MS * Math.pow(2, i));
+    }
+
+    await assertion;
+    expect(mockFetch).toHaveBeenCalledTimes(MAX_RETRIES + 1);
+  });
+
+  it("uses exponential backoff delays", async () => {
+    const mockFetch = vi
+      .fn<(input: string | URL | Request, init?: RequestInit) => Promise<Response>>()
+      .mockResolvedValueOnce({ ok: false, status: 502, statusText: "Bad Gateway" } as Response)
+      .mockResolvedValueOnce({ ok: false, status: 502, statusText: "Bad Gateway" } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ categories: [] }),
+      } as Response);
+
+    vi.stubGlobal("fetch", mockFetch);
+
+    const promise = api.questionnaire.getCategories();
+
+    // After first failure: 1s delay (1000 * 2^0)
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(RETRY_BASE_DELAY_MS); // 1s
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    // After second failure: 2s delay (1000 * 2^1)
+    await vi.advanceTimersByTimeAsync(RETRY_BASE_DELAY_MS * 2); // 2s
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+
+    const result = await promise;
+    expect(result.categories).toHaveLength(0);
+  });
+
+  it("verifies retryable vs non-retryable status codes", () => {
+    // Retryable
+    expect(RETRYABLE_STATUS_CODES.has(408)).toBe(true);
+    expect(RETRYABLE_STATUS_CODES.has(429)).toBe(true);
+    expect(RETRYABLE_STATUS_CODES.has(500)).toBe(true);
+    expect(RETRYABLE_STATUS_CODES.has(502)).toBe(true);
+    expect(RETRYABLE_STATUS_CODES.has(503)).toBe(true);
+    expect(RETRYABLE_STATUS_CODES.has(504)).toBe(true);
+    // Non-retryable
+    expect(RETRYABLE_STATUS_CODES.has(400)).toBe(false);
+    expect(RETRYABLE_STATUS_CODES.has(401)).toBe(false);
+    expect(RETRYABLE_STATUS_CODES.has(403)).toBe(false);
+    expect(RETRYABLE_STATUS_CODES.has(404)).toBe(false);
+  });
+
+  it("exports resilience constants with expected values", () => {
+    expect(DEFAULT_TIMEOUT_MS).toBe(30_000);
+    expect(MAX_RETRIES).toBe(2);
+    expect(RETRY_BASE_DELAY_MS).toBe(1_000);
   });
 });

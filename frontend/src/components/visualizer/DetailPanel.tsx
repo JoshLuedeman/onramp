@@ -39,6 +39,13 @@ const useStyles = makeStyles({
   label: {
     color: tokens.colorNeutralForeground3,
   },
+  clickableIcon: {
+    cursor: "pointer",
+  },
+  divider: {
+    marginTop: tokens.spacingVerticalM,
+    marginBottom: tokens.spacingVerticalM,
+  },
 });
 
 interface DetailPanelProps {
@@ -59,12 +66,12 @@ export default function DetailPanel({ component, onClose }: DetailPanelProps) {
       <div className={styles.header}>
         <Text className={styles.title}>{component.name}</Text>
         <DismissRegular
-          style={{ cursor: "pointer" }}
+          className={styles.clickableIcon}
           onClick={onClose}
         />
       </div>
       <Badge appearance="outline">{component.type}</Badge>
-      <Divider style={{ margin: "12px 0" }} />
+      <Divider className={styles.divider} />
 
       {component.properties && (
         <div className={styles.section}>

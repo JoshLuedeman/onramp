@@ -178,6 +178,12 @@ const useStyles = makeStyles({
   restoreButton: {
     marginLeft: "auto",
   },
+  sideBySidePropRow: {
+    paddingTop: tokens.spacingVerticalXS,
+    paddingRight: tokens.spacingHorizontalM,
+    paddingBottom: tokens.spacingVerticalXS,
+    paddingLeft: tokens.spacingHorizontalM,
+  },
 });
 
 function formatValue(value: unknown): string {
@@ -539,8 +545,7 @@ export default function VersionDiff({
                 ).map((pd, idx) => (
                   <div
                     key={`${pd.property_name}-${idx}`}
-                    className={styles.propRow}
-                    style={{ padding: "4px 12px" }}
+                    className={`${styles.propRow} ${styles.sideBySidePropRow}`}
                   >
                     <Text className={styles.propName}>
                       {pd.property_name}
@@ -591,8 +596,7 @@ export default function VersionDiff({
                 ).map((pd, idx) => (
                   <div
                     key={`${pd.property_name}-${idx}`}
-                    className={styles.propRow}
-                    style={{ padding: "4px 12px" }}
+                    className={`${styles.propRow} ${styles.sideBySidePropRow}`}
                   >
                     <Text className={styles.propName}>
                       {pd.property_name}

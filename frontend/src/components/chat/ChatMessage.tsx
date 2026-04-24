@@ -64,6 +64,9 @@ const useStyles = makeStyles({
     fontFamily: tokens.fontFamilyMonospace,
     fontSize: tokens.fontSizeBase200,
   },
+  blockSpan: {
+    display: "block",
+  },
 });
 
 /** Render simple markdown: **bold**, `code`, ```code blocks```, and - lists. */
@@ -95,7 +98,7 @@ function renderMarkdown(text: string, styles: ReturnType<typeof useStyles>) {
     // List item
     if (line.startsWith("- ") || line.startsWith("* ")) {
       elements.push(
-        <span key={`li-${i}`} style={{ display: "block" }}>
+        <span key={`li-${i}`} className={styles.blockSpan}>
           {"• "}{renderInline(line.slice(2), styles)}
         </span>,
       );
@@ -105,7 +108,7 @@ function renderMarkdown(text: string, styles: ReturnType<typeof useStyles>) {
 
     // Regular paragraph
     elements.push(
-      <span key={`p-${i}`} style={{ display: "block" }}>
+      <span key={`p-${i}`} className={styles.blockSpan}>
         {renderInline(line, styles)}
       </span>,
     );

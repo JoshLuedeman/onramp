@@ -128,6 +128,10 @@ const useStyles = makeStyles({
     justifyContent: "center",
     padding: tokens.spacingVerticalXXXL,
   },
+  ratingButtons: {
+    display: "flex",
+    gap: tokens.spacingHorizontalXS,
+  },
 });
 
 export default function MarketplacePage() {
@@ -300,12 +304,7 @@ export default function MarketplacePage() {
                     <ThumbDislikeRegular /> {tpl.rating_down}
                   </span>
                 </div>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: tokens.spacingHorizontalXS,
-                  }}
-                >
+                <div className={styles.ratingButtons}>
                   <Button
                     size="small"
                     icon={<ThumbLikeRegular />}

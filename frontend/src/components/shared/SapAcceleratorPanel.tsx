@@ -120,6 +120,12 @@ const useStyles = makeStyles({
   dropdownField: {
     minWidth: "200px",
   },
+  severityBadge: {
+    marginLeft: tokens.spacingHorizontalS,
+  },
+  actionsRow: {
+    marginTop: tokens.spacingVerticalL,
+  },
 });
 
 export default function SapAcceleratorPanel({
@@ -327,7 +333,7 @@ export default function SapAcceleratorPanel({
                 <Badge
                   appearance="filled"
                   color={bp.severity === "critical" ? "danger" : "warning"}
-                  style={{ marginLeft: 8 }}
+                  className={styles.severityBadge}
                 >
                   {bp.severity}
                 </Badge>
@@ -338,7 +344,7 @@ export default function SapAcceleratorPanel({
       )}
 
       {/* Actions */}
-      <div className={styles.controls} style={{ marginTop: 16 }}>
+      <div className={`${styles.controls} ${styles.actionsRow}`}>
         <Button
           appearance="primary"
           data-testid="sap-generate-button"

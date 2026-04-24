@@ -150,6 +150,27 @@ const useStyles = makeStyles({
     gap: tokens.spacingHorizontalXS,
     alignItems: "center",
   },
+  legendSwatchCycle: {
+    width: "16px",
+    height: "16px",
+    borderRadius: tokens.borderRadiusSmall,
+    backgroundColor: tokens.colorStatusDangerForeground1,
+    borderTopWidth: "2px",
+    borderRightWidth: "2px",
+    borderBottomWidth: "2px",
+    borderLeftWidth: "2px",
+    borderTopStyle: "solid",
+    borderRightStyle: "solid",
+    borderBottomStyle: "solid",
+    borderLeftStyle: "solid",
+    borderTopColor: tokens.colorStatusDangerForeground1,
+    borderRightColor: tokens.colorStatusDangerForeground1,
+    borderBottomColor: tokens.colorStatusDangerForeground1,
+    borderLeftColor: tokens.colorStatusDangerForeground1,
+  },
+  svgBlock: {
+    display: "block",
+  },
 });
 
 // ---------------------------------------------------------------------------
@@ -849,8 +870,7 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
         ))}
         <div className={styles.legendItem}>
           <div
-            className={styles.legendSwatch}
-            style={{ backgroundColor: tokens.colorStatusDangerForeground1, border: `2px solid ${tokens.colorStatusDangerForeground1}` }}
+            className={styles.legendSwatchCycle}
             aria-hidden="true"
           />
           <Text size={200}>circular dependency</Text>
@@ -887,7 +907,7 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
                 ? `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`
                 : `0 0 ${svgW} ${svgH}`
             }
-            style={{ display: "block" }}
+            className={styles.svgBlock}
             aria-label="Workload dependency graph SVG"
             onWheel={handleWheel}
             onMouseDown={handleMouseDown}

@@ -87,8 +87,79 @@ async function parseErrorBody(
   }
 }
 
+// ── Resilience: timeout + retry with exponential backoff ────────────────
+
+export const DEFAULT_TIMEOUT_MS = 30_000;
+export const MAX_RETRIES = 2;
+export const RETRY_BASE_DELAY_MS = 1_000;
+export const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504]);
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithResilience(
+  url: string,
+  options?: RequestInit,
+): Promise<Response> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+
+    // If the caller provided a signal, abort when either fires
+    const callerSignal = options?.signal;
+    if (callerSignal) {
+      if (callerSignal.aborted) {
+        clearTimeout(timeoutId);
+        throw new DOMException("The operation was aborted.", "AbortError");
+      }
+      callerSignal.addEventListener("abort", () => controller.abort(), {
+        once: true,
+      });
+    }
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (
+        !response.ok &&
+        RETRYABLE_STATUS_CODES.has(response.status) &&
+        attempt < MAX_RETRIES
+      ) {
+        lastError = new Error(`HTTP ${response.status}`);
+        await delay(RETRY_BASE_DELAY_MS * Math.pow(2, attempt));
+        continue;
+      }
+
+      return response;
+    } catch (err: unknown) {
+      clearTimeout(timeoutId);
+      lastError = err;
+
+      // Don't retry if explicitly aborted by caller
+      if (callerSignal?.aborted) throw err;
+
+      // Retry on network errors and timeouts
+      if (attempt < MAX_RETRIES) {
+        await delay(RETRY_BASE_DELAY_MS * Math.pow(2, attempt));
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  /* istanbul ignore next -- safety net; loop always returns or throws */
+  throw lastError;
+}
+
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetchWithResilience(`${API_BASE}${path}`, {
     headers: {
       "Content-Type": "application/json",
       ...options?.headers,
@@ -103,7 +174,7 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 async function fetchBlob(path: string, options?: RequestInit): Promise<Blob> {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetchWithResilience(`${API_BASE}${path}`, {
     headers: {
       "Content-Type": "application/json",
       ...options?.headers,

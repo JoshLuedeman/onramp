@@ -118,6 +118,43 @@ const useStyles = makeStyles({
     gap: tokens.spacingHorizontalM,
     alignItems: "center",
   },
+  uploadIcon: {
+    fontSize: "32px",
+    color: tokens.colorBrandForeground1,
+  },
+  browseHint: {
+    color: tokens.colorNeutralForeground3,
+  },
+  hiddenInput: {
+    display: "none",
+  },
+  buttonRow: {
+    display: "flex",
+    gap: tokens.spacingHorizontalS,
+  },
+  successIcon: {
+    fontSize: "20px",
+    color: tokens.colorStatusSuccessForeground1,
+  },
+  failedCount: {
+    color: tokens.colorStatusWarningForeground1,
+  },
+  warningText: {
+    color: tokens.colorStatusWarningForeground1,
+  },
+  actionCellButtons: {
+    display: "flex",
+    gap: tokens.spacingHorizontalXS,
+  },
+  saveErrorBar: {
+    marginTop: tokens.spacingVerticalM,
+  },
+  deleteButton: {
+    backgroundColor: tokens.colorStatusDangerBackground3,
+  },
+  hiddenLabel: {
+    display: "none",
+  },
 });
 
 type TabValue = "import" | "inventory" | "mapping" | "dependencies";
@@ -334,18 +371,18 @@ export default function WorkloadsPage({ projectId: propProjectId }: WorkloadsPag
             onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
             aria-label="Drop zone for workload import file"
           >
-            <ArrowUploadRegular style={{ fontSize: 32, color: tokens.colorBrandForeground1 }} />
+            <ArrowUploadRegular className={styles.uploadIcon} />
             <Text weight="semibold">
               {importFile ? importFile.name : "Drop a CSV or JSON file here"}
             </Text>
-            <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+            <Text size={200} className={styles.browseHint}>
               or click to browse
             </Text>
             <input
               ref={fileInputRef}
               type="file"
               accept=".csv,.json"
-              style={{ display: "none" }}
+              className={styles.hiddenInput}
               onChange={handleFileSelect}
               aria-label="File input for workload import"
             />
@@ -357,7 +394,7 @@ export default function WorkloadsPage({ projectId: propProjectId }: WorkloadsPag
                 Selected: <strong>{importFile.name}</strong>{" "}
                 ({(importFile.size / 1024).toFixed(1)} KB)
               </Text>
-              <div style={{ display: "flex", gap: tokens.spacingHorizontalS }}>
+              <div className={styles.buttonRow}>
                 <Button
                   appearance="subtle"
                   onClick={() => { setImportFile(null); setImportResult(null); setImportError(null); }}
@@ -385,15 +422,13 @@ export default function WorkloadsPage({ projectId: propProjectId }: WorkloadsPag
           {importResult && (
             <div className={styles.previewSection}>
               <div className={styles.importSummary}>
-                <CheckmarkCircleRegular
-                  style={{ fontSize: 20, color: tokens.colorStatusSuccessForeground1 }}
-                />
+                <CheckmarkCircleRegular className={styles.successIcon} />
                 <Text>
                   Imported{" "}
                   <strong>{importResult.imported_count}</strong>{" "}
                   workload{importResult.imported_count !== 1 ? "s" : ""}
                   {importResult.failed_count > 0 && (
-                    <span style={{ color: tokens.colorStatusWarningForeground1 }}>
+                    <span className={styles.failedCount}>
                       {" "}({importResult.failed_count} failed)
                     </span>
                   )}
@@ -402,11 +437,11 @@ export default function WorkloadsPage({ projectId: propProjectId }: WorkloadsPag
 
               {importResult.errors.length > 0 && (
                 <div className={styles.errorList}>
-                  <Text weight="semibold" style={{ color: tokens.colorStatusWarningForeground1 }}>
+                  <Text weight="semibold" className={styles.warningText}>
                     <WarningRegular /> Row errors:
                   </Text>
                   {importResult.errors.map((err, i) => (
-                    <Text key={i} size={200} style={{ color: tokens.colorStatusWarningForeground1 }}>
+                    <Text key={i} size={200} className={styles.warningText}>
                       {err}
                     </Text>
                   ))}
@@ -472,8 +507,8 @@ export default function WorkloadsPage({ projectId: propProjectId }: WorkloadsPag
             <Text>
               {workloads.length} workload{workloads.length !== 1 ? "s" : ""} in this project
             </Text>
-            <div style={{ display: "flex", gap: tokens.spacingHorizontalS }}>
-              <Button appearance="subtle" onClick={fetchWorkloads} disabled={listLoading}>
+            <div className={styles.buttonRow}>
+              <Button appearance="subtle" onClick={fetchWorkloads}disabled={listLoading}>
                 {listLoading ? <Spinner size="tiny" /> : "Refresh"}
               </Button>
               <Button appearance="primary" onClick={openCreate}>
@@ -536,7 +571,7 @@ export default function WorkloadsPage({ projectId: propProjectId }: WorkloadsPag
                       </TableCell>
                       <TableCell>{wl.migration_strategy}</TableCell>
                       <TableCell>
-                        <div style={{ display: "flex", gap: tokens.spacingHorizontalXS }}>
+                        <div className={styles.actionCellButtons}>
                           <Button
                             appearance="subtle"
                             size="small"
@@ -687,7 +722,7 @@ export default function WorkloadsPage({ projectId: propProjectId }: WorkloadsPag
                 </Field>
               </div>
               {saveError && (
-                <MessageBar intent="error" style={{ marginTop: tokens.spacingVerticalM }}>
+                <MessageBar intent="error" className={styles.saveErrorBar}>
                   <MessageBarBody>{saveError}</MessageBarBody>
                 </MessageBar>
               )}
@@ -734,7 +769,7 @@ export default function WorkloadsPage({ projectId: propProjectId }: WorkloadsPag
                 onClick={handleDelete}
                 disabled={deleteLoading}
                 icon={deleteLoading ? <Spinner size="tiny" /> : undefined}
-                style={{ backgroundColor: tokens.colorStatusDangerBackground3 }}
+                className={styles.deleteButton}
               >
                 {deleteLoading ? "Deleting\u2026" : "Delete"}
               </Button>
@@ -743,7 +778,7 @@ export default function WorkloadsPage({ projectId: propProjectId }: WorkloadsPag
         </DialogSurface>
       </Dialog>
 
-      <Label style={{ display: "none" }}>Workload import file picker</Label>
+      <Label className={styles.hiddenLabel}>Workload import file picker</Label>
 
       {/* ---- Mapping Tab ---- */}
       {activeTab === "mapping" && (

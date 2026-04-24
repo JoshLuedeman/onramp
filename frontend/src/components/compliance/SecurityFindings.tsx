@@ -73,6 +73,7 @@ const useStyles = makeStyles({
     display: "flex",
     alignItems: "center",
     gap: "10px",
+    cursor: "pointer",
   },
   findingBody: {
     marginTop: "10px",
@@ -95,6 +96,11 @@ const useStyles = makeStyles({
     textAlign: "center",
     padding: "32px",
     color: tokens.colorNeutralForeground3,
+  },
+  headerTitle: {
+    display: "flex",
+    alignItems: "center",
+    gap: tokens.spacingHorizontalS,
   },
 });
 
@@ -185,7 +191,7 @@ export default function SecurityFindings({
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <div className={styles.headerTitle}>
           <ShieldCheckmarkRegular fontSize={24} />
           <Text size={500} weight="semibold">
             Security Posture
@@ -256,7 +262,7 @@ export default function SecurityFindings({
                         toggleExpanded(finding.id);
                       }
                     }}
-                    style={{ cursor: "pointer" }}
+
                   >
                     {severityBadge(finding.severity)}
                     <Text weight="semibold">{finding.finding}</Text>

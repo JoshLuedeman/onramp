@@ -5,6 +5,7 @@ import { AuthProvider } from "./auth";
 import Layout from "./components/shared/Layout";
 import ErrorBoundary from "./components/shared/ErrorBoundary";
 import PageSkeleton from "./components/shared/PageSkeleton";
+import ProtectedRoute from "./components/shared/ProtectedRoute";
 import { ProjectProvider } from "./contexts/ProjectContext";
 import DashboardPage from "./pages/DashboardPage";
 
@@ -23,6 +24,7 @@ const ChatPage = lazy(() => import("./pages/ChatPage"));
 const OutputPage = lazy(() => import("./pages/OutputPage"));
 const MSPDashboardPage = lazy(() => import("./pages/MSPDashboardPage"));
 const MarketplacePage = lazy(() => import("./pages/MarketplacePage"));
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
 function App() {
   return (
@@ -37,70 +39,87 @@ function App() {
 
                   {/* Project-scoped routes */}
                   <Route path="/projects/:projectId" element={
-                    <ProjectProvider><ProjectDetailPage /></ProjectProvider>
+                    <ProtectedRoute><ProjectProvider><ProjectDetailPage /></ProjectProvider></ProtectedRoute>
                   } />
                   <Route path="/projects/:projectId/wizard" element={
-                    <ProjectProvider><WizardPage /></ProjectProvider>
+                    <ProtectedRoute><ProjectProvider><WizardPage /></ProjectProvider></ProtectedRoute>
                   } />
                   <Route path="/projects/:projectId/architecture" element={
-                    <ProjectProvider><ArchitecturePage /></ProjectProvider>
+                    <ProtectedRoute><ProjectProvider><ArchitecturePage /></ProjectProvider></ProtectedRoute>
                   } />
                   <Route path="/projects/:projectId/compliance" element={
-                    <ProjectProvider><CompliancePage /></ProjectProvider>
+                    <ProtectedRoute><ProjectProvider><CompliancePage /></ProjectProvider></ProtectedRoute>
                   } />
                   <Route path="/projects/:projectId/bicep" element={
-                    <ProjectProvider><BicepPage /></ProjectProvider>
+                    <ProtectedRoute><ProjectProvider><BicepPage /></ProjectProvider></ProtectedRoute>
                   } />
                   <Route path="/projects/:projectId/deploy" element={
-                    <ProjectProvider><DeployPage /></ProjectProvider>
+                    <ProtectedRoute><ProjectProvider><DeployPage /></ProjectProvider></ProtectedRoute>
                   } />
 
-                  {/* Legacy routes (backward compatibility) */}
-                  <Route path="/wizard" element={<WizardPage />} />
-                  <Route path="/architecture" element={<ArchitecturePage />} />
-                  <Route path="/compliance" element={<CompliancePage />} />
-                  <Route path="/bicep" element={<BicepPage />} />
-                  <Route path="/deploy" element={<DeployPage />} />
+                  {/* Legacy routes — redirect to dashboard */}
+                  <Route path="/wizard" element={<Navigate to="/" replace />} />
+                  <Route path="/architecture" element={<Navigate to="/" replace />} />
+                  <Route path="/compliance" element={<Navigate to="/" replace />} />
+                  <Route path="/bicep" element={<Navigate to="/" replace />} />
+                  <Route path="/deploy" element={<Navigate to="/" replace />} />
 
                   {/* Gap analysis */}
-                  <Route path="/gap-analysis/:scanId" element={<GapAnalysisPage />} />
+                  <Route path="/gap-analysis/:scanId" element={
+                    <ProtectedRoute><GapAnalysisPage /></ProtectedRoute>
+                  } />
 
                   {/* Workloads */}
                   <Route path="/workloads" element={<Navigate to="/projects" replace />} />
                   <Route path="/projects/:projectId/workloads" element={
-                    <ProjectProvider><WorkloadsPage /></ProjectProvider>
+                    <ProtectedRoute><ProjectProvider><WorkloadsPage /></ProjectProvider></ProtectedRoute>
                   } />
                   <Route path="/projects/:projectId/migration" element={
-                    <ProjectProvider><MigrationPage /></ProjectProvider>
+                    <ProtectedRoute><ProjectProvider><MigrationPage /></ProjectProvider></ProtectedRoute>
                   } />
 
                   {/* Admin */}
-                  <Route path="/admin/plugins" element={<AdminPage />} />
+                  <Route path="/admin/plugins" element={
+                    <ProtectedRoute><AdminPage /></ProtectedRoute>
+                  } />
 
                   {/* Governance */}
-                  <Route path="/governance" element={<GovernancePage />} />
+                  <Route path="/governance" element={
+                    <ProtectedRoute><GovernancePage /></ProtectedRoute>
+                  } />
                   <Route path="/projects/:projectId/governance" element={
-                    <ProjectProvider><GovernancePage /></ProjectProvider>
+                    <ProtectedRoute><ProjectProvider><GovernancePage /></ProjectProvider></ProtectedRoute>
                   } />
 
                   {/* Chat */}
-                  <Route path="/chat" element={<ChatPage />} />
+                  <Route path="/chat" element={
+                    <ProtectedRoute><ChatPage /></ProtectedRoute>
+                  } />
                   <Route path="/projects/:projectId/chat" element={
-                    <ProjectProvider><ChatPage /></ProjectProvider>
+                    <ProtectedRoute><ProjectProvider><ChatPage /></ProjectProvider></ProtectedRoute>
                   } />
 
                   {/* Multi-format output */}
-                  <Route path="/output" element={<OutputPage />} />
+                  <Route path="/output" element={
+                    <ProtectedRoute><OutputPage /></ProtectedRoute>
+                  } />
                   <Route path="/projects/:projectId/output" element={
-                    <ProjectProvider><OutputPage /></ProjectProvider>
+                    <ProtectedRoute><ProjectProvider><OutputPage /></ProjectProvider></ProtectedRoute>
                   } />
 
                   {/* MSP Dashboard */}
-                  <Route path="/msp" element={<MSPDashboardPage />} />
-                  <Route path="/msp/tenants/:tenantId" element={<MSPDashboardPage />} />
+                  <Route path="/msp" element={
+                    <ProtectedRoute><MSPDashboardPage /></ProtectedRoute>
+                  } />
+                  <Route path="/msp/tenants/:tenantId" element={
+                    <ProtectedRoute><MSPDashboardPage /></ProtectedRoute>
+                  } />
 
                   {/* Template Marketplace */}
                   <Route path="/marketplace" element={<MarketplacePage />} />
+
+                  {/* 404 catch-all */}
+                  <Route path="*" element={<NotFoundPage />} />
                 </Routes>
               </Suspense>
             </ErrorBoundary>

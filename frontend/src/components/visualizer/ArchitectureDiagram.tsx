@@ -113,6 +113,9 @@ const useStyles = makeStyles({
     alignItems: "center",
     gap: "6px",
   },
+  subCountBadge: {
+    marginLeft: tokens.spacingHorizontalS,
+  },
 });
 
 const ICON_STYLE_MAP: Record<GroupType, string> = {
@@ -196,7 +199,7 @@ export default function ArchitectureDiagram({
         >
           <span className={styles.groupName}>{name}</span>
           {subs.length > 0 && (
-            <Badge appearance="tint" size="small" style={{ marginLeft: 8 }}>
+            <Badge appearance="tint" size="small" className={styles.subCountBadge}>
               {subs.length} sub{subs.length !== 1 ? "s" : ""}
             </Badge>
           )}
