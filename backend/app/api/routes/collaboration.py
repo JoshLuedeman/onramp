@@ -28,7 +28,7 @@ router = APIRouter(
 # ── Members ──────────────────────────────────────────────────────────────
 
 
-@router.post("/members", response_model=ProjectMemberResponse)
+@router.post("/members", response_model=ProjectMemberResponse, status_code=201)
 async def add_member(
     project_id: str,
     body: ProjectMemberCreate,
@@ -46,9 +46,9 @@ async def add_member(
         return result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    except Exception as exc:
+    except Exception:
         logger.exception("Failed to add member to project %s", project_id)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/members", response_model=ProjectMemberListResponse)
@@ -62,11 +62,11 @@ async def list_members(
         return await collaboration_service.list_members(
             db=db, project_id=project_id
         )
-    except Exception as exc:
+    except Exception:
         logger.exception(
             "Failed to list members for project %s", project_id
         )
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.delete("/members/{user_id}")
@@ -88,17 +88,17 @@ async def remove_member(
         return {"removed": True, "user_id": user_id}
     except HTTPException:
         raise
-    except Exception as exc:
+    except Exception:
         logger.exception(
             "Failed to remove member from project %s", project_id
         )
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ── Comments ─────────────────────────────────────────────────────────────
 
 
-@router.post("/comments", response_model=CommentResponse)
+@router.post("/comments", response_model=CommentResponse, status_code=201)
 async def add_comment(
     project_id: str,
     body: CommentCreate,
@@ -116,11 +116,11 @@ async def add_comment(
             component_ref=body.component_ref,
         )
         return result
-    except Exception as exc:
+    except Exception:
         logger.exception(
             "Failed to add comment to project %s", project_id
         )
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/comments", response_model=CommentListResponse)
@@ -137,11 +137,11 @@ async def list_comments(
             project_id=project_id,
             component_ref=component_ref,
         )
-    except Exception as exc:
+    except Exception:
         logger.exception(
             "Failed to list comments for project %s", project_id
         )
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ── Activity Feed ────────────────────────────────────────────────────────
@@ -158,8 +158,8 @@ async def get_activity_feed(
         return await collaboration_service.get_activity_feed(
             db=db, project_id=project_id
         )
-    except Exception as exc:
+    except Exception:
         logger.exception(
             "Failed to get activity feed for project %s", project_id
         )
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail="Internal server error")

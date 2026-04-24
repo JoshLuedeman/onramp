@@ -27,7 +27,7 @@ def test_add_member_returns_mock():
         "/api/projects/test-proj/members",
         json={"email": "alice@example.com", "role": "editor"},
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     data = r.json()
     assert data["email"] == "alice@example.com"
     assert data["role"] == "editor"
@@ -42,7 +42,7 @@ def test_add_member_default_role():
         "/api/projects/test-proj/members",
         json={"email": "bob@example.com"},
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     data = r.json()
     assert data["role"] == "viewer"
 
@@ -71,7 +71,7 @@ def test_add_member_owner_role():
         "/api/projects/test-proj/members",
         json={"email": "owner@example.com", "role": "owner"},
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     assert r.json()["role"] == "owner"
 
 
@@ -81,7 +81,7 @@ def test_add_member_viewer_role():
         "/api/projects/test-proj/members",
         json={"email": "viewer@example.com", "role": "viewer"},
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     assert r.json()["role"] == "viewer"
 
 
@@ -119,7 +119,7 @@ def test_add_comment():
         "/api/projects/test-proj/comments",
         json={"content": "Looks great!", "component_ref": "vnet-hub"},
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     data = r.json()
     assert data["content"] == "Looks great!"
     assert data["component_ref"] == "vnet-hub"
@@ -134,7 +134,7 @@ def test_add_comment_without_component_ref():
         "/api/projects/test-proj/comments",
         json={"content": "General comment"},
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     data = r.json()
     assert data["content"] == "General comment"
     assert data["component_ref"] is None
@@ -165,7 +165,7 @@ def test_add_comment_long_content():
         "/api/projects/test-proj/comments",
         json={"content": content},
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     assert r.json()["content"] == content
 
 
@@ -196,7 +196,7 @@ def test_add_comment_has_display_name():
         "/api/projects/proj-1/comments",
         json={"content": "Test display name"},
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     assert "display_name" in r.json()
 
 
@@ -614,7 +614,7 @@ async def test_add_member_async():
             "/api/projects/test-proj/members",
             json={"email": "async@example.com", "role": "editor"},
         )
-        assert r.status_code == 200
+        assert r.status_code == 201
         assert r.json()["email"] == "async@example.com"
 
 
@@ -643,7 +643,7 @@ async def test_add_comment_async():
             "/api/projects/test-proj/comments",
             json={"content": "Async comment", "component_ref": "nsg"},
         )
-        assert r.status_code == 200
+        assert r.status_code == 201
         data = r.json()
         assert data["content"] == "Async comment"
         assert data["component_ref"] == "nsg"
@@ -688,7 +688,7 @@ async def test_add_member_all_roles_async():
                     "role": role,
                 },
             )
-            assert r.status_code == 200
+            assert r.status_code == 201
             assert r.json()["role"] == role
 
 
@@ -703,7 +703,7 @@ async def test_add_comment_no_ref_async():
             "/api/projects/test-proj/comments",
             json={"content": "No ref"},
         )
-        assert r.status_code == 200
+        assert r.status_code == 201
         assert r.json()["component_ref"] is None
 
 
@@ -785,7 +785,7 @@ def test_add_member_with_special_chars_in_email():
             "role": "viewer",
         },
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     assert r.json()["email"] == "user+tag@sub.example.com"
 
 
@@ -795,7 +795,7 @@ def test_comment_with_unicode_content():
         "/api/projects/proj-1/comments",
         json={"content": "Great design! 🎉 Très bien! 日本語"},
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     assert "🎉" in r.json()["content"]
 
 
@@ -806,7 +806,7 @@ def test_comment_with_newlines():
         "/api/projects/proj-1/comments",
         json={"content": content},
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     assert r.json()["content"] == content
 
 
@@ -816,7 +816,7 @@ def test_member_response_has_invited_at():
         "/api/projects/proj-1/members",
         json={"email": "ts@example.com", "role": "viewer"},
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     assert r.json()["invited_at"] is not None
 
 
@@ -826,7 +826,7 @@ def test_member_response_accepted_at_null():
         "/api/projects/proj-1/members",
         json={"email": "new@example.com", "role": "editor"},
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     assert r.json()["accepted_at"] is None
 
 
@@ -836,5 +836,5 @@ def test_member_display_name_from_email():
         "/api/projects/proj-1/members",
         json={"email": "jane.doe@company.com", "role": "viewer"},
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     assert r.json()["display_name"] == "jane.doe"

@@ -8,7 +8,6 @@ unexpected crashes — goes through a single formatting pipeline.
 from __future__ import annotations
 
 import logging
-import uuid
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -16,9 +15,15 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.error_codes import STATUS_TO_CODE, STATUS_TO_TYPE, ErrorCode
+from app.middleware.request_id import get_request_id
 from app.schemas.errors import ErrorDetail, ErrorResponse
 
 logger = logging.getLogger(__name__)
+
+
+def _current_request_id() -> str | None:
+    """Return the request ID from the contextvar (set by RequestIDMiddleware)."""
+    return get_request_id()
 
 
 def _build_error_response(
@@ -55,15 +60,11 @@ async def http_exception_handler(
     exc: HTTPException | StarletteHTTPException,
 ) -> JSONResponse:
     """Handle explicit ``HTTPException`` raises (FastAPI and Starlette)."""
-    request_id: str | None = None
-    state = getattr(request, "state", None)
-    if state is not None:
-        request_id = getattr(state, "request_id", None)
     detail_str = str(exc.detail) if exc.detail else "Request failed."
     return _build_error_response(
         exc.status_code,
         message=detail_str,
-        request_id=request_id,
+        request_id=_current_request_id(),
     )
 
 
@@ -72,10 +73,6 @@ async def validation_exception_handler(
     exc: RequestValidationError,
 ) -> JSONResponse:
     """Handle Pydantic / FastAPI request validation errors."""
-    request_id: str | None = None
-    state = getattr(request, "state", None)
-    if state is not None:
-        request_id = getattr(state, "request_id", None)
     field_errors: list[dict] = []
     for err in exc.errors():
         field_errors.append(
@@ -91,7 +88,7 @@ async def validation_exception_handler(
         message="Request validation failed.",
         error_type="validation",
         details=field_errors,
-        request_id=request_id,
+        request_id=_current_request_id(),
     )
 
 
@@ -100,12 +97,7 @@ async def generic_exception_handler(
     exc: Exception,
 ) -> JSONResponse:
     """Catch-all for unhandled exceptions — never leak stack traces."""
-    request_id: str | None = None
-    state = getattr(request, "state", None)
-    if state is not None:
-        request_id = getattr(state, "request_id", None)
-    if not request_id:
-        request_id = str(uuid.uuid4())
+    request_id = _current_request_id() or "unknown"
     logger.exception(
         "Unhandled exception [request_id=%s]: %s",
         request_id,

@@ -1,4 +1,16 @@
-"""Deployment orchestration service for Azure landing zone deployments."""
+"""Deployment orchestration service for Azure landing zone deployments.
+
+**Status:** In dev mode (credential_manager not configured), deployments are
+simulated — all steps immediately succeed.  In production mode, the service
+deploys via Azure Resource Manager using ``_deploy_step()`` which creates
+resource groups and starts ARM template deployments.
+
+.. note::
+
+    The ARM deployment currently sends an empty ``resources`` array as a
+    placeholder.  A future milestone should compile the Bicep templates into
+    full ARM JSON before deploying.
+"""
 
 import uuid
 from datetime import datetime, timezone

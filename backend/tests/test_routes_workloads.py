@@ -20,7 +20,7 @@ PROJECT_ID = "proj-test-routes"
 def test_create_workload_basic():
     payload = {"project_id": PROJECT_ID, "name": "MyVM", "type": "vm"}
     r = client.post("/api/workloads", json=payload)
-    assert r.status_code == 200
+    assert r.status_code == 201
     data = r.json()
     assert data["name"] == "MyVM"
     assert data["type"] == "vm"
@@ -45,7 +45,7 @@ def test_create_workload_full_payload():
         "notes": "Important server",
     }
     r = client.post("/api/workloads", json=payload)
-    assert r.status_code == 200
+    assert r.status_code == 201
     data = r.json()
     assert data["criticality"] == "mission-critical"
     assert data["migration_strategy"] == "rehost"

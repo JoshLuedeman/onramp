@@ -41,7 +41,7 @@ class SecurityAnalysisResult(BaseModel):
 class SecurityAnalyzeRequest(BaseModel):
     """Request body for security analysis."""
 
-    architecture: dict
+    architecture: dict = Field(..., min_length=1)
     use_ai: bool = False
 
 

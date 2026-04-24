@@ -19,7 +19,7 @@ router = APIRouter(
 )
 
 
-@router.post("/", response_model=ApprovalRequestResponse)
+@router.post("/", response_model=ApprovalRequestResponse, status_code=201)
 async def create_approval_request(
     payload: ApprovalRequestCreate,
     user: dict = Depends(get_current_user),

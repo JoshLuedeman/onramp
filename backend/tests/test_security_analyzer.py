@@ -170,7 +170,7 @@ class TestSchemas:
         assert req.use_ai is False
 
     def test_security_analyze_request_with_ai(self):
-        req = SecurityAnalyzeRequest(architecture={}, use_ai=True)
+        req = SecurityAnalyzeRequest(architecture={"foo": "bar"}, use_ai=True)
         assert req.use_ai is True
 
     def test_remediation_step(self):
@@ -729,7 +729,7 @@ class TestRoutes:
     def test_analyze_endpoint_with_ai(self, client: TestClient):
         resp = client.post(
             "/api/security/analyze",
-            json={"architecture": {}, "use_ai": True},
+            json={"architecture": {"foo": "bar"}, "use_ai": True},
         )
         assert resp.status_code == 200
         data = resp.json()

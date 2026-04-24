@@ -154,7 +154,7 @@ async def import_workloads(
             created = [_to_response(row) for row in db_workloads]
         except Exception as exc:
             logger.exception("DB error during workload import")
-            raise HTTPException(status_code=500, detail=str(exc)) from exc
+            raise HTTPException(status_code=500, detail="Internal server error") from exc
 
     logger.info(
         "Import complete: %d imported, %d failed", len(created), len(errors)
@@ -197,10 +197,10 @@ async def list_workloads(
         raise
     except Exception as exc:
         logger.exception("Failed to list workloads")
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
-@router.post("", response_model=WorkloadResponse)
+@router.post("", response_model=WorkloadResponse, status_code=201)
 async def create_workload(
     payload: WorkloadCreate,
     user: dict = Depends(get_current_user),
@@ -264,7 +264,7 @@ async def create_workload(
         raise
     except Exception as exc:
         logger.exception("Failed to create workload")
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.patch("/{workload_id}", response_model=WorkloadResponse)
@@ -306,7 +306,7 @@ async def update_workload(
         raise
     except Exception as exc:
         logger.exception("Failed to update workload %s", workload_id)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.delete("/{workload_id}")
@@ -340,7 +340,7 @@ async def delete_workload(
         raise
     except Exception as exc:
         logger.exception("Failed to delete workload %s", workload_id)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 # ---------------------------------------------------------------------------
 # POST /api/workloads/map — generate workload-to-subscription mappings
@@ -449,7 +449,7 @@ async def map_workloads(
         raise
     except Exception as exc:
         logger.exception("Failed to generate mappings for project %s", payload.project_id)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -528,7 +528,7 @@ async def get_dependency_graph(
         raise
     except Exception as exc:
         logger.exception("Failed to build dependency graph for project %s", project_id)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -583,7 +583,7 @@ async def add_dependency(
         raise
     except Exception as exc:
         logger.exception("Failed to add dependency for workload %s", workload_id)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -640,7 +640,7 @@ async def override_workload_mapping(
         logger.exception(
             "Failed to override mapping for workload %s", workload_id
         )
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -682,7 +682,7 @@ async def remove_dependency(
         raise
     except Exception as exc:
         logger.exception("Failed to remove dependency for workload %s", workload_id)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -725,4 +725,4 @@ async def get_migration_order(
         raise
     except Exception as exc:
         logger.exception("Failed to compute migration order for project %s", project_id)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc

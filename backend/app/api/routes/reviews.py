@@ -86,7 +86,7 @@ async def withdraw_review(
 # ── Review Actions ───────────────────────────────────────────────────────
 
 
-@router.post("", response_model=ReviewResponse)
+@router.post("", response_model=ReviewResponse, status_code=201)
 async def perform_review(
     arch_id: str,
     body: ReviewActionRequest,

@@ -46,10 +46,40 @@ class _ItemCreate(BaseModel):
     count: int = Field(..., gt=0)
 
 
+class _PureASGIRequestIDMiddleware:
+    """Pure-ASGI request-ID middleware for tests.
+
+    Starlette routes ``Exception`` handlers to the outermost
+    ``ServerErrorMiddleware``, which runs *after* all custom middleware
+    have unwound.  If we reset the ``ContextVar`` in a ``finally``
+    block, the value is gone by the time the handler executes.
+
+    We therefore intentionally omit the reset so the var persists for
+    the ``ServerErrorMiddleware`` error handler.  This is safe in tests
+    because each request runs in its own async task whose context is
+    discarded after the task completes.
+    """
+
+    def __init__(self, app):  # noqa: D107
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        from app.middleware.request_id import _request_id_var
+
+        rid = str(uuid.uuid4())
+        _request_id_var.set(rid)
+        await self.app(scope, receive, send)
+
+
 def _create_test_app() -> FastAPI:
     """Build a small FastAPI app with versioning + error handling wired up."""
     app = FastAPI()
     register_exception_handlers(app)
+    app.add_middleware(_PureASGIRequestIDMiddleware)
     app.add_middleware(APIVersionHeaderMiddleware)
     app.add_middleware(VersionRewriteMiddleware)
 

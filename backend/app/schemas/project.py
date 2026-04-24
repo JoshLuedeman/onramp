@@ -18,8 +18,8 @@ class ProjectStatus(str, Enum):
 
 
 class ProjectBase(BaseModel):
-    name: str
-    description: str | None = None
+    name: str = Field(..., min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=2000)
 
 
 class ProjectCreate(ProjectBase):
@@ -27,8 +27,8 @@ class ProjectCreate(ProjectBase):
 
 
 class ProjectUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=2000)
     status: ProjectStatus | None = None
 
 

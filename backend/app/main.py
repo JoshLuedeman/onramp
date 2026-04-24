@@ -75,19 +75,22 @@ from app.config import settings
 from app.db.seed import seed_database
 from app.db.session import close_db, init_db
 from app.middleware.audit_middleware import AuditMiddleware
+from app.middleware.request_id import RequestIDMiddleware
 from app.security import (
     CSRFMiddleware,
     RateLimitMiddleware,
     RequestValidationMiddleware,
     SecurityHeadersMiddleware,
+    install_request_id_filter,
     install_secret_masking_filter,
 )
 from app.startup import get_startup_status, log_plugin_status, validate_environment
 
 logger = logging.getLogger(__name__)
 
-# Install secret masking on the root logger before any output (#154)
+# Install log filters on the root logger before any output
 install_secret_masking_filter()
+install_request_id_filter()
 
 
 @asynccontextmanager
@@ -156,6 +159,7 @@ app.add_middleware(RateLimitMiddleware)
 app.add_middleware(RequestValidationMiddleware)
 app.add_middleware(CSRFMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestIDMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

@@ -10,16 +10,16 @@ from pydantic import BaseModel, Field
 class PolicyGenerateRequest(BaseModel):
     """Request to generate an Azure Policy from a natural language description."""
 
-    description: str
+    description: str = Field(..., min_length=1, max_length=5000)
     context: dict | None = None
 
 
 class PolicyDefinition(BaseModel):
     """A generated Azure Policy definition."""
 
-    name: str
-    display_name: str = ""
-    description: str = ""
+    name: str = Field(..., min_length=1, max_length=255)
+    display_name: str = Field(default="", max_length=255)
+    description: str = Field(default="", max_length=2000)
     mode: str = "All"
     policy_rule: dict = Field(default_factory=dict)
     parameters: dict = Field(default_factory=dict)

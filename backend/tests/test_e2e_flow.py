@@ -56,7 +56,7 @@ def test_full_journey_small_org():
             "subscription_ids": ["sub-123"],
         },
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     deploy_id = r.json()["id"]
     assert r.json()["status"] == "pending"
 
