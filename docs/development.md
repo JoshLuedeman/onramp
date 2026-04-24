@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Docker Desktop (recommended)
-- OR: Python 3.10+ and Node.js 18+ (manual setup)
+- OR: Python 3.12+ and Node.js 24+ (manual setup)
 
 ## Quick Start (Recommended)
 

@@ -6,7 +6,7 @@ applyTo: "backend/**"
 
 ## Framework Rules
 
-- Use Python 3.10+ with FastAPI.
+- Use Python 3.12+ with FastAPI.
 - All I/O operations MUST be async (`async`/`await`). Never use synchronous DB calls or blocking I/O.
 - Use Pydantic v2 models for all request/response validation. Define in `app/schemas/`.
 - Use SQLAlchemy 2.0 async ORM for all database operations. Models in `app/models/`.
