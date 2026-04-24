@@ -11,18 +11,18 @@ class TestGetEndpoints:
 
     def test_commercial_endpoints(self):
         endpoints = cloud_config_service.get_endpoints(CloudEnvironment.COMMERCIAL)
-        assert endpoints.resource_manager.startswith("https://management.azure.com")
-        assert endpoints.authentication.startswith("https://login.microsoftonline.com")
+        assert endpoints.resource_manager == "https://management.azure.com"
+        assert endpoints.authentication == "https://login.microsoftonline.com"
 
     def test_government_endpoints(self):
         endpoints = cloud_config_service.get_endpoints(CloudEnvironment.GOVERNMENT)
-        assert "usgovcloudapi" in endpoints.resource_manager
-        assert "login.microsoftonline.us" in endpoints.authentication
+        assert endpoints.resource_manager == "https://management.usgovcloudapi.net"
+        assert endpoints.authentication == "https://login.microsoftonline.us"
 
     def test_china_endpoints(self):
         endpoints = cloud_config_service.get_endpoints(CloudEnvironment.CHINA)
-        assert "chinacloudapi" in endpoints.resource_manager
-        assert "chinacloudapi" in endpoints.authentication
+        assert endpoints.resource_manager == "https://management.chinacloudapi.cn"
+        assert endpoints.authentication == "https://login.chinacloudapi.cn"
 
 
 class TestGetDefaultEnvironment:
