@@ -764,7 +764,7 @@ async def test_cleanup_stale_custom_age():
 
 def test_route_create_conversation():
     r = client.post("/api/chat/new", json={"project_id": "proj-1"})
-    assert r.status_code == 200
+    assert r.status_code == 201
     data = r.json()
     assert "id" in data
     assert data["status"] == "active"
@@ -773,7 +773,7 @@ def test_route_create_conversation():
 
 def test_route_create_conversation_with_title():
     r = client.post("/api/chat/new", json={"project_id": "proj-1", "title": "My Chat"})
-    assert r.status_code == 200
+    assert r.status_code == 201
     assert r.json()["title"] == "My Chat"
 
 

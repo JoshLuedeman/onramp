@@ -36,7 +36,7 @@ def test_create_deployment():
         "architecture": {"management_groups": [{"name": "root"}]},
         "subscription_ids": ["sub-001"],
     })
-    assert r.status_code == 200
+    assert r.status_code == 201
     data = r.json()
     assert "id" in data
     assert data["project_id"] == "proj-001"
@@ -84,7 +84,7 @@ def test_create_and_get_deployment():
         "architecture": {"management_groups": []},
         "subscription_ids": ["sub-002"],
     })
-    assert create_r.status_code == 200
+    assert create_r.status_code == 201
     deployment_id = create_r.json()["id"]
 
     get_r = client.get(f"/api/deployment/{deployment_id}")
@@ -99,7 +99,7 @@ def test_create_and_start_deployment():
         "architecture": {"management_groups": [], "subscriptions": []},
         "subscription_ids": ["sub-003"],
     })
-    assert create_r.status_code == 200
+    assert create_r.status_code == 201
     deployment_id = create_r.json()["id"]
 
     start_r = client.post(f"/api/deployment/{deployment_id}/start")
@@ -114,7 +114,7 @@ def test_create_and_get_audit():
         "architecture": {"management_groups": []},
         "subscription_ids": ["sub-004"],
     })
-    assert create_r.status_code == 200
+    assert create_r.status_code == 201
     deployment_id = create_r.json()["id"]
 
     audit_r = client.get(f"/api/deployment/{deployment_id}/audit")

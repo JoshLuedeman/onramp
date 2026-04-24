@@ -14,19 +14,19 @@ def test_list_projects():
 
 def test_create_project():
     r = client.post("/api/projects/", json={"name": "Test Project", "description": "A test"})
-    assert r.status_code == 200
+    assert r.status_code == 201
     data = r.json()
     assert data["name"] == "Test Project"
     assert "id" in data
 
 def test_create_project_minimal():
     r = client.post("/api/projects/", json={"name": "Minimal"})
-    assert r.status_code == 200
+    assert r.status_code == 201
 
 
 def test_create_project_has_status():
     r = client.post("/api/projects/", json={"name": "With Status", "description": "desc"})
-    assert r.status_code == 200
+    assert r.status_code == 201
     data = r.json()
     assert data["status"] == "draft"
 
@@ -94,7 +94,7 @@ def test_create_and_list():
     create_resp = client.post(
         "/api/projects/", json={"name": "Integration Test"}
     )
-    assert create_resp.status_code == 200
+    assert create_resp.status_code == 201
     assert create_resp.json()["name"] == "Integration Test"
 
     list_resp = client.get("/api/projects/")
@@ -191,7 +191,7 @@ async def test_create_project_async():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         r = await ac.post("/api/projects/", json={"name": "Async Project"})
-        assert r.status_code == 200
+        assert r.status_code == 201
         assert r.json()["name"] == "Async Project"
 
 

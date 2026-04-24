@@ -51,14 +51,13 @@ def test_get_project_scoring_no_db():
 
 
 def test_evaluate_empty_architecture():
-    """Evaluate with empty architecture still returns a result."""
+    """Evaluate with empty architecture is rejected by validation."""
     r = client.post("/api/scoring/evaluate", json={
         "architecture": {},
         "frameworks": ["SOC2"],
         "use_ai": False,
     })
-    assert r.status_code == 200
-    assert "overall_score" in r.json()
+    assert r.status_code == 422
 
 
 def test_evaluate_missing_frameworks():

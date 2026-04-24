@@ -901,4 +901,4 @@ class TestSameTenantAccess:
                     "subscription_ids": ["sub-1"],
                 },
             )
-            assert resp.status_code == 200
+            assert resp.status_code == 201

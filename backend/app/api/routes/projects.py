@@ -1,5 +1,6 @@
 """Project management API routes."""
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -14,6 +15,8 @@ from app.schemas.project import (
     ProjectStatsResponse,
     ProjectUpdate,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -46,11 +49,12 @@ async def list_projects(
                 for p in projects
             ]
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Failed to list projects")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.post("/")
+@router.post("/", status_code=201)
 async def create_project(
     project: ProjectCreate,
     user: dict = Depends(require_architect),
@@ -118,8 +122,11 @@ async def create_project(
             "created_at": new_project.created_at.isoformat() if new_project.created_at else None,
             "updated_at": new_project.updated_at.isoformat() if new_project.updated_at else None,
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to create project")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/stats")
@@ -180,8 +187,9 @@ async def get_project_stats(
             deployment_success_rate=None,
             recent_projects=recent_projects,
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Failed to get project stats")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/{project_id}")
@@ -214,8 +222,9 @@ async def get_project(
         }
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Failed to get project %s", project_id)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.put("/{project_id}")
@@ -271,8 +280,9 @@ async def update_project(
         }
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Failed to update project %s", project_id)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.delete("/{project_id}")
@@ -302,5 +312,6 @@ async def delete_project(
         return {"deleted": True, "id": project_id}
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Failed to delete project %s", project_id)
+        raise HTTPException(status_code=500, detail="Internal server error")

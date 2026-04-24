@@ -134,7 +134,14 @@ def get_session_factory():
 
 
 async def get_db() -> AsyncSession:
-    """FastAPI dependency that provides a database session."""
+    """FastAPI dependency that provides a database session.
+
+    The session uses an implicit transaction: all operations within a single
+    request share one transaction.  ``flush()`` sends SQL to the database but
+    does **not** commit; ``commit()`` is called once at the end of the
+    request.  If any exception propagates, the entire transaction is rolled
+    back — no partial writes.
+    """
     factory = get_session_factory()
     if factory is None:
         # In dev mode without a DB, yield None

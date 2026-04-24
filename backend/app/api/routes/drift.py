@@ -33,7 +33,7 @@ router = APIRouter(prefix="/api/governance/drift", tags=["drift"])
 # ── Baselines ────────────────────────────────────────────────────────────────
 
 
-@router.post("/baselines", response_model=DriftBaselineResponse)
+@router.post("/baselines", response_model=DriftBaselineResponse, status_code=201)
 async def create_baseline(
     payload: DriftBaselineCreate,
     user: dict = Depends(get_current_user),

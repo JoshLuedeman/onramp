@@ -4,7 +4,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,8 +18,8 @@ router = APIRouter(prefix="/api/scoring", tags=["scoring"])
 
 
 class ScoreRequest(BaseModel):
-    architecture: dict
-    frameworks: list[str]
+    architecture: dict = Field(..., min_length=1)
+    frameworks: list[str] = Field(..., min_length=1)
     use_ai: bool = True
     project_id: str = ""
 

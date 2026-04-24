@@ -58,6 +58,26 @@ def install_secret_masking_filter() -> None:
     if not any(isinstance(f, SecretMaskingFilter) for f in root.filters):
         root.addFilter(SecretMaskingFilter())
 
+
+class RequestIDLogFilter(logging.Filter):
+    """Inject the current request ID into every log record.
+
+    After installation, log formatters can use ``%(request_id)s``.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        from app.middleware.request_id import get_request_id
+
+        record.request_id = get_request_id() or "-"  # type: ignore[attr-defined]
+        return True
+
+
+def install_request_id_filter() -> None:
+    """Attach :class:`RequestIDLogFilter` to the root logger."""
+    root = logging.getLogger()
+    if not any(isinstance(f, RequestIDLogFilter) for f in root.filters):
+        root.addFilter(RequestIDLogFilter())
+
 # Default CSP for React SPA with Fluent UI v9
 _DEFAULT_CSP_PROD = (
     "default-src 'self'; "

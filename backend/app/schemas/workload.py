@@ -8,20 +8,20 @@ from pydantic import BaseModel, Field
 class WorkloadCreate(BaseModel):
     """Schema for creating a workload."""
 
-    project_id: str
-    name: str
+    project_id: str = Field(..., min_length=1)
+    name: str = Field(..., min_length=1, max_length=255)
     type: str = "other"
     source_platform: str = "other"
-    cpu_cores: int | None = None
-    memory_gb: float | None = None
-    storage_gb: float | None = None
+    cpu_cores: int | None = Field(default=None, ge=1)
+    memory_gb: float | None = Field(default=None, gt=0)
+    storage_gb: float | None = Field(default=None, gt=0)
     os_type: str | None = None
     os_version: str | None = None
     criticality: str = "standard"
     compliance_requirements: list[str] = Field(default_factory=list)
     dependencies: list[str] = Field(default_factory=list)
     migration_strategy: str = "unknown"
-    notes: str | None = None
+    notes: str | None = Field(default=None, max_length=5000)
 
 
 class WorkloadUpdate(BaseModel):

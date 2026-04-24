@@ -1,7 +1,7 @@
 """Deployment API routes with orchestration, tracking, rollback, and audit."""
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.tenant_scope import require_project_tenant
@@ -14,14 +14,14 @@ router = APIRouter(prefix="/api/deployment", tags=["deployment"])
 
 
 class ValidationRequest(BaseModel):
-    subscription_id: str
-    region: str = "eastus2"
+    subscription_id: str = Field(..., min_length=1)
+    region: str = Field(default="eastus2", min_length=1)
 
 
 class DeployRequest(BaseModel):
-    project_id: str
-    architecture: dict
-    subscription_ids: list[str]
+    project_id: str = Field(..., min_length=1)
+    architecture: dict = Field(..., min_length=1)
+    subscription_ids: list[str] = Field(..., min_length=1)
 
 
 @router.post("/validate")
@@ -53,7 +53,7 @@ async def validate_deployment_target(
     }
 
 
-@router.post("/create")
+@router.post("/create", status_code=201)
 async def create_deployment(
     request: DeployRequest,
     user: dict = Depends(get_current_user),

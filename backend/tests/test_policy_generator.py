@@ -612,8 +612,8 @@ class TestPolicyRoutes:
             "/api/policies/generate",
             json={"description": ""},
         )
-        # Empty description is allowed — returns a mock policy
-        assert resp.status_code == 200
+        # Empty description is rejected by validation constraints
+        assert resp.status_code == 422
 
     def test_validate_endpoint_empty_policy(self, client):
         resp = client.post(

@@ -88,11 +88,11 @@ class CostTrendResponse(BaseModel):
 class CostBudgetCreate(BaseModel):
     """Request to create or update a cost budget."""
 
-    project_id: str
-    budget_name: str
-    budget_amount: float
-    currency: str = "USD"
-    threshold_percentage: float = 80.0
+    project_id: str = Field(..., min_length=1)
+    budget_name: str = Field(..., min_length=1, max_length=255)
+    budget_amount: float = Field(..., gt=0)
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+    threshold_percentage: float = Field(default=80.0, ge=0, le=100)
     alert_enabled: bool = True
 
 

@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/templates", tags=["templates"])
 
 
-@router.post("/", response_model=TemplateResponse)
+@router.post("/", response_model=TemplateResponse, status_code=201)
 async def create_template(
     payload: TemplateCreate,
     user: dict = Depends(get_current_user),

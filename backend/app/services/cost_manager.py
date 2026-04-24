@@ -1,9 +1,12 @@
 """Cost management service — Azure Cost Management integration.
 
 Provides cost visibility by querying Azure Cost Management APIs.
-In dev mode, returns realistic mock data. In production, queries the
-Azure REST API with in-memory caching (1-hour TTL) to respect
-heavy throttling.
+
+**Status:** Production Azure Cost Management API integration is NOT yet
+implemented.  In dev mode, returns realistic mock data.  In production
+mode, the ``_fetch_*`` methods log a warning and return empty/zero-value
+placeholders.  A future milestone should implement the real REST calls
+(see ``_fetch_cost_summary`` et al. for the target endpoints).
 """
 
 from __future__ import annotations

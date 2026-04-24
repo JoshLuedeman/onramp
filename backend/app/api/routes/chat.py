@@ -63,7 +63,7 @@ def _serialize_message(msg) -> dict:
     }
 
 
-@router.post("/new")
+@router.post("/new", status_code=201)
 async def create_conversation(
     body: ConversationCreate,
     user: dict = Depends(get_current_user),
@@ -357,9 +357,10 @@ async def stream_message(
                 is_transient = "timeout" in str(e).lower() or "connection" in str(e).lower()
                 error_payload = _json.dumps({
                     "code": "STREAM_ERROR",
-                    "message": str(e),
+                    "message": "An error occurred during streaming",
                     "retryable": is_transient,
                 })
+                logger.exception("Streaming error in conversation %s", conversation_id)
                 yield f"event: error\ndata: {error_payload}\n\n"
 
             # Store the assistant response
