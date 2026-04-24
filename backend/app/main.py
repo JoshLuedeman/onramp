@@ -76,6 +76,7 @@ from app.db.seed import seed_database
 from app.db.session import close_db, init_db
 from app.middleware.audit_middleware import AuditMiddleware
 from app.security import (
+    CSRFMiddleware,
     RateLimitMiddleware,
     RequestValidationMiddleware,
     SecurityHeadersMiddleware,
@@ -153,6 +154,7 @@ app.add_middleware(APIVersionHeaderMiddleware)
 app.add_middleware(AuditMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(RequestValidationMiddleware)
+app.add_middleware(CSRFMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,

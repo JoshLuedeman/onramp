@@ -225,3 +225,77 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         self._requests[key] = recent + [now]
         return await call_next(request)
+
+
+class CSRFMiddleware(BaseHTTPMiddleware):
+    """Validate Origin/Referer on state-changing requests for defense-in-depth.
+
+    The app uses JWT Bearer tokens (not cookies), which inherently mitigates
+    most CSRF vectors.  This middleware adds an extra layer by checking that
+    the Origin (or Referer) header on mutating requests comes from an allowed
+    origin.
+
+    Behaviour:
+    - Safe methods (GET, HEAD, OPTIONS) are always allowed.
+    - The /health endpoint is always exempt.
+    - In dev mode (``settings.debug``), a warning is logged but the request
+      is allowed through so local development and tests are not broken.
+    - In production, a missing or non-matching origin returns 403.
+    """
+
+    _SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+    async def dispatch(self, request: Request, call_next):
+        # Safe methods never need CSRF validation
+        if request.method in self._SAFE_METHODS:
+            return await call_next(request)
+
+        # Health endpoint is always exempt
+        if request.url.path == "/health":
+            return await call_next(request)
+
+        origin = request.headers.get("origin")
+        referer = request.headers.get("referer")
+
+        # Extract origin value: prefer Origin header, fall back to Referer
+        request_origin: str | None = None
+        if origin:
+            request_origin = origin.rstrip("/")
+        elif referer:
+            # Referer is a full URL; extract scheme + host
+            from urllib.parse import urlparse
+
+            parsed = urlparse(referer)
+            if parsed.scheme and parsed.netloc:
+                request_origin = f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+
+        # Normalise allowed origins for comparison
+        allowed = {o.rstrip("/") for o in settings.cors_origins}
+
+        if request_origin and request_origin in allowed:
+            return await call_next(request)
+
+        # Origin missing or not in allow-list
+        if settings.debug:
+            logger.warning(
+                "CSRF: allowing %s %s in dev mode (origin=%s)",
+                request.method,
+                request.url.path,
+                request_origin,
+            )
+            return await call_next(request)
+
+        logger.warning(
+            "CSRF validation failed: %s %s origin=%s",
+            request.method,
+            request.url.path,
+            request_origin,
+        )
+        return Response(
+            content=(
+                '{"error":{"code":"CSRF_VALIDATION_FAILED",'
+                '"message":"Origin validation failed","type":"security"}}'
+            ),
+            status_code=403,
+            media_type="application/json",
+        )
