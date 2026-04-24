@@ -1,6 +1,7 @@
 """Security configuration and middleware."""
 
 import logging
+import re
 import time
 from collections import defaultdict
 
@@ -10,6 +11,52 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+# --------------------------------------------------------------------------- #
+# Secret masking filter (#154)                                                 #
+# --------------------------------------------------------------------------- #
+
+_SENSITIVE_PATTERN = re.compile(
+    r"(key|secret|password|token|connection_string|credential)"
+    r"(\s*[=:]\s*)"
+    r"(\S+)",
+    re.IGNORECASE,
+)
+
+_REDACTED = "***REDACTED***"
+
+
+class SecretMaskingFilter(logging.Filter):
+    """Redact sensitive values (keys, passwords, tokens, etc.) from log output."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg = self._redact(record.msg)
+        if record.args:
+            if isinstance(record.args, dict):
+                record.args = {
+                    k: self._redact(v) if isinstance(v, str) else v
+                    for k, v in record.args.items()
+                }
+            elif isinstance(record.args, tuple):
+                record.args = tuple(
+                    self._redact(a) if isinstance(a, str) else a
+                    for a in record.args
+                )
+        return True
+
+    @staticmethod
+    def _redact(value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        return _SENSITIVE_PATTERN.sub(rf"\1\2{_REDACTED}", value)
+
+
+def install_secret_masking_filter() -> None:
+    """Attach :class:`SecretMaskingFilter` to the root logger."""
+    root = logging.getLogger()
+    # Guard against duplicate installs
+    if not any(isinstance(f, SecretMaskingFilter) for f in root.filters):
+        root.addFilter(SecretMaskingFilter())
 
 # Default CSP for React SPA with Fluent UI v9
 _DEFAULT_CSP_PROD = (

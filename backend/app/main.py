@@ -79,10 +79,14 @@ from app.security import (
     RateLimitMiddleware,
     RequestValidationMiddleware,
     SecurityHeadersMiddleware,
+    install_secret_masking_filter,
 )
 from app.startup import get_startup_status, log_plugin_status, validate_environment
 
 logger = logging.getLogger(__name__)
+
+# Install secret masking on the root logger before any output (#154)
+install_secret_masking_filter()
 
 
 @asynccontextmanager
