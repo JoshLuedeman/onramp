@@ -19,6 +19,8 @@ interface DependencyGraphNodeDetailProps {
   dependsOnNames: string;
   /** Pre-computed comma-separated names of workloads that require this node. */
   requiredByNames: string;
+  /** Total number of dependency edges for the selected node. */
+  dependencyCount: number;
   migrationOrder: MigrationOrderResponse | null;
 }
 
@@ -108,6 +110,7 @@ export default function DependencyGraphNodeDetail({
   cycleNodes,
   dependsOnNames,
   requiredByNames,
+  dependencyCount,
   migrationOrder,
 }: DependencyGraphNodeDetailProps) {
   const styles = useStyles();
@@ -150,7 +153,7 @@ export default function DependencyGraphNodeDetail({
           </div>
           <div className={styles.detailRow}>
             <Text size={200} className={styles.detailLabel}>Dependencies:</Text>
-            <Text size={200}>{selectedNode.dependencies?.length ?? 0}</Text>
+            <Text size={200}>{dependencyCount}</Text>
           </div>
           <div className={styles.detailRow}>
             <Text size={200} className={styles.detailLabel}>Depends on:</Text>

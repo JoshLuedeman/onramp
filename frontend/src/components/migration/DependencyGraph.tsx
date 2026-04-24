@@ -618,6 +618,13 @@ export default function DependencyGraph({ projectId }: DependencyGraphProps) {
           cycleNodes={cycleNodes}
           dependsOnNames={dependsOnNames}
           requiredByNames={requiredByNames}
+          dependencyCount={
+            selectedNode
+              ? (graph?.edges ?? []).filter(
+                  (e) => e.source === selectedNode.id || e.target === selectedNode.id
+                ).length
+              : 0
+          }
           migrationOrder={migrationOrder}
         />
       )}
