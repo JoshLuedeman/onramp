@@ -11,6 +11,8 @@ import {
   CardHeader,
   Badge,
   Spinner,
+  TabList,
+  Tab,
   makeStyles,
   tokens,
 } from "@fluentui/react-components";
@@ -18,6 +20,10 @@ import { ArrowClockwiseRegular } from "@fluentui/react-icons";
 import { api } from "../services/api";
 import type { GovernanceScoreResponse, CategoryScore } from "../services/api";
 import { useEventStream } from "../hooks/useEventStream";
+import CostPanel from "../components/governance/CostPanel";
+import RBACPanel from "../components/governance/RBACPanel";
+import TaggingPanel from "../components/governance/TaggingPanel";
+import AuditPanel from "../components/governance/AuditPanel";
 
 type BadgeColor = "success" | "warning" | "danger";
 
@@ -131,6 +137,12 @@ const useStyles = makeStyles({
   lastUpdated: {
     color: tokens.colorNeutralForeground3,
   },
+  tabSection: {
+    marginTop: tokens.spacingVerticalL,
+  },
+  tabContent: {
+    marginTop: tokens.spacingVerticalL,
+  },
 });
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -150,6 +162,7 @@ export default function GovernancePage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTab, setSelectedTab] = useState<string>("overview");
 
   const loadScorecard = useCallback(async () => {
     setLoading(true);
@@ -298,6 +311,40 @@ export default function GovernancePage() {
         <CardHeader header={<Title2>Executive Summary</Title2>} />
         <Body1>{scorecard.executive_summary}</Body1>
       </Card>
+
+      {/* Category Detail Tabs */}
+      <div className={styles.tabSection}>
+        <TabList
+          selectedValue={selectedTab}
+          onTabSelect={(_, d) => setSelectedTab(d.value as string)}
+        >
+          <Tab value="overview">Overview</Tab>
+          <Tab value="cost">Cost</Tab>
+          <Tab value="rbac">RBAC Health</Tab>
+          <Tab value="tagging">Tagging</Tab>
+          <Tab value="audit">Audit Trail</Tab>
+        </TabList>
+
+        <div className={styles.tabContent}>
+          {selectedTab === "overview" && (
+            <Body1>
+              Select a category tab above to see detailed governance information.
+            </Body1>
+          )}
+          {selectedTab === "cost" && (
+            <CostPanel projectId={resolvedProjectId} />
+          )}
+          {selectedTab === "rbac" && (
+            <RBACPanel projectId={resolvedProjectId} />
+          )}
+          {selectedTab === "tagging" && (
+            <TaggingPanel projectId={resolvedProjectId} />
+          )}
+          {selectedTab === "audit" && (
+            <AuditPanel projectId={resolvedProjectId} />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
