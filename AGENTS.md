@@ -70,13 +70,17 @@ When multiple agents work on the **same branch and working directory** simultane
 - Agent B runs `git add .` and commits — accidentally including Agent A's uncommitted files
 - Agent A then has nothing to commit/push
 
-**Mitigations (pick one):**
+**Required practice — selective staging:**
 
-1. **Sequential dispatch** (safest) — Run agents one at a time on the same branch. Each agent commits and pushes before the next starts.
-2. **Selective `git add`** — Instruct agents to `git add <specific-files>` rather than `git add .` or `git add -A`.
-3. **Separate branches** — Each agent works on its own branch, then the orchestrator merges them together.
+Agents **must** use `git add <specific-files>` to stage only the files they changed. Never use `git add .`, `git add -A`, or `git add --all` — these will capture another agent's uncommitted work.
 
-Prefer option 1 for correctness. Use option 2 when parallelism is worth the risk. Option 3 adds merge complexity but gives full isolation.
+When prompting agents, always include an instruction like:
+> "Stage only the files you created or modified: `git add path/to/file1 path/to/file2`. Do NOT use `git add .`."
+
+**Additional mitigations for high-risk scenarios:**
+
+1. **Sequential dispatch** (safest) — Run agents one at a time on the same branch. Each agent commits and pushes before the next starts. Use when changes overlap in the same files.
+2. **Separate branches** — Each agent works on its own branch, then the orchestrator merges them together. Use when full isolation is required.
 
 ## File Locations
 
