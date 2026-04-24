@@ -1,65 +1,258 @@
 name: Deploy
 
 on:
+  # Gate: only run after CI succeeds on the same commit
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+  # Manual dispatch with explicit SHA for targeted deployments
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Target environment'
+        description: "Target environment"
         required: true
-        default: 'dev'
+        default: "staging"
         type: choice
         options:
-          - dev
-          - prod
+          - staging
+          - production
+      ref:
+        description: "Git SHA to deploy (defaults to HEAD of main)"
+        required: false
+        type: string
+
+# Prevent parallel deployments to the same environment
+concurrency:
+  group: deploy-${{ inputs.environment || 'staging' }}
+  cancel-in-progress: false
 
 permissions:
   id-token: write
   contents: read
+  actions: read
 
 jobs:
+  # ── Gate: verify CI passed for the target SHA ──────────────────────
+  preflight:
+    name: Preflight Checks
+    runs-on: ubuntu-latest
+    # Skip if workflow_run triggered and CI failed
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    outputs:
+      deploy-sha: ${{ steps.resolve.outputs.sha }}
+      environment: ${{ steps.resolve.outputs.environment }}
+      infra-env: ${{ steps.resolve.outputs.infra-env }}
+    steps:
+      - name: Resolve deployment SHA and environment
+        id: resolve
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            SHA="${{ inputs.ref || github.sha }}"
+            ENV="${{ inputs.environment }}"
+          else
+            # workflow_run trigger — deploy to staging automatically
+            SHA="${{ github.event.workflow_run.head_sha }}"
+            ENV="staging"
+          fi
+
+          # Map GitHub Environment names to infra parameter file names
+          case "$ENV" in
+            staging)    INFRA_ENV="dev" ;;
+            production) INFRA_ENV="prod" ;;
+            *)          echo "::error::Unknown environment: ${ENV}"; exit 1 ;;
+          esac
+
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "environment=${ENV}" >> "$GITHUB_OUTPUT"
+          echo "infra-env=${INFRA_ENV}" >> "$GITHUB_OUTPUT"
+          echo "### 🚀 Deployment Target" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **SHA:** \`${SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Environment:** ${ENV} (infra: ${INFRA_ENV})" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify CI passed for SHA
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA="${{ steps.resolve.outputs.sha }}"
+          echo "Checking CI status for ${SHA}..."
+          STATUS=$(gh api \
+            repos/${{ github.repository }}/commits/${SHA}/status \
+            --jq '.state')
+          if [[ "$STATUS" != "success" ]]; then
+            echo "::error::CI has not passed for SHA ${SHA} (status: ${STATUS}). Aborting deployment."
+            exit 1
+          fi
+          echo "✅ CI passed for ${SHA}"
+
+  # ── Infrastructure deployment ──────────────────────────────────────
   deploy-infra:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
+    needs: preflight
+    environment: ${{ needs.preflight.outputs.environment }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.deploy-sha }}
+
       - uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - uses: azure/CLI@v2
+
+      - name: Deploy Bicep template
+        uses: azure/CLI@v2
         with:
           inlineScript: |
+            INFRA_ENV="${{ needs.preflight.outputs.infra-env }}"
             az deployment sub create \
+              --name "onramp-${INFRA_ENV}-$(date +%Y%m%d%H%M%S)" \
               --location eastus2 \
               --template-file infra/main.bicep \
-              --parameters infra/parameters/${{ inputs.environment }}.bicepparam \
+              --parameters infra/parameters/${INFRA_ENV}.bicepparam \
               --parameters sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}
 
-  build-and-push:
-    name: Build & Push Containers
+  # ── Build containers and deploy to Container Apps ──────────────────
+  deploy-apps:
+    name: Deploy ${{ matrix.app }}
     runs-on: ubuntu-latest
-    needs: deploy-infra
-    environment: ${{ inputs.environment }}
+    needs: [preflight, deploy-infra]
+    environment: ${{ needs.preflight.outputs.environment }}
     strategy:
+      fail-fast: true
       matrix:
         include:
           - app: frontend
             context: frontend
+            health-path: /
           - app: backend
             context: backend
+            health-path: /health
+    outputs:
+      frontend-fqdn: ${{ steps.deploy.outputs.fqdn }}
+      backend-fqdn: ${{ steps.deploy.outputs.fqdn }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.deploy-sha }}
+
       - uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - uses: azure/CLI@v2
+
+      - name: Build and deploy container
+        id: deploy
+        uses: azure/CLI@v2
         with:
           inlineScript: |
+            INFRA_ENV="${{ needs.preflight.outputs.infra-env }}"
+            APP_NAME="ca-onramp-${{ matrix.app }}-${INFRA_ENV}"
+            RG="rg-onramp-${INFRA_ENV}"
+
             az containerapp up \
-              --name ca-onramp-${{ matrix.app }}-${{ inputs.environment }} \
-              --resource-group rg-onramp-${{ inputs.environment }} \
+              --name "${APP_NAME}" \
+              --resource-group "${RG}" \
               --source ${{ matrix.context }}
+
+            FQDN=$(az containerapp show \
+              --name "${APP_NAME}" \
+              --resource-group "${RG}" \
+              --query "properties.configuration.ingress.fqdn" \
+              --output tsv)
+            echo "fqdn=${FQDN}" >> "$GITHUB_OUTPUT"
+
+      - name: Health check
+        id: health
+        run: |
+          FQDN="${{ steps.deploy.outputs.fqdn }}"
+          HEALTH_URL="https://${FQDN}${{ matrix.health-path }}"
+          echo "Checking health at ${HEALTH_URL}..."
+
+          ATTEMPTS=0
+          MAX_ATTEMPTS=5
+          DELAY=15
+
+          while [[ $ATTEMPTS -lt $MAX_ATTEMPTS ]]; do
+            ATTEMPTS=$((ATTEMPTS + 1))
+            echo "Attempt ${ATTEMPTS}/${MAX_ATTEMPTS}..."
+
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${HEALTH_URL}" || echo "000")
+
+            if [[ "$HTTP_STATUS" -ge 200 && "$HTTP_STATUS" -lt 400 ]]; then
+              echo "✅ Health check passed (HTTP ${HTTP_STATUS})"
+              echo "healthy=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            echo "⏳ Health check returned HTTP ${HTTP_STATUS}, retrying in ${DELAY}s..."
+            sleep $DELAY
+          done
+
+          echo "::warning::Health check failed after ${MAX_ATTEMPTS} attempts for ${{ matrix.app }} (last HTTP ${HTTP_STATUS})"
+          echo "healthy=false" >> "$GITHUB_OUTPUT"
+          exit 1
+
+  # ── Rollback on failure ────────────────────────────────────────────
+  rollback:
+    name: Rollback
+    runs-on: ubuntu-latest
+    needs: [preflight, deploy-apps]
+    if: failure() && needs.deploy-apps.result == 'failure'
+    environment: ${{ needs.preflight.outputs.environment }}
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Rollback to previous revision
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            INFRA_ENV="${{ needs.preflight.outputs.infra-env }}"
+            RG="rg-onramp-${INFRA_ENV}"
+
+            for APP in frontend backend; do
+              APP_NAME="ca-onramp-${APP}-${INFRA_ENV}"
+              echo "🔄 Rolling back ${APP_NAME}..."
+
+              # List revisions sorted by creation date (most recent first)
+              PREVIOUS_REVISION=$(az containerapp revision list \
+                --name "${APP_NAME}" \
+                --resource-group "${RG}" \
+                --query "sort_by([?properties.active], &properties.createdTime)[-2].name" \
+                --output tsv 2>/dev/null || echo "")
+
+              if [[ -n "$PREVIOUS_REVISION" && "$PREVIOUS_REVISION" != "None" ]]; then
+                echo "Activating previous revision: ${PREVIOUS_REVISION}"
+                az containerapp ingress traffic set \
+                  --name "${APP_NAME}" \
+                  --resource-group "${RG}" \
+                  --revision-weight "${PREVIOUS_REVISION}=100"
+                echo "✅ Rolled back ${APP_NAME} to ${PREVIOUS_REVISION}"
+              else
+                echo "::warning::No previous revision found for ${APP_NAME}. Manual rollback required."
+                echo "Manual rollback steps:"
+                echo "  1. Identify the last known good image tag"
+                echo "  2. Run: az containerapp update --name ${APP_NAME} --resource-group ${RG} --image <good-image>"
+              fi
+            done
+
+      - name: Rollback summary
+        if: always()
+        run: |
+          echo "### ⚠️ Deployment Failed — Rollback Attempted" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Environment:** ${{ needs.preflight.outputs.environment }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Failed SHA:** \`${{ needs.preflight.outputs.deploy-sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Action:** Previous Container Apps revisions reactivated" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Please verify application health manually." >> "$GITHUB_STEP_SUMMARY"

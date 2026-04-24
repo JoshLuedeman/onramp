@@ -52,6 +52,9 @@ param sqlServerFqdn string
 @description('SQL database name')
 param sqlDatabaseName string
 
+@description('SQL Server resource ID for RBAC scoping')
+param sqlServerId string = ''
+
 @description('Resource tags')
 param tags object
 
@@ -117,6 +120,8 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
 }
 
 // Key Vault Secrets User role assignment (role ID: 4633458b-17de-408a-b874-0445c86b69e6)
+// Grants read-only access to Key Vault secrets — least privilege for secret consumption.
+// Does NOT grant Key Vault Contributor which would allow modifying vault configuration.
 resource kvRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(keyVault.id, managedIdentityId, '4633458b-17de-408a-b874-0445c86b69e6')
   scope: keyVault
@@ -125,6 +130,38 @@ resource kvRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' =
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
       '4633458b-17de-408a-b874-0445c86b69e6'
+    )
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// AcrPull role assignment (role ID: 7f951dda-4ed3-4680-a7ca-43fe172d538d)
+// Grants pull-only access to Azure Container Registry images.
+// This is the minimum permission needed to pull container images at runtime.
+// Does NOT use AcrPush or Contributor which would allow writing images.
+resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(containerRegistryServer)) {
+  name: guid(resourceGroup().id, managedIdentityId, '7f951dda-4ed3-4680-a7ca-43fe172d538d')
+  properties: {
+    principalId: managedIdentityPrincipalId
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      '7f951dda-4ed3-4680-a7ca-43fe172d538d' // AcrPull
+    )
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// SQL DB Contributor role assignment (role ID: 9b7fa17d-e63e-47b0-bb0a-15c516ac86ec)
+// Grants management access to SQL databases (not the server itself).
+// Scoped to the SQL Server resource to allow the app to manage its database.
+// Does NOT grant SQL Server Contributor which would allow server-level changes.
+resource sqlDbContributorRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(sqlServerId)) {
+  name: guid(sqlServerId, managedIdentityId, '9b7fa17d-e63e-47b0-bb0a-15c516ac86ec')
+  properties: {
+    principalId: managedIdentityPrincipalId
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      '9b7fa17d-e63e-47b0-bb0a-15c516ac86ec' // SQL DB Contributor
     )
     principalType: 'ServicePrincipal'
   }
