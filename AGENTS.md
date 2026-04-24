@@ -62,6 +62,22 @@ When delegating work to background sub-agents, use **incremental turns** for obs
 
 **Exception:** Truly independent, well-understood tasks (e.g., "run linter and fix all warnings") can use single-turn dispatch when the risk of going off-track is low.
 
+### Parallel Agent Safety on Shared Branches
+
+When multiple agents work on the **same branch and working directory** simultaneously, their file writes can collide:
+
+- Agent A writes files and runs tests, but hasn't committed yet
+- Agent B runs `git add .` and commits — accidentally including Agent A's uncommitted files
+- Agent A then has nothing to commit/push
+
+**Mitigations (pick one):**
+
+1. **Sequential dispatch** (safest) — Run agents one at a time on the same branch. Each agent commits and pushes before the next starts.
+2. **Selective `git add`** — Instruct agents to `git add <specific-files>` rather than `git add .` or `git add -A`.
+3. **Separate branches** — Each agent works on its own branch, then the orchestrator merges them together.
+
+Prefer option 1 for correctness. Use option 2 when parallelism is worth the risk. Option 3 adds merge complexity but gives full isolation.
+
 ## File Locations
 
 | What | Where |
