@@ -706,6 +706,46 @@ export const api = {
       getSummary: (projectId: string) =>
         fetchApi<ExecutiveSummaryResponse>(`/api/governance/scorecard/${projectId}/summary`),
     },
+    cost: {
+      getSummary: (projectId: string, subscriptionId?: string) =>
+        fetchApi<CostSummaryResponse>(`/api/governance/cost/summary/${projectId}${subscriptionId ? `?subscription_id=${subscriptionId}` : ""}`),
+      getTrend: (projectId: string, days?: number) =>
+        fetchApi<CostTrendResponse>(`/api/governance/cost/trend/${projectId}${days ? `?days=${days}` : ""}`),
+      getBudget: (projectId: string) =>
+        fetchApi<BudgetStatusResponse>(`/api/governance/cost/budget/${projectId}`),
+      getAnomalies: (projectId: string) =>
+        fetchApi<{ anomalies: CostAnomalyResponse[] }>(`/api/governance/cost/anomalies/${projectId}`),
+    },
+    rbac: {
+      scan: (projectId: string, data?: RBACScanRequest) =>
+        fetchApi<RBACScanResultResponse>(`/api/governance/rbac/scan/${projectId}`, data ? { method: "POST", body: JSON.stringify(data) } : { method: "POST" }),
+      getResults: (projectId?: string) =>
+        fetchApi<{ scan_results: RBACScanResultResponse[]; total: number }>(`/api/governance/rbac/results${projectId ? `?project_id=${projectId}` : ""}`),
+      getSummary: (projectId: string) =>
+        fetchApi<RBACHealthSummary>(`/api/governance/rbac/summary/${projectId}`),
+    },
+    tagging: {
+      getPolicies: (projectId?: string) =>
+        fetchApi<{ policies: TaggingPolicyResponse[] }>(`/api/governance/tagging/policies${projectId ? `?project_id=${projectId}` : ""}`),
+      scan: (projectId: string, policyId: string) =>
+        fetchApi<TaggingScanResultResponse>(`/api/governance/tagging/scan/${projectId}?policy_id=${policyId}`, { method: "POST" }),
+      getSummary: (projectId: string) =>
+        fetchApi<TaggingSummary>(`/api/governance/tagging/summary/${projectId}`),
+    },
+    audit: {
+      list: (projectIdOrParams?: string | { event_type?: string; project_id?: string; page?: number }) => {
+        const searchParams = new URLSearchParams();
+        if (typeof projectIdOrParams === "string") {
+          searchParams.set("project_id", projectIdOrParams);
+        } else if (projectIdOrParams) {
+          if (projectIdOrParams.event_type) searchParams.set("event_type", projectIdOrParams.event_type);
+          if (projectIdOrParams.project_id) searchParams.set("project_id", projectIdOrParams.project_id);
+          if (projectIdOrParams.page) searchParams.set("page", String(projectIdOrParams.page));
+        }
+        const qs = searchParams.toString();
+        return fetchApi<GovernanceAuditListResponse>(`/api/governance/audit/${qs ? `?${qs}` : ""}`);
+      },
+    },
   },
 
   security: {
@@ -1810,6 +1850,163 @@ export interface ScoreTrendResponse {
 
 export interface ExecutiveSummaryResponse {
   executive_summary: string;
+}
+
+// ── Governance cost types ─────────────────────────────────────────────────
+
+export interface CostSummaryResponse {
+  project_id: string;
+  subscription_id: string;
+  total_cost: number;
+  currency: string;
+  time_range: string;
+  cost_by_service: Array<{ service_name: string; cost: number; percentage: number }>;
+  cost_by_resource_group: Array<{ resource_group: string; cost: number; percentage: number }>;
+}
+
+export interface CostTrendPoint {
+  date: string;
+  cost: number;
+}
+
+export interface CostTrendResponse {
+  project_id: string;
+  data_points: CostTrendPoint[];
+  granularity: string;
+  total_cost: number;
+  average_daily_cost: number;
+}
+
+export interface BudgetStatusResponse {
+  project_id: string;
+  budget_name: string;
+  budget_amount: number;
+  current_spend: number;
+  currency: string;
+  utilization_percentage: number;
+  threshold_percentage: number;
+  alert_enabled: boolean;
+  is_over_threshold: boolean;
+  is_over_budget: boolean;
+}
+
+export interface CostAnomalyResponse {
+  id: string;
+  project_id: string;
+  resource_id: string;
+  resource_type: string;
+  anomaly_type: string;
+  severity: string;
+  expected_cost: number;
+  actual_cost: number;
+  deviation_percentage: number;
+  detected_at: string;
+}
+
+// ── Governance RBAC types ────────────────────────────────────────────────
+
+export interface RBACScanRequest {
+  subscription_id: string;
+  tenant_id: string;
+}
+
+export interface RBACFindingResponse {
+  id: string;
+  finding_type: string;
+  severity: string;
+  principal_id: string;
+  principal_name: string | null;
+  role_name: string;
+  scope: string;
+  description: string;
+  remediation: string;
+}
+
+export interface RBACScanResultResponse {
+  id: string;
+  project_id: string;
+  subscription_id: string;
+  health_score: number;
+  total_assignments: number;
+  finding_count: number;
+  scan_timestamp: string;
+  status: string;
+  findings: RBACFindingResponse[];
+}
+
+export interface RBACHealthSummary {
+  project_id: string;
+  latest_health_score: number | null;
+  total_scans: number;
+  total_findings: number;
+  critical_findings: number;
+  high_findings: number;
+}
+
+// ── Governance tagging types ─────────────────────────────────────────────
+
+export interface TagDefinition {
+  name: string;
+  required: boolean;
+  allowed_values?: string[];
+  pattern?: string;
+}
+
+export interface TaggingPolicyResponse {
+  id: string;
+  project_id: string;
+  name: string;
+  required_tags: TagDefinition[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaggingViolationResponse {
+  resource_id: string;
+  resource_type: string;
+  missing_tags: string[];
+  invalid_tags: Array<{ tag_name: string; actual_value: string; reason: string }>;
+}
+
+export interface TaggingScanResultResponse {
+  id: string;
+  project_id: string;
+  policy_id: string;
+  compliance_percentage: number;
+  total_resources: number;
+  compliant_resources: number;
+  violation_count: number;
+  scan_timestamp: string;
+  violations: TaggingViolationResponse[];
+}
+
+export interface TaggingSummary {
+  project_id: string;
+  total_scans: number;
+  latest_compliance_percentage: number | null;
+  total_violations: number;
+  most_common_missing_tags: string[];
+}
+
+// ── Governance audit types ───────────────────────────────────────────────
+
+export interface GovernanceAuditEntry {
+  id: string;
+  event_type: string;
+  actor: string;
+  resource_type: string;
+  resource_id: string;
+  project_id: string | null;
+  description: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface GovernanceAuditListResponse {
+  entries: GovernanceAuditEntry[];
+  total: number;
+  page: number;
+  page_size: number;
 }
 
 // ── Policy types ──────────────────────────────────────────────────────────

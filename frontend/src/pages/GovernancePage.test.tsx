@@ -300,4 +300,62 @@ describe("GovernancePage", () => {
       expect(screen.getByText("Category Breakdown")).toBeInTheDocument();
     });
   });
+
+  it("renders all five category labels", async () => {
+    mockedApi.governance.scorecard.getScorecard.mockResolvedValue(
+      sampleScorecard
+    );
+    renderGovernancePage();
+    await waitFor(() => {
+      expect(screen.getByText("Policy Compliance")).toBeInTheDocument();
+      expect(screen.getByText("Security / RBAC")).toBeInTheDocument();
+      expect(screen.getByText("Cost Management")).toBeInTheDocument();
+      expect(screen.getByText("Drift Detection")).toBeInTheDocument();
+      expect(screen.getByText("Tagging Compliance")).toBeInTheDocument();
+    });
+  });
+
+  it("renders category scores rounded", async () => {
+    mockedApi.governance.scorecard.getScorecard.mockResolvedValue(
+      sampleScorecard
+    );
+    renderGovernancePage();
+    await waitFor(() => {
+      expect(screen.getByText("85")).toBeInTheDocument();
+      expect(screen.getByText("80")).toBeInTheDocument();
+      expect(screen.getByText("75")).toBeInTheDocument();
+      expect(screen.getByText("90")).toBeInTheDocument();
+      expect(screen.getByText("70")).toBeInTheDocument();
+    });
+  });
+
+  it("displays Needs Attention badge for warning-level overall score", async () => {
+    const warningScorecard = {
+      ...sampleScorecard,
+      overall_score: 65.0,
+    };
+    mockedApi.governance.scorecard.getScorecard.mockResolvedValue(
+      warningScorecard
+    );
+    renderGovernancePage();
+    await waitFor(() => {
+      expect(screen.getByText("Needs Attention")).toBeInTheDocument();
+    });
+  });
+
+  it("retries loading when retry button is clicked after error", async () => {
+    const user = userEvent.setup();
+    mockedApi.governance.scorecard.getScorecard
+      .mockRejectedValueOnce(new Error("fail"))
+      .mockResolvedValueOnce(sampleScorecard);
+    renderGovernancePage();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: /retry/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Governance Scorecard")).toBeInTheDocument();
+      expect(screen.getByText("83")).toBeInTheDocument();
+    });
+  });
 });

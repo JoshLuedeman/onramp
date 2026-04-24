@@ -127,6 +127,22 @@ git commit --no-verify -m "hotfix: emergency patch"
 
 Only skip hooks in genuine emergencies. The CI pipeline will still enforce all checks.
 
+## E2E Tests
+
+OnRamp uses [Playwright](https://playwright.dev/) for end-to-end tests.
+
+### Running E2E Tests
+
+```bash
+cd frontend
+npx playwright install chromium   # First time only
+npm run test:e2e                   # Run all E2E tests
+npm run test:e2e:ui                # Interactive UI mode
+npm run test:e2e:headed            # Run with browser visible
+```
+
+E2E tests require the frontend dev server (auto-started by Playwright config).
+
 ## Project Structure
 
 ```
