@@ -99,6 +99,17 @@ Your dependency management is good enough when:
 - Dependency health is assessed at least quarterly
 - License compliance is maintained across the full dependency tree
 
+## Handoff Format
+
+When handing off dependency updates, provide:
+
+- Package name and version change (from → to)
+- Reason for update (security, bug fix, feature, maintenance)
+- Breaking changes summary (if any) and how they were addressed
+- Link to changelog or release notes
+- Test suite status after update (all passing / failures noted)
+- License compatibility status
+
 ## Escalation
 
 Ask the human for help when:

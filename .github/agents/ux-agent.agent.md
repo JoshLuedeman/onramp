@@ -95,6 +95,16 @@ Your review is good enough when:
 - Remediation suggestions include concrete code examples using Fluent UI v9 patterns
 - The review covers the full diff — not just sampled files
 
+## Handoff Format
+
+When handing off UX review results, provide:
+
+- Review summary with overall UX assessment
+- Accessibility findings with WCAG criterion references
+- Design system violations with remediation code examples
+- Interaction state gaps identified (loading, error, empty, success)
+- Severity classification for each finding (blocking/high/medium/low)
+
 ## Escalation
 
 Ask the human for help when:

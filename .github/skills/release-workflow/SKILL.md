@@ -119,3 +119,30 @@ The orchestrator validates each handoff artifact before dispatching the next rol
   including `make release` automation, CHANGELOG conventions, semver strategy, and dual-repo
   sync with `gh-teamwork`. This skill defines the multi-role workflow; `docs/releasing.md`
   defines the technical steps.
+
+## Error Handling
+
+### Common Failures
+
+| Step | Failure | Recovery Action |
+|------|---------|-----------------|
+| 2 (Planner) | Discovers unmerged work that should be in the release | Pause the release. Either merge the missing work first or explicitly defer it to the next release and document the exclusion |
+| 3 (Tester) | Regression tests fail | Triage each failure: if caused by recent changes, fix before releasing. If a pre-existing flaky test, document and proceed (with human approval). Never release with unexplained test failures |
+| 4 (Security) | Critical vulnerability found during release scan | Block the release. Fix the vulnerability using security-response or dependency-update workflow first, then restart the release process |
+| 5 (Documenter) | Changelog is incomplete — PRs merged without changelog entries | Documenter reconstructs entries from PR descriptions and commit messages. File a process improvement issue to prevent recurrence |
+| 6 (Coder) | Version bump causes build failures | Fix the build before proceeding. Common causes: hardcoded version strings missed during bump, dependency version constraints |
+| 8 (Human) | Release publishing fails (registry, GitHub Release API) | Retry the publish. If the tag was created but the release failed, delete the tag and recreate. Do not leave orphaned tags |
+
+### Escalation Criteria
+
+- Security scan reveals a critical vulnerability — block release until remediated
+- More than 3 test failures that cannot be attributed to known flakiness — escalate to Tester and Coder
+- Version number conflicts (tag already exists, version already published) — escalate to human
+- Release deadline pressure conflicts with unresolved quality gates — escalate to human for risk decision
+
+### Rollback Procedures
+
+- Before publishing: simply abandon the release branch/tag and restart when ready
+- After publishing a GitHub Release: delete the release and tag if no users have consumed it
+- After users have consumed the release: do NOT delete — instead, publish a patch release with fixes
+- If a published release breaks production, follow the hotfix-workflow and publish a patch release immediately

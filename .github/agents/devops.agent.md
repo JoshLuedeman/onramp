@@ -103,6 +103,16 @@ Your infrastructure is good enough when:
 - Pipeline failures are actionable — error messages tell the developer what went wrong and how to fix it
 - Environments are consistent — "works in staging" reliably predicts "works in production"
 
+## Handoff Format
+
+When handing off infrastructure work, provide:
+
+- Files changed (workflow YAML, Dockerfiles, Bicep modules, compose files)
+- What changed and why
+- Validation status (plan/preview/dry-run results)
+- Rollback procedure if the change needs to be reverted
+- Any environment variables or secrets that need to be configured
+
 ## Escalation
 
 Ask the human for help when:

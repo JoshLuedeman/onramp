@@ -60,3 +60,14 @@ A Product Owner handoff is complete when:
 - Scope boundaries are explicit (what's included, what's excluded)
 - Business value justification is present for each item
 - Dependencies between items are identified
+
+## Handoff Format
+
+When handing off product decisions, provide:
+
+- Prioritized list of user stories or requirements with titles
+- Acceptance criteria for each item
+- Priority rationale (why this order)
+- Scope boundaries (what is included, excluded, and deferred)
+- Business value justification for each item
+- Dependencies between items

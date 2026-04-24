@@ -84,6 +84,49 @@ source .venv/bin/activate
 pytest tests/ -v
 ```
 
+## Pre-Commit Hooks
+
+OnRamp uses [pre-commit](https://pre-commit.com/) to run automated checks before each commit.
+
+### Setup
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+### What It Checks
+
+| Hook | Purpose |
+|------|---------|
+| trailing-whitespace | Removes trailing whitespace |
+| end-of-file-fixer | Ensures files end with a newline |
+| check-yaml | Validates YAML syntax |
+| check-json | Validates JSON syntax |
+| check-merge-conflict | Detects leftover merge-conflict markers |
+| detect-private-key | Prevents committing private keys |
+| check-added-large-files | Prevents committing files > 500 KB |
+| ruff | Python linting and auto-fix (backend) |
+| ruff-format | Python code formatting (backend) |
+| eslint | TypeScript/React linting (frontend) |
+| prettier | Code formatting check (frontend) |
+
+### Running Manually
+
+```bash
+pre-commit run --all-files    # Run all hooks on all files
+pre-commit run ruff            # Run specific hook
+pre-commit autoupdate          # Update hook versions
+```
+
+### Skipping Hooks (Emergency Only)
+
+```bash
+git commit --no-verify -m "hotfix: emergency patch"
+```
+
+Only skip hooks in genuine emergencies. The CI pipeline will still enforce all checks.
+
 ## Project Structure
 
 ```

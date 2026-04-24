@@ -109,3 +109,29 @@ The orchestrator validates each handoff artifact before dispatching the next rol
   quality gate fails, the orchestrator keeps the workflow at the current step and notifies
   the responsible role. If a blocker is raised, the orchestrator sets the workflow to
   `blocked` and escalates to the human.
+
+## Error Handling
+
+### Common Failures
+
+| Step | Failure | Recovery Action |
+|------|---------|-----------------|
+| 2 (Evaluation) | Changelog is incomplete or missing migration guide | Check GitHub releases, commit history, and community forums for breaking changes. If undocumented, run the update in a branch and rely on test failures to surface incompatibilities |
+| 3 (Coder) | Build fails after version bump | Check error messages against the dependency's migration guide. Common causes: renamed exports, removed APIs, changed type signatures. Adapt code per the changelog |
+| 3 (Coder) | Lock file conflicts or resolution failures | Delete lock file and regenerate from scratch. If resolution still fails, the dependency may have conflicting peer requirements — pin transitive dependencies or find an alternative |
+| 4 (Tester) | Tests fail due to changed dependency behavior | Distinguish between bugs (the dependency broke something) and intentional changes (new behavior). Update tests for intentional changes; report bugs upstream for regressions |
+| 5 (Security) | New version introduces a known vulnerability | Do not merge. Check if a patched version exists. If not, evaluate the vulnerability severity — for low risk, document and track; for high/critical, find an alternative dependency or apply a workaround |
+| 5 (Security) | License changed to incompatible license | Do not merge. Evaluate whether the license change is permanent. If so, find an alternative dependency or seek legal guidance |
+
+### Escalation Criteria
+
+- Major version update with more than 10 breaking changes — escalate to Architect for design review
+- Dependency has no maintained alternative and contains a critical CVE — escalate to human
+- Update requires changes across more than 5 modules — consider splitting into incremental PRs
+- License incompatibility detected — escalate to human for legal/business decision
+
+### Rollback Procedures
+
+- Revert the version bump commit and lock file changes — re-pin to the previous working version
+- For high-risk updates, the Coder should document the exact rollback command in the PR description before merging
+- If a merged update causes production issues, re-pin the previous version via a hotfix PR and invoke **rollback-workflow** if needed

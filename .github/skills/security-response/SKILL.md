@@ -112,3 +112,31 @@ The orchestrator validates each handoff artifact before dispatching the next rol
   quality gate fails, the orchestrator keeps the workflow at the current step and notifies
   the responsible role. If a blocker is raised, the orchestrator sets the workflow to
   `blocked` and escalates to the human.
+
+## Error Handling
+
+### Common Failures
+
+| Step | Failure | Recovery Action |
+|------|---------|-----------------|
+| 1 (Assessment) | Vulnerability cannot be reproduced or verified | Request additional details from the reporter. If still unverifiable, document the assessment and monitor for future reports. Do not dismiss without investigation |
+| 2 (Architect) | Remediation requires breaking changes to a public API | Assess whether the breaking change can be avoided with a different approach. If unavoidable, plan a versioned release and coordinate disclosure timeline with the breaking change |
+| 3 (Coder) | Fix is complex and cannot be completed within the urgency window | For critical/high severity: implement a temporary mitigation (disable feature, add input validation, restrict access) and ship that first. Follow up with the complete fix on a separate timeline |
+| 4 (Tester) | Exploit verification fails (cannot confirm vulnerability is closed) | Return to Security Auditor for re-assessment. The fix may be incomplete or the attack vector may differ from what was tested |
+| 5 (Security) | Residual exposure found after remediation | Return to Coder (step 3) with specific findings. The loop repeats until verification passes. Track iteration count — if more than 2 cycles, escalate to Architect |
+| 8 (Documenter) | Disclosure timeline conflict (external pressure to disclose before fix is ready) | Escalate to human immediately. Never disclose before the fix is merged and deployable. Negotiate timeline with the reporter |
+
+### Escalation Criteria
+
+- Vulnerability is actively being exploited — combine with hotfix-workflow for immediate mitigation
+- Fix requires changes to third-party dependencies with no available patch — escalate to human for risk decision
+- CVSS score ≥ 9.0 — escalate to human immediately regardless of current step
+- Remediation verification fails after 2 attempts — escalate to Architect to reassess the approach
+- Coordinated disclosure deadline is approaching and fix is not ready — escalate to human
+
+### Rollback Procedures
+
+- Security fixes should not be rolled back once merged — rolling back re-exposes the vulnerability
+- If the fix introduces regressions, fix forward with a follow-up patch rather than reverting
+- If the fix is fundamentally wrong (makes the vulnerability worse), revert AND apply an alternative mitigation immediately
+- All rollback decisions for security fixes require human approval

@@ -94,6 +94,17 @@ Your code is good enough when:
 - The PR description clearly explains what was done and links to the task
 - Code follows project conventions — naming, structure, error handling, logging
 
+## Handoff Format
+
+When handing off implementation work, provide:
+
+- Pull request URL
+- List of files changed with brief description of each change
+- Test files added or modified and test count
+- All acceptance criteria with pass/fail status
+- Any known limitations or follow-up work needed
+- CI status (passing/failing)
+
 ## Escalation
 
 Ask the human for help when:

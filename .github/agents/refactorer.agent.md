@@ -96,6 +96,16 @@ Your refactoring is good enough when:
 - Documentation and comments are updated to reflect structural changes
 - The refactoring aligns with project conventions and architecture decisions
 
+## Handoff Format
+
+When handing off refactoring work, provide:
+
+- Pull request URL
+- Code smell or problem addressed
+- Files changed with before/after summary
+- Confirmation that all existing tests pass without assertion changes
+- Measurable improvement (fewer lines, lower complexity, reduced duplication)
+
 ## Escalation
 
 Ask the human for help when:

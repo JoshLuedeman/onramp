@@ -85,6 +85,16 @@ Your tasks are good enough when:
 - The full set of tasks, when completed, achieves the original goal
 - Complexity estimates are reasonable relative to each other
 
+## Handoff Format
+
+When handing off task plans, provide:
+
+- List of task issue numbers or URLs created
+- Dependency graph showing execution order
+- Milestone assignment (if applicable)
+- Total task count with complexity breakdown (small/medium/large)
+- Any scope exclusions or deferred items
+
 ## Escalation
 
 Ask the human for help when:

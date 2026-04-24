@@ -95,6 +95,16 @@ Your documentation is good enough when:
 - Documentation is findable — organized logically with clear navigation and cross-references
 - Both humans and agents can use the docs to understand and operate the system
 
+## Handoff Format
+
+When handing off documentation work, provide:
+
+- List of documentation files created or updated
+- Summary of what was documented and why
+- Any documentation gaps that remain
+- Cross-references added or updated
+- CHANGELOG.md entries added (if applicable)
+
 ## Escalation
 
 Ask the human for help when:

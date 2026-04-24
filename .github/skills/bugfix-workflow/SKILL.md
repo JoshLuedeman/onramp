@@ -111,3 +111,30 @@ The orchestrator validates each handoff artifact before dispatching the next rol
   quality gate fails, the orchestrator keeps the workflow at the current step and notifies
   the responsible role. If a blocker is raised, the orchestrator sets the workflow to
   `blocked` and escalates to the human.
+
+## Error Handling
+
+### Common Failures
+
+| Step | Failure | Recovery Action |
+|------|---------|-----------------|
+| 2 (Planner) | Bug cannot be reproduced | Return to reporter requesting environment details, exact input, and logs. If still unreproducible after two attempts, close as "cannot reproduce" with documented attempts |
+| 3 (Architect) | Fix requires breaking architectural changes | Escalate to human — the fix may need to be split into a hotfix (symptom) and a feature (root cause). File a separate feature request for the structural change |
+| 4 (Coder) | Regression test cannot be written (untestable code path) | Document manual verification steps in the PR. File a follow-up issue to improve testability of the affected area |
+| 4 (Coder) | Fix causes cascading test failures | Reassess scope with the Architect — the root cause may be different than assumed. Do not expand the fix to "also fix" failing tests unrelated to the bug |
+| 5 (Tester) | Fix resolves the bug but introduces new regressions | Return to Coder (step 4) with specific failing tests. The Coder must address regressions before proceeding |
+| 6 (Security) | Bug was exploitable (data exposure, auth bypass) | Escalate to human immediately. Consider switching to the security-response workflow for coordinated disclosure |
+| 7 (Reviewer) | Reviewer blocks PR with fundamental concerns | Return to Coder. If the concern is about approach (not implementation), loop back to Architect (step 3) to revisit the design |
+
+### Escalation Criteria
+
+- Bug is a security vulnerability — escalate to human and Security Auditor immediately
+- Fix requires changes to more than 3 modules — re-scope with the Planner
+- Three or more review iterations without convergence — escalate to human for mediation
+- Fix is blocked by an external dependency or infrastructure issue — set workflow to `blocked`
+
+### Rollback Procedures
+
+- If a merged fix causes production issues, invoke the **rollback-workflow** to revert
+- If a fix PR breaks the target branch CI after merge, the Coder immediately opens a revert PR
+- Partial work (uncommitted or unmerged) requires no rollback — abandon the branch and restart from step 4

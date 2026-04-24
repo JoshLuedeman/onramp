@@ -111,3 +111,29 @@ The orchestrator validates each handoff artifact before dispatching the next rol
   quality gate fails, the orchestrator keeps the workflow at the current step and notifies
   the responsible role. If a blocker is raised, the orchestrator sets the workflow to
   `blocked` and escalates to the human.
+
+## Error Handling
+
+### Common Failures
+
+| Step | Failure | Recovery Action |
+|------|---------|-----------------|
+| 2 (Planner) | Investigation scope is too broad — too many questions for the time box | Prioritize the most impactful questions. Defer lower-priority questions to a follow-up spike or accept partial answers |
+| 3 (Architect) | Time box expires before all questions are answered | Document what was learned, what remains unknown, and recommend whether to extend the spike or proceed with partial information. Never silently extend the time box |
+| 3 (Architect) | Proof-of-concept fails or produces inconclusive results | Document the failure as a finding — a failed PoC is still a valuable data point. Evaluate whether an alternative approach should be prototyped within the remaining time box |
+| 3 (Architect) | External dependency blocks the investigation (API unavailable, license restriction) | Document the blocker and its impact on the recommendation. Provide a conditional recommendation ("If X is available, then Y; otherwise Z") |
+| 4 (Reviewer) | Reviewer identifies bias in the recommendation | Return to Architect with specific concerns. The Architect must address gaps, consider unconsidered alternatives, and strengthen the analysis |
+
+### Escalation Criteria
+
+- Time box has expired and no clear recommendation can be made — escalate to human to decide: extend, proceed with partial info, or abandon
+- Investigation reveals the question is fundamentally unanswerable with current information — escalate to human
+- Spike results invalidate an existing architectural decision — escalate to Architect and human before proceeding
+- Cost of further investigation exceeds the value of the answer — escalate to human for cost/benefit decision
+
+### Rollback Procedures
+
+- Spikes produce no production code, so there is nothing to roll back
+- If a spike's recommendation leads to a bad decision, the follow-up workflow (Feature, Refactoring) handles the correction
+- Proof-of-concept code should be on a throwaway branch — delete it after the spike concludes
+- If a spike-produced ADR is later found to be based on flawed analysis, update the ADR with a superseding decision

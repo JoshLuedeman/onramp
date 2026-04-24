@@ -94,6 +94,16 @@ Your review is good enough when:
 - The review is complete — you've looked at the full diff, not just sampled files
 - Your approve/reject decision is justified and consistent with the feedback
 
+## Handoff Format
+
+When handing off review results, provide:
+
+- Review decision: Approve / Request Changes / Comment
+- Blocking issues (must fix before merge) with file and line references
+- Non-blocking suggestions clearly marked
+- Acceptance criteria verification status (each criterion checked)
+- Summary assessment in 2-3 sentences
+
 ## Escalation
 
 Ask the human for help when:

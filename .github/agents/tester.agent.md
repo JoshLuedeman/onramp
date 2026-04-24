@@ -92,6 +92,16 @@ Your testing is good enough when:
 - Regression tests exist for any previously reported bugs
 - Tests run reliably — no flaky tests that pass sometimes and fail others
 
+## Handoff Format
+
+When handing off test results, provide:
+
+- Test files created or modified with test count
+- Coverage report summary (line, branch, function percentages)
+- Defects found with reproduction steps and severity
+- Acceptance criteria coverage map (which criteria have tests)
+- Any untestable requirements with rationale
+
 ## Escalation
 
 Ask the human for help when:

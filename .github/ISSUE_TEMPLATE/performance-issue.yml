@@ -1,0 +1,50 @@
+name: Performance Issue
+description: Report a performance degradation, slow endpoint, or resource bottleneck
+title: "[PERF] "
+labels: ["performance"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected Area
+      options:
+        - Backend API endpoint
+        - Frontend page load
+        - Database query
+        - Build / CI pipeline
+        - Infrastructure
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What is slow or degraded?
+    validations:
+      required: true
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Performance Metrics
+      description: Include response times, load times, or other measurements
+      placeholder: |
+        - Endpoint: /api/architecture/generate
+        - Current p50: 3.2s, p99: 12.4s
+        - Expected p50: < 1s, p99: < 3s
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: How to Reproduce
+      description: Steps to observe the performance issue
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Where is this observed? (dev, staging, production)
+    validations:
+      required: true

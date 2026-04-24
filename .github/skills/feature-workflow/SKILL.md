@@ -118,3 +118,31 @@ The orchestrator validates each handoff artifact before dispatching the next rol
   handoff artifact; the Tester performs structured manual testing using the acceptance criteria
   as a checklist and documents each step and outcome. This is not a permanent exemption —
   the Planner or Architect should track adding test infrastructure as a follow-up task.
+
+## Error Handling
+
+### Common Failures
+
+| Step | Failure | Recovery Action |
+|------|---------|-----------------|
+| 2 (Planner) | Goal is too vague to decompose into tasks | Return to Human (step 1) requesting clearer acceptance criteria, constraints, and scope boundaries |
+| 3 (Architect) | Task is infeasible with current architecture | Architect flags the issue. Planner must revise the plan before Coder begins. May spawn a spike-workflow to investigate alternatives |
+| 4 (Coder) | Implementation reveals scope is much larger than estimated | Stop and surface to Planner for re-scoping. Do not silently expand — file new issues for discovered work |
+| 4 (Coder) | CI failures unrelated to the feature (flaky tests, infra issues) | Retry CI. If persistent, isolate the flaky test and file a separate bug. Do not block the feature on pre-existing CI issues |
+| 5 (Tester) | Acceptance criteria are ambiguous or untestable | Return to Planner to clarify criteria. Tester should not invent acceptance criteria — they come from the plan |
+| 6 (Security) | Critical vulnerability found in the implementation | Return to Coder (step 4) with specific remediation guidance. Block merge until resolved |
+| 7 (Reviewer) | PR is too large to review effectively | Return to Planner to split into smaller PRs. Each sub-PR goes through steps 4–8 independently |
+| 8 (Human) | Human rejects the PR for business reasons | Escalate to Planner — the feature may need re-scoping or deprioritization |
+
+### Escalation Criteria
+
+- Feature requires an architectural change not covered by existing ADRs — trigger a spike-workflow
+- Three or more review-fix cycles without convergence — escalate to human for direction
+- Blocked by an external dependency (API, service, team) — set workflow to `blocked` and notify human
+- Scope creep detected (implementation growing beyond original tasks) — pause and re-plan
+
+### Rollback Procedures
+
+- Unmerged work: abandon the feature branch and restart from the revised plan
+- Merged but broken: invoke **rollback-workflow** to revert, then restart from step 4
+- Multi-PR features: revert only the problematic PR; other merged PRs remain if independent

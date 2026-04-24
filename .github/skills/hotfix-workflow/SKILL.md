@@ -97,3 +97,28 @@ The orchestrator validates each handoff artifact before dispatching the next rol
   quality gate fails, the orchestrator keeps the workflow at the current step and notifies
   the responsible role. If a blocker is raised, the orchestrator sets the workflow to
   `blocked` and escalates to the human.
+
+## Error Handling
+
+### Common Failures
+
+| Step | Failure | Recovery Action |
+|------|---------|-----------------|
+| 2 (Coder) | Root cause cannot be identified quickly | Apply a mitigation (feature flag, config change, traffic redirect) to stop user impact while investigation continues. File a follow-up bugfix issue for proper root cause analysis |
+| 2 (Coder) | Minimal fix is not possible — the bug requires structural changes | Escalate to human immediately. Consider a temporary workaround (revert, feature disable) while a proper fix is developed through the bugfix-workflow |
+| 3 (Tester) | Fix resolves the incident but introduces new regressions | Return to Coder (step 2). If regressions are in unrelated areas, the original fix may be too broad — narrow the scope |
+| 5 (Reviewer) | Reviewer blocks the hotfix | This should be rare — the bar is "correct and safe," not "perfect." If blocked, the Coder must fix the specific safety concern immediately (minutes, not hours) |
+| 6 (Human) | Deployment fails after merge | Invoke DevOps to diagnose the deployment failure. If the deployment system is the issue (not the code), fix the pipeline. If the code is the issue, revert immediately |
+
+### Escalation Criteria
+
+- Hotfix cannot be identified within 30 minutes — escalate to human for a decision on rollback vs continued investigation
+- The incident affects data integrity — escalate immediately regardless of fix status
+- Multiple systems are affected — consider whether this is a broader outage requiring incident management beyond this workflow
+- The fix requires changes to production infrastructure (not just code) — involve DevOps immediately
+
+### Rollback Procedures
+
+- If the hotfix makes things worse, revert immediately using `git revert` — do not debug in production
+- If the hotfix cannot be deployed, invoke **rollback-workflow** to revert to the last known-good state
+- Always prefer revert over forward-fix during an active incident — stability first, perfection later

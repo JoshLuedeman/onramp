@@ -25,6 +25,17 @@ This builds and starts everything in containers:
 
 For detailed setup options, see [docs/development.md](docs/development.md).
 
+## Pre-Commit Hooks
+
+We use pre-commit hooks to catch issues before they reach CI. Set up:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+See [docs/development.md](docs/development.md#pre-commit-hooks) for details.
+
 ## Running Tests
 
 ### Backend
