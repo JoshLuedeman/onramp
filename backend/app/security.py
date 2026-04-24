@@ -1,6 +1,7 @@
 """Security configuration and middleware."""
 
 import logging
+import re
 import time
 from collections import defaultdict
 
@@ -10,6 +11,52 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+# --------------------------------------------------------------------------- #
+# Secret masking filter (#154)                                                 #
+# --------------------------------------------------------------------------- #
+
+_SENSITIVE_PATTERN = re.compile(
+    r"(key|secret|password|token|connection_string|credential)"
+    r"(\s*[=:]\s*)"
+    r"(\S+)",
+    re.IGNORECASE,
+)
+
+_REDACTED = "***REDACTED***"
+
+
+class SecretMaskingFilter(logging.Filter):
+    """Redact sensitive values (keys, passwords, tokens, etc.) from log output."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg = self._redact(record.msg)
+        if record.args:
+            if isinstance(record.args, dict):
+                record.args = {
+                    k: self._redact(v) if isinstance(v, str) else v
+                    for k, v in record.args.items()
+                }
+            elif isinstance(record.args, tuple):
+                record.args = tuple(
+                    self._redact(a) if isinstance(a, str) else a
+                    for a in record.args
+                )
+        return True
+
+    @staticmethod
+    def _redact(value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        return _SENSITIVE_PATTERN.sub(rf"\1\2{_REDACTED}", value)
+
+
+def install_secret_masking_filter() -> None:
+    """Attach :class:`SecretMaskingFilter` to the root logger."""
+    root = logging.getLogger()
+    # Guard against duplicate installs
+    if not any(isinstance(f, SecretMaskingFilter) for f in root.filters):
+        root.addFilter(SecretMaskingFilter())
 
 # Default CSP for React SPA with Fluent UI v9
 _DEFAULT_CSP_PROD = (
@@ -178,3 +225,77 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         self._requests[key] = recent + [now]
         return await call_next(request)
+
+
+class CSRFMiddleware(BaseHTTPMiddleware):
+    """Validate Origin/Referer on state-changing requests for defense-in-depth.
+
+    The app uses JWT Bearer tokens (not cookies), which inherently mitigates
+    most CSRF vectors.  This middleware adds an extra layer by checking that
+    the Origin (or Referer) header on mutating requests comes from an allowed
+    origin.
+
+    Behaviour:
+    - Safe methods (GET, HEAD, OPTIONS) are always allowed.
+    - The /health endpoint is always exempt.
+    - In dev mode (``settings.debug``), a warning is logged but the request
+      is allowed through so local development and tests are not broken.
+    - In production, a missing or non-matching origin returns 403.
+    """
+
+    _SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+    async def dispatch(self, request: Request, call_next):
+        # Safe methods never need CSRF validation
+        if request.method in self._SAFE_METHODS:
+            return await call_next(request)
+
+        # Health endpoint is always exempt
+        if request.url.path == "/health":
+            return await call_next(request)
+
+        origin = request.headers.get("origin")
+        referer = request.headers.get("referer")
+
+        # Extract origin value: prefer Origin header, fall back to Referer
+        request_origin: str | None = None
+        if origin:
+            request_origin = origin.rstrip("/")
+        elif referer:
+            # Referer is a full URL; extract scheme + host
+            from urllib.parse import urlparse
+
+            parsed = urlparse(referer)
+            if parsed.scheme and parsed.netloc:
+                request_origin = f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+
+        # Normalise allowed origins for comparison
+        allowed = {o.rstrip("/") for o in settings.cors_origins}
+
+        if request_origin and request_origin in allowed:
+            return await call_next(request)
+
+        # Origin missing or not in allow-list
+        if settings.debug:
+            logger.warning(
+                "CSRF: allowing %s %s in dev mode (origin=%s)",
+                request.method,
+                request.url.path,
+                request_origin,
+            )
+            return await call_next(request)
+
+        logger.warning(
+            "CSRF validation failed: %s %s origin=%s",
+            request.method,
+            request.url.path,
+            request_origin,
+        )
+        return Response(
+            content=(
+                '{"error":{"code":"CSRF_VALIDATION_FAILED",'
+                '"message":"Origin validation failed","type":"security"}}'
+            ),
+            status_code=403,
+            media_type="application/json",
+        )

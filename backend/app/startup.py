@@ -21,9 +21,21 @@ def validate_environment() -> dict:
     if settings.azure_tenant_id and settings.azure_client_id:
         mode = "production"
         logger.info("✅ Entra ID configured (tenant: %s)", settings.azure_tenant_id[:8] + "...")
+    elif settings.debug:
+        warnings.append("Entra ID not configured — using mock authentication (ONRAMP_DEBUG=true)")
+        logger.warning(
+            "⚠️  Entra ID not configured — running in dev mode with mock auth "
+            "(ONRAMP_DEBUG=true)"
+        )
     else:
-        warnings.append("Entra ID not configured — using mock authentication")
-        logger.warning("⚠️  Entra ID not configured — running in dev mode with mock auth")
+        errors.append(
+            "Authentication not configured. Set ONRAMP_AZURE_TENANT_ID and "
+            "ONRAMP_AZURE_CLIENT_ID, or set ONRAMP_DEBUG=true for development."
+        )
+        logger.error(
+            "❌ No auth configured and ONRAMP_DEBUG is not true — "
+            "refusing to start without authentication"
+        )
 
     # Check AI Foundry
     if settings.ai_foundry_endpoint:
@@ -98,7 +110,7 @@ def validate_environment() -> dict:
         "mode": mode,
         "warnings": warnings,
         "errors": errors,
-        "auth": "entra_id" if settings.azure_tenant_id else "mock",
+        "auth": "entra_id" if (settings.azure_tenant_id and settings.azure_client_id) else "mock",
         "ai": (
             "ai_foundry_key"
             if (settings.ai_foundry_endpoint and settings.ai_foundry_key)

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import get_current_user
+from app.auth import require_admin, require_architect, require_viewer
 from app.db.session import get_db
 from app.schemas.project import (
     ProjectCreate,
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 @router.get("/")
 async def list_projects(
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_viewer),
     db: AsyncSession = Depends(get_db),
 ):
     """List all projects for the current user's tenant."""
@@ -53,7 +53,7 @@ async def list_projects(
 @router.post("/")
 async def create_project(
     project: ProjectCreate,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_architect),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new project."""
@@ -124,7 +124,7 @@ async def create_project(
 
 @router.get("/stats")
 async def get_project_stats(
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_viewer),
     db: AsyncSession = Depends(get_db),
 ):
     """Get project statistics for the current user's tenant."""
@@ -187,7 +187,7 @@ async def get_project_stats(
 @router.get("/{project_id}")
 async def get_project(
     project_id: str,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_viewer),
     db: AsyncSession = Depends(get_db),
 ):
     """Get a specific project."""
@@ -222,7 +222,7 @@ async def get_project(
 async def update_project(
     project_id: str,
     updates: ProjectUpdate,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_architect),
     db: AsyncSession = Depends(get_db),
 ):
     """Update a project's name, description, and/or status."""
@@ -278,7 +278,7 @@ async def update_project(
 @router.delete("/{project_id}")
 async def delete_project(
     project_id: str,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a project."""

@@ -48,6 +48,36 @@ The app runs in dev mode when `ONRAMP_AZURE_TENANT_ID` is empty. In dev mode:
 
 Always test in dev mode. Do not assume Azure credentials are available.
 
+## Sub-Agent Delegation Pattern
+
+When delegating work to background sub-agents, use **incremental turns** for observability and error recovery:
+
+1. **Small, focused first turn** — Send a scoped task (analyze, plan, or implement ONE thing). Don't combine unrelated changes in a single agent call.
+2. **Read and verify** — Use `read_agent` to review the result before sending the next step.
+3. **Follow-up turns** — Use `write_agent` to send the next step, building on verified work.
+4. **Commit frequently** — Have agents commit after each meaningful unit of work so progress is visible via `git log` even during execution.
+5. **Prefer multi-turn over monolithic** — A 3-turn agent conversation with checkpoints beats a single 20-minute black-box run.
+
+**Why:** Running agents only expose `current_intent` and `tool_calls_completed` during execution — full results are only available after a turn completes. Incremental turns provide checkpoint-level visibility and the ability to course-correct before an agent goes too far down a wrong path.
+
+**Exception:** Truly independent, well-understood tasks (e.g., "run linter and fix all warnings") can use single-turn dispatch when the risk of going off-track is low.
+
+### Parallel Agent Safety on Shared Branches
+
+When multiple agents work on the **same branch and working directory** simultaneously, their file writes can collide:
+
+- Agent A writes files and runs tests, but hasn't committed yet
+- Agent B runs `git add .` and commits — accidentally including Agent A's uncommitted files
+- Agent A then has nothing to commit/push
+
+**Mitigations (pick one):**
+
+1. **Sequential dispatch** (safest) — Run agents one at a time on the same branch. Each agent commits and pushes before the next starts.
+2. **Selective `git add`** — Instruct agents to `git add <specific-files>` rather than `git add .` or `git add -A`.
+3. **Separate branches** — Each agent works on its own branch, then the orchestrator merges them together.
+
+Prefer option 1 for correctness. Use option 2 when parallelism is worth the risk. Option 3 adds merge complexity but gives full isolation.
+
 ## File Locations
 
 | What | Where |

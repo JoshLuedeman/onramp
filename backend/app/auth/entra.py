@@ -1,10 +1,14 @@
 """Microsoft Entra ID (Azure AD) token validation middleware."""
 
+import logging
+
 import httpx
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 security = HTTPBearer(auto_error=False)
 
@@ -40,7 +44,11 @@ async def get_current_user(
 
     In development mode (no tenant configured), returns a mock user.
     """
-    if not settings.azure_tenant_id:
+    if settings.debug:
+        logger.warning(
+            "⚠️  Mock auth active — ONRAMP_DEBUG=true. "
+            "Do NOT use in production."
+        )
         return {
             "sub": "dev-user-id",
             "name": "Development User",

@@ -22,6 +22,15 @@ param appIdentityClientId string
 @description('Resource tags')
 param tags object
 
+@description('Enable private endpoint and disable public network access. When false, the server remains publicly accessible (suitable for dev).')
+param enablePrivateEndpoints bool = false
+
+@description('Resource ID of the subnet for private endpoints. Required when enablePrivateEndpoints is true.')
+param privateEndpointSubnetId string = ''
+
+@description('Resource ID of the VNet to link private DNS zones to. Required when enablePrivateEndpoints is true.')
+param privateEndpointVnetId string = ''
+
 var serverName = 'sql-${baseName}-${environment}'
 var dbName = 'sqldb-${baseName}-${environment}'
 
@@ -43,7 +52,9 @@ resource sqlServer 'Microsoft.Sql/servers@2023-08-01-preview' = {
   tags: tags
   properties: {
     minimalTlsVersion: '1.2'
-    publicNetworkAccess: 'Enabled'
+    // Security: disable public access when private endpoints are enabled.
+    // This ensures all database traffic flows through the private link.
+    publicNetworkAccess: enablePrivateEndpoints ? 'Disabled' : 'Enabled'
     administrators: {
       administratorType: 'ActiveDirectory'
       azureADOnlyAuthentication: true
@@ -70,7 +81,9 @@ resource sqlDatabase 'Microsoft.Sql/servers/databases@2023-08-01-preview' = {
   }
 }
 
-resource firewallAllowAzure 'Microsoft.Sql/servers/firewallRules@2023-08-01-preview' = {
+// Allow Azure services to access SQL — only needed when public access is enabled.
+// When private endpoints are active, traffic flows through the VNet instead.
+resource firewallAllowAzure 'Microsoft.Sql/servers/firewallRules@2023-08-01-preview' = if (!enablePrivateEndpoints) {
   parent: sqlServer
   name: 'AllowAzureServices'
   properties: {
@@ -263,3 +276,56 @@ resource setupEntraDbUser 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
 
 output serverFqdn string = sqlServer.properties.fullyQualifiedDomainName
 output databaseName string = sqlDatabase.name
+
+// --- Private endpoint resources (deployed only when enablePrivateEndpoints is true) ---
+
+// Private DNS zone for Azure SQL
+resource sqlDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = if (enablePrivateEndpoints) {
+  name: 'privatelink${az.environment().suffixes.sqlServerHostname}'
+  location: 'global'
+  tags: tags
+}
+
+// Link DNS zone to the shared VNet so private endpoint IPs resolve correctly
+resource sqlDnsLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = if (enablePrivateEndpoints) {
+  parent: sqlDnsZone
+  name: '${sqlServer.name}-dns-link'
+  location: 'global'
+  properties: {
+    registrationEnabled: false
+    virtualNetwork: { id: privateEndpointVnetId }
+  }
+}
+
+// Private endpoint for SQL Server
+resource sqlPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-11-01' = if (enablePrivateEndpoints) {
+  name: '${sqlServer.name}-pe'
+  location: location
+  tags: tags
+  properties: {
+    subnet: { id: privateEndpointSubnetId }
+    privateLinkServiceConnections: [
+      {
+        name: 'sqlServer'
+        properties: {
+          privateLinkServiceId: sqlServer.id
+          groupIds: ['sqlServer']
+        }
+      }
+    ]
+  }
+}
+
+// DNS zone group — automatically registers the PE's private IP in the DNS zone
+resource sqlPeDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-11-01' = if (enablePrivateEndpoints) {
+  parent: sqlPrivateEndpoint
+  name: 'default'
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'sqlServer'
+        properties: { privateDnsZoneId: sqlDnsZone.id }
+      }
+    ]
+  }
+}

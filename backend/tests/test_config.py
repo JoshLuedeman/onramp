@@ -1,7 +1,8 @@
 """Tests for application configuration."""
 from app.config import Settings, settings
 
-def test_default_settings():
+def test_default_settings(monkeypatch):
+    monkeypatch.delenv("ONRAMP_DEBUG", raising=False)
     s = Settings()
     assert s.app_name == "OnRamp API"
     assert s.debug is False

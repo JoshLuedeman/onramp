@@ -11,6 +11,10 @@ param environment = 'prod'
 param location = 'eastus2'
 param baseName = 'onramp'
 
+// Private endpoints enabled in prod — disables public network access on SQL Server
+// and AI Foundry, routing all traffic through private links for network isolation.
+param enablePrivateEndpoints = true
+
 // Required — pass at deployment time:
 //   -p sqlAdminGroupName=<value>       (Entra ID group display name for SQL admin)
 //   -p sqlAdminGroupObjectId=<value>   (Entra ID group object ID for SQL admin)

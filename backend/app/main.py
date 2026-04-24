@@ -76,13 +76,18 @@ from app.db.seed import seed_database
 from app.db.session import close_db, init_db
 from app.middleware.audit_middleware import AuditMiddleware
 from app.security import (
+    CSRFMiddleware,
     RateLimitMiddleware,
     RequestValidationMiddleware,
     SecurityHeadersMiddleware,
+    install_secret_masking_filter,
 )
 from app.startup import get_startup_status, log_plugin_status, validate_environment
 
 logger = logging.getLogger(__name__)
+
+# Install secret masking on the root logger before any output (#154)
+install_secret_masking_filter()
 
 
 @asynccontextmanager
@@ -149,6 +154,7 @@ app.add_middleware(APIVersionHeaderMiddleware)
 app.add_middleware(AuditMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(RequestValidationMiddleware)
+app.add_middleware(CSRFMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,

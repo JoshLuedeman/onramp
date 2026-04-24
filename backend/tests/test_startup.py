@@ -6,18 +6,46 @@ from app.startup import get_startup_status, validate_environment
 
 
 def test_validate_environment_dev_mode():
-    """In dev mode (no env vars), should return development mode with warnings."""
-    result = validate_environment()
-    assert result["mode"] == "development"
-    assert result["auth"] == "mock"
-    assert result["ai"] == "mock"
-    assert len(result["warnings"]) > 0
-    assert len(result["errors"]) == 0
+    """In dev mode (debug=True, no env vars), should return development with warnings."""
+    with patch("app.startup.settings") as mock_settings:
+        mock_settings.debug = True
+        mock_settings.azure_tenant_id = ""
+        mock_settings.azure_client_id = ""
+        mock_settings.ai_foundry_endpoint = ""
+        mock_settings.ai_foundry_key = ""
+        mock_settings.managed_identity_client_id = ""
+        mock_settings.database_url = ""
+        mock_settings.cors_origins = ["http://localhost:5173"]
+        result = validate_environment()
+        assert result["mode"] == "development"
+        assert result["auth"] == "mock"
+        assert result["ai"] == "mock"
+        assert len(result["warnings"]) > 0
+        assert len(result["errors"]) == 0
+
+
+def test_validate_environment_no_auth_no_debug_errors():
+    """Without auth config and debug=False, startup must produce errors."""
+    with patch("app.startup.settings") as mock_settings, \
+         patch("app.startup.sys") as mock_sys:
+        mock_settings.debug = False
+        mock_settings.azure_tenant_id = ""
+        mock_settings.azure_client_id = ""
+        mock_settings.ai_foundry_endpoint = ""
+        mock_settings.ai_foundry_key = ""
+        mock_settings.managed_identity_client_id = ""
+        mock_settings.database_url = ""
+        mock_settings.cors_origins = ["http://localhost:5173"]
+        result = validate_environment()
+        assert len(result["errors"]) > 0
+        assert any("Authentication not configured" in e for e in result["errors"])
+        mock_sys.exit.assert_called_once_with(1)
 
 
 def test_validate_environment_with_ai_foundry():
     """When AI Foundry endpoint + key is configured, ai status is ai_foundry_key."""
     with patch("app.startup.settings") as mock_settings:
+        mock_settings.debug = True
         mock_settings.azure_tenant_id = ""
         mock_settings.azure_client_id = ""
         mock_settings.ai_foundry_endpoint = "https://ai.example.com/endpoint"
@@ -33,6 +61,7 @@ def test_validate_environment_with_ai_foundry():
 def test_validate_environment_with_ai_foundry_mi():
     """When AI Foundry endpoint + MI is configured (no key), ai status is ai_foundry_mi."""
     with patch("app.startup.settings") as mock_settings:
+        mock_settings.debug = True
         mock_settings.azure_tenant_id = ""
         mock_settings.azure_client_id = ""
         mock_settings.ai_foundry_endpoint = "https://ai.example.com/endpoint"
@@ -48,6 +77,7 @@ def test_validate_environment_with_ai_foundry_mi():
 def test_validate_environment_ai_key_without_endpoint_is_mock():
     """AI key without endpoint should report mock, not ai_foundry_key."""
     with patch("app.startup.settings") as mock_settings:
+        mock_settings.debug = True
         mock_settings.azure_tenant_id = ""
         mock_settings.azure_client_id = ""
         mock_settings.ai_foundry_endpoint = ""
@@ -62,6 +92,7 @@ def test_validate_environment_ai_key_without_endpoint_is_mock():
 def test_validate_environment_ai_mi_without_endpoint_is_mock():
     """MI client ID without endpoint should report mock, not ai_foundry_mi."""
     with patch("app.startup.settings") as mock_settings:
+        mock_settings.debug = True
         mock_settings.azure_tenant_id = ""
         mock_settings.azure_client_id = ""
         mock_settings.ai_foundry_endpoint = ""
@@ -76,6 +107,7 @@ def test_validate_environment_ai_mi_without_endpoint_is_mock():
 def test_validate_environment_with_database():
     """When database URL is configured, database status is configured."""
     with patch("app.startup.settings") as mock_settings:
+        mock_settings.debug = True
         mock_settings.azure_tenant_id = ""
         mock_settings.azure_client_id = ""
         mock_settings.ai_foundry_endpoint = ""
@@ -88,6 +120,7 @@ def test_validate_environment_with_database():
 def test_validate_environment_mssql_entra_auth_with_mi():
     """Entra-authenticated MSSQL URL logs MI client ID."""
     with patch("app.startup.settings") as mock_settings:
+        mock_settings.debug = True
         mock_settings.azure_tenant_id = ""
         mock_settings.azure_client_id = ""
         mock_settings.ai_foundry_endpoint = ""
@@ -101,6 +134,7 @@ def test_validate_environment_mssql_entra_auth_with_mi():
 def test_validate_environment_mssql_entra_auth_without_mi():
     """Entra-authenticated MSSQL URL without MI falls back to DefaultAzureCredential."""
     with patch("app.startup.settings") as mock_settings:
+        mock_settings.debug = True
         mock_settings.azure_tenant_id = ""
         mock_settings.azure_client_id = ""
         mock_settings.ai_foundry_endpoint = ""
@@ -114,6 +148,7 @@ def test_validate_environment_mssql_entra_auth_without_mi():
 def test_validate_environment_mssql_sql_auth():
     """Standard MSSQL URL with credentials is not Entra auth."""
     with patch("app.startup.settings") as mock_settings:
+        mock_settings.debug = False
         mock_settings.azure_tenant_id = "tenant-1234-abcd"
         mock_settings.azure_client_id = "client-1234"
         mock_settings.ai_foundry_endpoint = "https://ai.example.com"
@@ -127,6 +162,7 @@ def test_validate_environment_mssql_sql_auth():
 def test_validate_environment_production_mode():
     """When Entra ID is configured, runs in production mode."""
     with patch("app.startup.settings") as mock_settings:
+        mock_settings.debug = False
         mock_settings.azure_tenant_id = "tenant-1234-abcd"
         mock_settings.azure_client_id = "client-1234"
         mock_settings.ai_foundry_endpoint = "https://ai.example.com"
@@ -140,6 +176,7 @@ def test_validate_environment_production_mode():
 def test_validate_environment_production_no_ai():
     """Production mode without AI Foundry adds warning."""
     with patch("app.startup.settings") as mock_settings:
+        mock_settings.debug = False
         mock_settings.azure_tenant_id = "tenant-1234-abcd"
         mock_settings.azure_client_id = "client-1234"
         mock_settings.ai_foundry_endpoint = ""
@@ -153,6 +190,7 @@ def test_validate_environment_production_no_ai():
 def test_validate_environment_empty_cors():
     """When CORS origins is empty, adds warning."""
     with patch("app.startup.settings") as mock_settings:
+        mock_settings.debug = True
         mock_settings.azure_tenant_id = ""
         mock_settings.azure_client_id = ""
         mock_settings.ai_foundry_endpoint = ""
@@ -166,6 +204,7 @@ def test_validate_environment_production_no_db_exits():
     """Production mode without database should call sys.exit."""
     with patch("app.startup.settings") as mock_settings, \
          patch("app.startup.sys") as mock_sys:
+        mock_settings.debug = False
         mock_settings.azure_tenant_id = "tenant-1234-abcd"
         mock_settings.azure_client_id = "client-1234"
         mock_settings.ai_foundry_endpoint = "https://ai.example.com"
@@ -179,7 +218,16 @@ def test_get_startup_status_caches():
     """get_startup_status returns cached result on second call."""
     import app.startup
     app.startup._startup_status = None
-    result1 = get_startup_status()
-    result2 = get_startup_status()
-    assert result1 is result2
+    with patch("app.startup.settings") as mock_settings:
+        mock_settings.debug = True
+        mock_settings.azure_tenant_id = ""
+        mock_settings.azure_client_id = ""
+        mock_settings.ai_foundry_endpoint = ""
+        mock_settings.ai_foundry_key = ""
+        mock_settings.managed_identity_client_id = ""
+        mock_settings.database_url = ""
+        mock_settings.cors_origins = ["http://localhost:5173"]
+        result1 = get_startup_status()
+        result2 = get_startup_status()
+        assert result1 is result2
     app.startup._startup_status = None

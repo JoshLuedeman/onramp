@@ -28,8 +28,12 @@ async def get_user_projects(
 
     try:
         from app.models import Project
+        tenant_id = user.get("tid", user.get("tenant_id", "dev-tenant"))
         result = await db.execute(
-            select(Project).where(Project.created_by == user.get("oid", user.get("id")))
+            select(Project).where(
+                Project.created_by == user.get("oid", user.get("sub", "unknown")),
+                Project.tenant_id == tenant_id,
+            )
         )
         projects = result.scalars().all()
         return {
