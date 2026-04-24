@@ -276,6 +276,7 @@ resource setupEntraDbUser 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
 
 output serverFqdn string = sqlServer.properties.fullyQualifiedDomainName
 output databaseName string = sqlDatabase.name
+output serverId string = sqlServer.id
 
 // --- Private endpoint resources (deployed only when enablePrivateEndpoints is true) ---
 

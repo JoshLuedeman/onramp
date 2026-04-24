@@ -29,6 +29,9 @@ param azureClientId string = ''
 @description('Enable private endpoints for AI Foundry and SQL Server. Disables public network access when true. Default: false (dev-friendly).')
 param enablePrivateEndpoints bool = false
 
+@description('Email address for alert notifications (monitoring action group)')
+param alertEmail string = ''
+
 var resourceGroupName = 'rg-${baseName}-${environment}'
 var tags = {
   application: 'OnRamp'
@@ -78,6 +81,7 @@ module monitoring 'modules/monitoring.bicep' = {
     location: location
     baseName: baseName
     environment: environment
+    alertEmail: alertEmail
     tags: tags
   }
 }
@@ -148,6 +152,7 @@ module containerApps 'modules/container-apps.bicep' = {
     managedIdentityClientId: appIdentity.outputs.identityClientId
     sqlServerFqdn: sql.outputs.serverFqdn
     sqlDatabaseName: sql.outputs.databaseName
+    sqlServerId: sql.outputs.serverId
     tags: tags
   }
 }

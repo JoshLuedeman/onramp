@@ -27,6 +27,10 @@ services:
       timeout: 3s
       retries: 20
       start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
 
   # React frontend (Vite dev server with HMR)
   frontend:
@@ -46,12 +50,20 @@ services:
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/node_modules/.vite
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:5173/ || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
 
   # Microsoft SQL Server 2022
   db:
@@ -62,7 +74,7 @@ services:
       MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in .env}"
       MSSQL_PID: "Developer"
     ports:
-      - "1433:1433"
+      - "127.0.0.1:1433:1433"
     volumes:
       - sqldata:/var/opt/mssql
     healthcheck:
@@ -71,6 +83,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
 
 volumes:
   sqldata:
