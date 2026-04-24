@@ -28,8 +28,9 @@ a clear goal statement and any known constraints or requirements.
 | 3 | **Architect** | Reviews tasks for feasibility, makes design decisions, creates ADR if needed | Task list, dependency graph | Feasibility assessment, design decisions, ADR (if needed) | All tasks validated as feasible; decisions documented |
 | 4 | **Coder** | Implements each task in dependency order, writes tests, opens PR | Validated tasks, design decisions, conventions | PR(s) with code, tests, linked issues, CI passing (if CI exists) | Code satisfies acceptance criteria; tests pass if test infrastructure exists; manual verification documented if not |
 | 5 | **Tester** | Reviews coverage, writes edge-case tests, validates against acceptance criteria | PR, acceptance criteria | Additional tests, coverage report, defect reports | Acceptance criteria verified; edge cases covered; if no test suite, manual verification steps documented |
+| 5a | **UX Agent** | Reviews frontend changes for accessibility, design system compliance, and usability (skip if PR has no frontend changes) | PR diff touching `frontend/src/`, UX checklist (`docs/ux-checklist.md`) | UX review with accessibility findings, design system violations, interaction state gaps | No blocking UX findings (WCAG A/AA violations); design system compliance verified |
 | 6 | **Security Auditor** | Scans PR for vulnerabilities, secrets, unsafe dependencies | PR diff, dependency manifest | Security findings (severity, location, remediation) | No high/critical findings unresolved |
-| 7 | **Reviewer** | Reviews for correctness, quality, standards, test sufficiency | PR, acceptance criteria, security findings | Review decision, review comments | PR approved or actionable change requests given |
+| 7 | **Reviewer** | Reviews for correctness, quality, standards, test sufficiency | PR, acceptance criteria, security findings, UX findings | Review decision, review comments | PR approved or actionable change requests given |
 | 8 | **Human** | Approves and merges the PR | Approved PR, review summary | Merged code on target branch | Code merged; CI passes on target branch |
 | 9 | **Documenter** | Updates README, API docs, architecture docs, changelog | Merged PR, task descriptions, ADRs | Updated docs, changelog entry | All docs reflect the new feature |
 | 10 | **Orchestrator** | Complete workflow: validate all gates passed, update state | All step outputs, quality gate results | State file with status `completed`, final metrics | All completion criteria verified |
@@ -56,7 +57,16 @@ The orchestrator validates each handoff artifact before dispatching the next rol
 - Open PR with implementation and initial tests (or manual verification notes if no test infrastructure exists)
 - PR linked to task issues; CI passing (if CI exists)
 
-**Tester → Security Auditor**
+**Tester → UX Agent** (if PR touches `frontend/src/`)
+- PR branch with complete test suite committed
+- Coverage summary posted as PR comment
+
+**UX Agent → Security Auditor**
+- UX review posted as PR comment with accessibility findings, design system violations, and interaction state gaps
+- "No findings" confirmation if clean
+- Step skipped entirely if PR has no frontend changes
+
+**Tester → Security Auditor** (if PR has no frontend changes)
 - PR branch with complete test suite committed
 - Coverage summary posted as PR comment
 
@@ -80,8 +90,9 @@ The orchestrator validates each handoff artifact before dispatching the next rol
 ## Notes
 
 - **Iteration loops**: If the Reviewer requests changes, control returns to the Coder
-  (step 4). If the Tester finds defects, the Coder fixes them before the Security Auditor
-  reviews. These loops repeat until all quality gates pass.
+  (step 4). If the Tester finds defects, the Coder fixes them before the UX Agent and
+  Security Auditor review. If the UX Agent finds blocking issues, the Coder fixes them
+  before the Security Auditor reviews. These loops repeat until all quality gates pass.
 - **Parallel work**: Independent tasks (no dependency relationship) can be implemented in
   parallel by the Coder, each as a separate PR. The Planner's dependency graph determines
   which tasks can run concurrently.
