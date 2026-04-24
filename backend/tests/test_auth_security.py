@@ -135,7 +135,7 @@ class TestRouteRBAC:
             json={"name": "Auth Test", "description": "testing"},
             headers=AUTH_HEADERS,
         )
-        assert r.status_code == 200
+        assert r.status_code == 201
 
     def test_projects_delete_requires_auth(self):
         """DELETE /api/projects/{id} with admin auth succeeds."""

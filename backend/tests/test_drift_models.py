@@ -160,7 +160,7 @@ class TestBaselineRoutesNoDB:
             "captured_by": "admin@test.com",
         }
         r = client.post("/api/governance/drift/baselines", json=payload)
-        assert r.status_code == 200
+        assert r.status_code == 201
         data = r.json()
         assert data["project_id"] == PROJECT_ID
         assert data["baseline_data"] == payload["baseline_data"]
@@ -177,7 +177,7 @@ class TestBaselineRoutesNoDB:
             "baseline_data": {"resources": []},
         }
         r = client.post("/api/governance/drift/baselines", json=payload)
-        assert r.status_code == 200
+        assert r.status_code == 201
         data = r.json()
         assert data["architecture_version"] is None
         assert data["captured_by"] is None
@@ -391,7 +391,7 @@ class TestBaselineRoutesWithDB:
                 "architecture_version": 3,
             }
             r = client.post("/api/governance/drift/baselines", json=payload)
-            assert r.status_code == 200
+            assert r.status_code == 201
             assert mock_db.add.called
         finally:
             app.dependency_overrides.pop(get_db, None)

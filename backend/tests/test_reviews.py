@@ -1242,7 +1242,7 @@ class TestReviewRoutes:
             f"/api/architectures/{arch_id}/reviews",
             json={"action": "approved", "comments": "LGTM"},
         )
-        assert resp.status_code == 200
+        assert resp.status_code == 201
         data = resp.json()
         assert data["action"] == "approved"
 
@@ -1345,7 +1345,7 @@ class TestReviewRoutes:
             f"/api/architectures/{arch_id}/reviews",
             json={"action": "approved"},
         )
-        assert resp.status_code == 200
+        assert resp.status_code == 201
 
         # Check status
         resp = await client.get(

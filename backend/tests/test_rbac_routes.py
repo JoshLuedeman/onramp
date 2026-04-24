@@ -43,7 +43,7 @@ def test_create_project_requires_architect():
         json={"name": "RBAC Test Project", "description": "testing"},
         headers=AUTH_HEADERS,
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     data = r.json()
     assert data["name"] == "RBAC Test Project"
     assert "id" in data

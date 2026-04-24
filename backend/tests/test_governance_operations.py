@@ -310,7 +310,7 @@ class TestApprovalRoutes:
                 "project_id": "proj-1",
             },
         )
-        assert resp.status_code == 200
+        assert resp.status_code == 201
         data = resp.json()
         assert data["status"] == "pending"
         assert data["request_type"] == "drift_remediation"
