@@ -138,6 +138,11 @@ resource containerAppsEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
     appLogsConfiguration: {
       destination: 'azure-monitor'
     }
+    // NOTE: Container Apps do not natively support WAF/Firewall rules.
+    // For production traffic protection (DDoS, OWASP rules, rate limiting),
+    // deploy Azure Front Door or Azure Application Gateway with WAF policy
+    // in front of the Container Apps environment. See:
+    // https://learn.microsoft.com/azure/container-apps/waf-app-gateway
   }
 }
 

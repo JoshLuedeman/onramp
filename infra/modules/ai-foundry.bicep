@@ -13,6 +13,15 @@ param tags object
 @description('Principal (object) ID of the app managed identity for RBAC')
 param managedIdentityPrincipalId string
 
+@description('Enable private endpoint and disable public network access. When false, the resource remains publicly accessible (suitable for dev).')
+param enablePrivateEndpoints bool = false
+
+@description('Resource ID of the subnet for private endpoints. Required when enablePrivateEndpoints is true.')
+param privateEndpointSubnetId string = ''
+
+@description('Resource ID of the VNet to link private DNS zones to. Required when enablePrivateEndpoints is true.')
+param privateEndpointVnetId string = ''
+
 resource cognitiveAccount 'Microsoft.CognitiveServices/accounts@2024-04-01-preview' = {
   name: 'ai-${baseName}-${environment}'
   location: location
@@ -23,7 +32,9 @@ resource cognitiveAccount 'Microsoft.CognitiveServices/accounts@2024-04-01-previ
   }
   properties: {
     customSubDomainName: 'ai-${baseName}-${environment}'
-    publicNetworkAccess: 'Enabled'
+    // Security: disable public access when private endpoints are enabled.
+    // This ensures all traffic flows through the private link.
+    publicNetworkAccess: enablePrivateEndpoints ? 'Disabled' : 'Enabled'
     disableLocalAuth: true
   }
 }
@@ -60,3 +71,56 @@ resource openAiUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
 
 output endpoint string = cognitiveAccount.properties.endpoint
 output accountName string = cognitiveAccount.name
+
+// --- Private endpoint resources (deployed only when enablePrivateEndpoints is true) ---
+
+// Private DNS zone for Azure Cognitive Services / OpenAI
+resource aiDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = if (enablePrivateEndpoints) {
+  name: 'privatelink.openai.azure.com'
+  location: 'global'
+  tags: tags
+}
+
+// Link DNS zone to the shared VNet so private endpoint IPs resolve correctly
+resource aiDnsLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = if (enablePrivateEndpoints) {
+  parent: aiDnsZone
+  name: '${cognitiveAccount.name}-dns-link'
+  location: 'global'
+  properties: {
+    registrationEnabled: false
+    virtualNetwork: { id: privateEndpointVnetId }
+  }
+}
+
+// Private endpoint for AI Foundry (Cognitive Services / OpenAI)
+resource aiPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-11-01' = if (enablePrivateEndpoints) {
+  name: '${cognitiveAccount.name}-pe'
+  location: location
+  tags: tags
+  properties: {
+    subnet: { id: privateEndpointSubnetId }
+    privateLinkServiceConnections: [
+      {
+        name: 'openai'
+        properties: {
+          privateLinkServiceId: cognitiveAccount.id
+          groupIds: ['account']
+        }
+      }
+    ]
+  }
+}
+
+// DNS zone group — automatically registers the PE's private IP in the DNS zone
+resource aiPeDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-11-01' = if (enablePrivateEndpoints) {
+  parent: aiPrivateEndpoint
+  name: 'default'
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'openai'
+        properties: { privateDnsZoneId: aiDnsZone.id }
+      }
+    ]
+  }
+}

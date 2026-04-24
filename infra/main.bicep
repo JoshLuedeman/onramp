@@ -26,6 +26,9 @@ param azureTenantId string = ''
 @description('Azure AD client ID for authentication')
 param azureClientId string = ''
 
+@description('Enable private endpoints for AI Foundry and SQL Server. Disables public network access when true. Default: false (dev-friendly).')
+param enablePrivateEndpoints bool = false
+
 var resourceGroupName = 'rg-${baseName}-${environment}'
 var tags = {
   application: 'OnRamp'
@@ -45,6 +48,19 @@ resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
 module appIdentity 'modules/identity.bicep' = {
   scope: rg
   name: 'app-identity'
+  params: {
+    location: location
+    baseName: baseName
+    environment: environment
+    tags: tags
+  }
+}
+
+// Shared VNet for private endpoints — only deployed when enablePrivateEndpoints is true.
+// All service private endpoints are placed in the pe-subnet for centralized DNS resolution.
+module networking 'modules/networking.bicep' = if (enablePrivateEndpoints) {
+  scope: rg
+  name: 'networking'
   params: {
     location: location
     baseName: baseName
@@ -78,6 +94,9 @@ module sql 'modules/sql.bicep' = {
     entraAdminGroupObjectId: sqlAdminGroupObjectId
     appIdentityName: appIdentity.outputs.identityName
     appIdentityClientId: appIdentity.outputs.identityClientId
+    enablePrivateEndpoints: enablePrivateEndpoints
+    privateEndpointSubnetId: enablePrivateEndpoints ? networking!.outputs.privateEndpointSubnetId : ''
+    privateEndpointVnetId: enablePrivateEndpoints ? networking!.outputs.vnetId : ''
     tags: tags
   }
 }
@@ -104,6 +123,9 @@ module aiFoundry 'modules/ai-foundry.bicep' = {
     environment: environment
     tags: tags
     managedIdentityPrincipalId: appIdentity.outputs.identityPrincipalId
+    enablePrivateEndpoints: enablePrivateEndpoints
+    privateEndpointSubnetId: enablePrivateEndpoints ? networking!.outputs.privateEndpointSubnetId : ''
+    privateEndpointVnetId: enablePrivateEndpoints ? networking!.outputs.vnetId : ''
   }
 }
 
