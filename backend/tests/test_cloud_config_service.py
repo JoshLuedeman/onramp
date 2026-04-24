@@ -11,8 +11,8 @@ class TestGetEndpoints:
 
     def test_commercial_endpoints(self):
         endpoints = cloud_config_service.get_endpoints(CloudEnvironment.COMMERCIAL)
-        assert "management.azure.com" in endpoints.resource_manager
-        assert "login.microsoftonline.com" in endpoints.authentication
+        assert endpoints.resource_manager.startswith("https://management.azure.com")
+        assert endpoints.authentication.startswith("https://login.microsoftonline.com")
 
     def test_government_endpoints(self):
         endpoints = cloud_config_service.get_endpoints(CloudEnvironment.GOVERNMENT)
