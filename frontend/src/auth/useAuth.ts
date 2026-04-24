@@ -52,11 +52,11 @@ function useMsalAuth() {
 }
 
 const devAuth = {
-  isAuthenticated: false,
-  user: null,
+  isAuthenticated: true,
+  user: { name: "Dev User", email: "dev@onramp.local", id: "dev-user-001" },
   login: async () => { console.info("Auth not configured in dev mode"); },
   logout: async () => {},
-  getAccessToken: async () => null,
+  getAccessToken: async () => "dev-token",
 };
 
 export function useAuth() {

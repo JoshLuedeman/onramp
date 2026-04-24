@@ -69,6 +69,29 @@ const useStyles = makeStyles({
     margin: "8px 0 0 0",
     paddingLeft: "20px",
   },
+  mgCard: {
+    marginTop: tokens.spacingVerticalXXL,
+    paddingTop: tokens.spacingVerticalL,
+    paddingRight: tokens.spacingHorizontalL,
+    paddingBottom: tokens.spacingVerticalL,
+    paddingLeft: tokens.spacingHorizontalL,
+  },
+  costConfidenceBadge: {
+    marginTop: tokens.spacingVerticalS,
+  },
+  costTipsContainer: {
+    marginTop: tokens.spacingVerticalM,
+  },
+  costErrorText: {
+    color: tokens.colorPaletteRedForeground1,
+    marginTop: tokens.spacingVerticalS,
+  },
+  costButton: {
+    marginTop: tokens.spacingVerticalS,
+  },
+  recommendationsCard: {
+    marginTop: tokens.spacingVerticalXXL,
+  },
 });
 
 export default function ArchitecturePage() {
@@ -164,7 +187,7 @@ export default function ArchitecturePage() {
       </Badge>
 
       {arch.management_groups && (
-        <Card style={{ marginTop: "24px", padding: "16px" }}>
+        <Card className={styles.mgCard}>
           <Body1 className={styles.cardTitle}>🏗️ Management Group Hierarchy</Body1>
           <ArchitectureDiagram
             managementGroups={arch.management_groups as Record<string, Record<string, unknown>>}
@@ -228,7 +251,7 @@ export default function ArchitecturePage() {
               <Badge
                 appearance="filled"
                 color={costEstimation.confidence === "high" ? "success" : costEstimation.confidence === "medium" ? "warning" : "danger"}
-                style={{ marginTop: "8px" }}
+                className={styles.costConfidenceBadge}
               >
                 {costEstimation.confidence} confidence
               </Badge>
@@ -255,7 +278,7 @@ export default function ArchitecturePage() {
                 </Table>
               </div>
               {costEstimation.cost_optimization_tips.length > 0 && (
-                <div style={{ marginTop: "12px" }}>
+                <div className={styles.costTipsContainer}>
                   <Body1 className={styles.cardTitle}>💡 Cost Optimization Tips</Body1>
                   <ul className={styles.tipsList}>
                     {costEstimation.cost_optimization_tips.map((tip, i) => (
@@ -266,13 +289,13 @@ export default function ArchitecturePage() {
               )}
             </>
           )}
-          {costError && <Body1 style={{ color: tokens.colorPaletteRedForeground1, marginTop: "8px" }}>{costError}</Body1>}
+          {costError && <Body1 className={styles.costErrorText}>{costError}</Body1>}
           <Button
             appearance="subtle"
             icon={costLoading ? <Spinner size="tiny" /> : <CalculatorRegular />}
             disabled={costLoading}
             onClick={handleEstimateCosts}
-            style={{ marginTop: "8px" }}
+            className={styles.costButton}
           >
             {costLoading ? "Estimating..." : costEstimation ? "Re-estimate Costs" : "Estimate Costs"}
           </Button>
@@ -280,7 +303,7 @@ export default function ArchitecturePage() {
       </div>
 
       {arch.recommendations && arch.recommendations.length > 0 && (
-        <Card className={styles.card} style={{ marginTop: "24px" }}>
+        <Card className={`${styles.card} ${styles.recommendationsCard}`}>
           <Body1 className={styles.cardTitle}>💡 Recommendations</Body1>
           <ul>
             {arch.recommendations.map((rec, i) => (

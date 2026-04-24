@@ -23,7 +23,7 @@ import {
 } from "@fluentui/react-icons";
 import AuthButton from "./AuthButton";
 import TutorialOverlay from "./TutorialOverlay";
-import { useTutorial } from "../../hooks/useTutorial";
+import { TutorialProvider, useTutorialContext } from "../../contexts/TutorialContext";
 import { api } from "../../services/api";
 import type { Project } from "../../types/project";
 
@@ -93,11 +93,21 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
+  const location = useLocation();
+
+  return (
+    <TutorialProvider currentPath={location.pathname}>
+      <LayoutInner>{children}</LayoutInner>
+    </TutorialProvider>
+  );
+}
+
+function LayoutInner({ children }: LayoutProps) {
   const styles = useStyles();
   const location = useLocation();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
-  const tutorial = useTutorial(location.pathname);
+  const tutorial = useTutorialContext();
 
   useEffect(() => {
     api.projects.list().then((res) => setProjects(res.projects)).catch(() => {});
@@ -164,15 +174,7 @@ export default function Layout({ children }: LayoutProps) {
         </div>
       </header>
       <main className={styles.content}>{children}</main>
-      <TutorialOverlay
-        isActive={tutorial.isActive}
-        currentStep={tutorial.currentStep}
-        currentStepIndex={tutorial.currentStepIndex}
-        totalSteps={tutorial.totalSteps}
-        onNext={tutorial.nextStep}
-        onPrev={tutorial.prevStep}
-        onSkip={tutorial.skipTutorial}
-      />
+      <TutorialOverlay />
     </div>
   );
 }

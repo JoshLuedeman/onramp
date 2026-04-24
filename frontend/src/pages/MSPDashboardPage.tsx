@@ -140,6 +140,9 @@ const useStyles = makeStyles({
     padding: tokens.spacingVerticalXXXL,
     gap: tokens.spacingVerticalM,
   },
+  progressBarFlex: {
+    flex: 1,
+  },
 });
 
 export default function MSPDashboardPage() {
@@ -329,7 +332,7 @@ export default function MSPDashboardPage() {
                             ? "warning"
                             : "success"
                       }
-                      style={{ flex: 1 }}
+                      className={styles.progressBarFlex}
                     />
                     <Badge
                       color={getComplianceBadgeColor(tenant.compliance_score)}

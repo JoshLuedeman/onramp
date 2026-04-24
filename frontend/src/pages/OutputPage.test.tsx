@@ -160,6 +160,16 @@ describe("OutputPage", () => {
         ok: false,
         status: 500,
         statusText: "Internal Server Error",
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: "Internal Server Error",
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: "Internal Server Error",
       });
     const user = userEvent.setup();
     renderWithProviders(<OutputPage />);

@@ -65,6 +65,9 @@ const useStyles = makeStyles({
     fontSize: tokens.fontSizeBase200,
     color: tokens.colorNeutralForeground3,
   },
+  fullWidth: {
+    width: "100%",
+  },
 });
 
 /* ------------------------------------------------------------------ */
@@ -140,12 +143,12 @@ export default function AIFeedback({
           <DialogBody>
             <DialogContent>
               <Textarea
+                className={styles.fullWidth}
                 placeholder="Optional: tell us what went wrong…"
                 value={comment}
                 onChange={(_, data) => setComment(data.value)}
                 resize="vertical"
                 aria-label="Feedback comment"
-                style={{ width: "100%" }}
               />
             </DialogContent>
           </DialogBody>

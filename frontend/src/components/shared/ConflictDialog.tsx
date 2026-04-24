@@ -38,7 +38,7 @@ const useStyles = makeStyles({
   warningIcon: {
     color: tokens.colorPaletteYellowForeground1,
     fontSize: "24px",
-    marginRight: "8px",
+    marginRight: tokens.spacingHorizontalS,
   },
   titleRow: {
     display: "flex",
@@ -46,25 +46,32 @@ const useStyles = makeStyles({
   },
   versionInfo: {
     display: "flex",
-    gap: "16px",
-    marginTop: "12px",
-    marginBottom: "12px",
-    padding: "12px",
+    gap: tokens.spacingHorizontalL,
+    marginTop: tokens.spacingVerticalM,
+    marginBottom: tokens.spacingVerticalM,
+    paddingTop: tokens.spacingVerticalM,
+    paddingRight: tokens.spacingHorizontalM,
+    paddingBottom: tokens.spacingVerticalM,
+    paddingLeft: tokens.spacingHorizontalM,
     backgroundColor: tokens.colorNeutralBackground3,
     borderRadius: tokens.borderRadiusMedium,
   },
   versionCol: {
     display: "flex",
     flexDirection: "column",
-    gap: "4px",
+    gap: tokens.spacingVerticalXS,
   },
   message: {
-    marginTop: "8px",
+    marginTop: tokens.spacingVerticalS,
   },
   actions: {
     display: "flex",
-    gap: "8px",
+    gap: tokens.spacingHorizontalS,
     justifyContent: "flex-end",
+  },
+  divider: {
+    marginTop: tokens.spacingVerticalM,
+    marginBottom: tokens.spacingVerticalM,
   },
 });
 
@@ -124,7 +131,7 @@ export default function ConflictDialog({
               {conflict.message}
             </Body1>
 
-            <Divider style={{ margin: "12px 0" }} />
+            <Divider className={styles.divider} />
 
             <Body1>
               Choose how to resolve this conflict:

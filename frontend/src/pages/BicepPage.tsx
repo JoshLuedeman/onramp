@@ -50,6 +50,20 @@ const useStyles = makeStyles({
     maxHeight: "300px",
     whiteSpace: "pre",
   },
+  generateActions: {
+    display: "flex",
+    gap: tokens.spacingHorizontalS,
+    marginTop: tokens.spacingVerticalM,
+  },
+  divider: {
+    marginTop: tokens.spacingVerticalS,
+    marginBottom: tokens.spacingVerticalS,
+  },
+  fileNameRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: tokens.spacingHorizontalS,
+  },
 });
 
 interface BicepFile {
@@ -148,7 +162,7 @@ export default function BicepPage() {
         <Text>
           Generate deployable Bicep Infrastructure as Code from your architecture.
         </Text>
-        <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+        <div className={styles.generateActions}>
           <Button
             appearance="primary"
             icon={<CodeRegular />}
@@ -174,7 +188,7 @@ export default function BicepPage() {
           <Text weight="semibold">
             Generated Files ({files.length})
           </Text>
-          <Divider style={{ margin: "8px 0" }} />
+          <Divider className={styles.divider} />
           {files.map((file) => (
             <div key={file.name}>
               <div
@@ -183,7 +197,7 @@ export default function BicepPage() {
                   setExpanded(expanded === file.name ? null : file.name)
                 }
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div className={styles.fileNameRow}>
                   <DocumentRegular />
                   <Text weight="semibold">{file.name}</Text>
                 </div>

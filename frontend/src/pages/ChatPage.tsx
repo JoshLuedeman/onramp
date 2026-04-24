@@ -118,6 +118,31 @@ const useStyles = makeStyles({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     borderWidth: "0" as any,
   },
+  emptyIcon: {
+    fontSize: "48px",
+    color: tokens.colorBrandForeground1,
+    marginBottom: tokens.spacingVerticalM,
+  },
+  emptySubtext: {
+    color: tokens.colorNeutralForeground3,
+    marginBottom: tokens.spacingVerticalL,
+  },
+  noConversations: {
+    paddingTop: tokens.spacingVerticalM,
+    paddingRight: tokens.spacingHorizontalM,
+    paddingBottom: tokens.spacingVerticalM,
+    paddingLeft: tokens.spacingHorizontalM,
+    textAlign: "center",
+    color: tokens.colorNeutralForeground3,
+  },
+  chatError: {
+    paddingTop: tokens.spacingVerticalS,
+    paddingRight: tokens.spacingHorizontalS,
+    paddingBottom: tokens.spacingVerticalS,
+    paddingLeft: tokens.spacingHorizontalS,
+    color: tokens.colorPaletteRedForeground1,
+    textAlign: "center",
+  },
 });
 
 export default function ChatPage() {
@@ -333,7 +358,7 @@ export default function ChatPage() {
             </Card>
           ))}
           {conversations.length === 0 && (
-            <Body1 style={{ padding: tokens.spacingVerticalM, textAlign: "center", color: tokens.colorNeutralForeground3 }}>
+            <Body1 className={styles.noConversations}>
               No conversations yet
             </Body1>
           )}
@@ -344,9 +369,9 @@ export default function ChatPage() {
       <div className={styles.chatArea} data-testid="chat-area" role="region" aria-label="Chat conversation">
         {showSuggestedPrompts && !loading ? (
           <div className={styles.emptyState}>
-            <ChatRegular style={{ fontSize: "48px", color: tokens.colorBrandForeground1, marginBottom: tokens.spacingVerticalM }} />
+            <ChatRegular className={styles.emptyIcon} />
             <Title2>AI Architect Chat</Title2>
-            <Body1 style={{ color: tokens.colorNeutralForeground3, marginBottom: tokens.spacingVerticalL }}>
+            <Body1 className={styles.emptySubtext}>
               Ask questions about your Azure architecture
             </Body1>
             <SuggestedPrompts onSelect={handleSuggestedPrompt} />
@@ -397,7 +422,7 @@ export default function ChatPage() {
 
         {error && (
           <Text
-            style={{ padding: tokens.spacingVerticalS, color: tokens.colorPaletteRedForeground1, textAlign: "center" }}
+            className={styles.chatError}
             data-testid="chat-error"
             role="alert"
           >

@@ -5,6 +5,7 @@ import { FluentProvider, teamsLightTheme } from "@fluentui/react-components";
 import TutorialOverlay from "./TutorialOverlay";
 import type { TutorialOverlayProps } from "./TutorialOverlay";
 import type { TutorialStep } from "../../hooks/useTutorial";
+import { TutorialProvider } from "../../contexts/TutorialContext";
 
 const sampleStep: TutorialStep = {
   id: "welcome",
@@ -27,7 +28,9 @@ function renderOverlay(overrides: Partial<TutorialOverlayProps> = {}) {
   const props = { ...defaultProps, ...overrides };
   return render(
     <FluentProvider theme={teamsLightTheme}>
-      <TutorialOverlay {...props} />
+      <TutorialProvider>
+        <TutorialOverlay {...props} />
+      </TutorialProvider>
     </FluentProvider>
   );
 }

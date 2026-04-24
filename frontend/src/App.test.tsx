@@ -8,6 +8,17 @@ vi.mock("./auth/AuthProvider", () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+// Mock useAuth to return authenticated in dev mode
+vi.mock("./auth/useAuth", () => ({
+  useAuth: () => ({
+    isAuthenticated: true,
+    user: { name: "Dev User", email: "dev@onramp.local", id: "dev-user-001" },
+    login: async () => {},
+    logout: async () => {},
+    getAccessToken: async () => "dev-token",
+  }),
+}));
+
 // Mock ProjectProvider
 vi.mock("./contexts/ProjectContext", () => ({
   ProjectProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -51,6 +62,10 @@ vi.mock("./pages/DeployPage", () => ({
   default: () => <div data-testid="deploy-page">Deploy Page</div>,
 }));
 
+vi.mock("./pages/NotFoundPage", () => ({
+  default: () => <div data-testid="not-found-page">Not Found Page</div>,
+}));
+
 // We need to import App after mocks
 import App from "./App";
 
@@ -76,5 +91,16 @@ describe("App", () => {
     );
     // Wait for lazy load
     expect(await screen.findByTestId("dashboard-page")).toBeInTheDocument();
+  });
+
+  it("renders NotFoundPage for unknown paths", async () => {
+    render(
+      <FluentProvider theme={teamsLightTheme}>
+        <MemoryRouter initialEntries={["/this-path-does-not-exist"]}>
+          <App />
+        </MemoryRouter>
+      </FluentProvider>
+    );
+    expect(await screen.findByTestId("not-found-page")).toBeInTheDocument();
   });
 });

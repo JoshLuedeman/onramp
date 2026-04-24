@@ -25,6 +25,14 @@ const useStyles = makeStyles({
   input: {
     flexGrow: 1,
   },
+  srOnly: {
+    position: "absolute",
+    width: "1px",
+    height: "1px",
+    overflow: "hidden",
+    clip: "rect(0,0,0,0)",
+    whiteSpace: "nowrap",
+  },
 });
 
 export default function ChatInput({ onSend, disabled = false, placeholder }: ChatInputProps) {
@@ -62,7 +70,7 @@ export default function ChatInput({ onSend, disabled = false, placeholder }: Cha
         aria-disabled={disabled}
         aria-describedby="chat-input-hint"
       />
-      <span id="chat-input-hint" style={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap" }}>
+      <span id="chat-input-hint" className={styles.srOnly}>
         Press Enter to send, Shift+Enter for new line
       </span>
       <Button

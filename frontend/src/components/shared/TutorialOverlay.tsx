@@ -15,15 +15,16 @@ import {
   ChevronRightRegular,
 } from "@fluentui/react-icons";
 import type { TutorialStep } from "../../hooks/useTutorial";
+import { useTutorialContext } from "../../contexts/TutorialContext";
 
 export interface TutorialOverlayProps {
-  isActive: boolean;
-  currentStep: TutorialStep | null;
-  currentStepIndex: number;
-  totalSteps: number;
-  onNext: () => void;
-  onPrev: () => void;
-  onSkip: () => void;
+  isActive?: boolean;
+  currentStep?: TutorialStep | null;
+  currentStepIndex?: number;
+  totalSteps?: number;
+  onNext?: () => void;
+  onPrev?: () => void;
+  onSkip?: () => void;
 }
 
 const useStyles = makeStyles({
@@ -82,16 +83,17 @@ const useStyles = makeStyles({
   },
 });
 
-export default function TutorialOverlay({
-  isActive,
-  currentStep,
-  currentStepIndex,
-  totalSteps,
-  onNext,
-  onPrev,
-  onSkip,
-}: TutorialOverlayProps) {
+export default function TutorialOverlay(props: TutorialOverlayProps) {
   const styles = useStyles();
+  const tutorial = useTutorialContext();
+
+  const isActive = props.isActive ?? tutorial.isActive;
+  const currentStep = props.currentStep !== undefined ? props.currentStep : tutorial.currentStep;
+  const currentStepIndex = props.currentStepIndex ?? tutorial.currentStepIndex;
+  const totalSteps = props.totalSteps ?? tutorial.totalSteps;
+  const onNext = props.onNext ?? tutorial.nextStep;
+  const onPrev = props.onPrev ?? tutorial.prevStep;
+  const onSkip = props.onSkip ?? tutorial.skipTutorial;
   const primaryButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
