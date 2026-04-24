@@ -375,9 +375,10 @@ class TestProjectIsolation:
             assert resp.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_delete_cross_tenant_returns_404(
+    async def test_delete_cross_tenant_returns_403(
         self, db_session, user_a_claims, project_b,
     ):
+        """DELETE requires admin role; architect gets 403 before tenant check."""
         from app.api.routes.projects import router
 
         app = _build_test_app(
@@ -387,7 +388,7 @@ class TestProjectIsolation:
             resp = client.delete(
                 f"/api/projects/{project_b.id}"
             )
-            assert resp.status_code == 404
+            assert resp.status_code == 403
 
 
 # ===================================================================

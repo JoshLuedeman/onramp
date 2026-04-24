@@ -1,6 +1,6 @@
 """User model."""
 
-from sqlalchemy import Boolean, ForeignKey, String
+from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, generate_uuid
@@ -8,9 +8,12 @@ from app.models.base import Base, TimestampMixin, generate_uuid
 
 class User(Base, TimestampMixin):
     __tablename__ = "users"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "entra_object_id", name="uq_user_tenant_entra"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
-    entra_object_id: Mapped[str] = mapped_column(String(36), unique=True, nullable=False)
+    entra_object_id: Mapped[str] = mapped_column(String(36), nullable=False)
     email: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(50), default="viewer")

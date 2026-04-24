@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.concurrency import check_version, increment_version
 from app.api.tenant_scope import require_project_tenant
-from app.auth import get_current_user, require_architect
+from app.auth import get_current_user, require_architect, require_viewer
 from app.db.session import get_db
 from app.services.archetypes import get_archetype_for_answers, list_archetypes
 
@@ -31,7 +31,7 @@ class CostEstimateRequest(BaseModel):
 
 
 @router.get("/archetypes")
-async def get_archetypes(user: dict = Depends(get_current_user)):
+async def get_archetypes(user: dict = Depends(require_viewer)):
     """List available landing zone archetypes."""
     return {"archetypes": list_archetypes()}
 

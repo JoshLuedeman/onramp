@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import get_current_user
+from app.auth import require_architect, require_viewer
 from app.db.session import get_db
 from app.services.bicep_generator import bicep_generator
 
@@ -25,13 +25,13 @@ class GenerateBicepRequest(BaseModel):
 
 
 @router.get("/templates")
-async def list_templates(user: dict = Depends(get_current_user)):
+async def list_templates(user: dict = Depends(require_viewer)):
     """List available Bicep template modules."""
     return {"templates": bicep_generator.list_templates()}
 
 
 @router.get("/templates/{template_name}")
-async def get_template(template_name: str, user: dict = Depends(get_current_user)):
+async def get_template(template_name: str, user: dict = Depends(require_viewer)):
     """Preview a specific Bicep template."""
     content = bicep_generator.get_template(f"{template_name}.bicep")
     if content is None:
@@ -43,7 +43,7 @@ async def get_template(template_name: str, user: dict = Depends(get_current_user
 @router.post("/generate")
 async def generate_bicep(
     request: GenerateBicepRequest,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_architect),
     db: AsyncSession = Depends(get_db),
 ):
     """Generate Bicep templates from an architecture definition."""
@@ -103,7 +103,7 @@ async def generate_bicep(
 @router.get("/project/{project_id}")
 async def get_project_bicep_files(
     project_id: str,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_viewer),
     db: AsyncSession = Depends(get_db),
 ):
     """Load persisted Bicep files for a project."""
@@ -135,7 +135,7 @@ async def get_project_bicep_files(
 
 @router.post("/download")
 async def download_bicep(
-    request: GenerateBicepRequest, user: dict = Depends(get_current_user)
+    request: GenerateBicepRequest, user: dict = Depends(require_architect)
 ):
     """Download generated Bicep templates as a combined response."""
     if request.use_ai:
