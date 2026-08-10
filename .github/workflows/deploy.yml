@@ -96,7 +96,7 @@ jobs:
     needs: preflight
     environment: ${{ needs.preflight.outputs.environment }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ needs.preflight.outputs.deploy-sha }}
 
@@ -138,7 +138,7 @@ jobs:
       frontend-fqdn: ${{ steps.deploy.outputs.fqdn }}
       backend-fqdn: ${{ steps.deploy.outputs.fqdn }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ needs.preflight.outputs.deploy-sha }}
 
